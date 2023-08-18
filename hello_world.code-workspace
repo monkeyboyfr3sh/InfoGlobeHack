@@ -1,0 +1,37 @@
+{
+	"folders": [
+		{
+			"path": "hello_world"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.txt": "cmake",
+			"esp_log.h": "c",
+			"array": "c",
+			"deque": "c",
+			"format": "c",
+			"initializer_list": "c",
+			"list": "c",
+			"queue": "c",
+			"random": "c",
+			"regex": "c",
+			"type_traits": "c",
+			"vector": "c",
+			"xhash": "c",
+			"xstring": "c",
+			"xtree": "c",
+			"xutility": "c",
+			"future": "c",
+			"system_error": "c",
+			"*.ipp": "c"
+		},
+		"editor.columnSelection": false,
+		"workbench.colorCustomizations": {
+			"[Dracula]": {"activityBar.border": "#ff0000"}
+		}
+	}
+}
