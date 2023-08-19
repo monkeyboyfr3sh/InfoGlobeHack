@@ -31,7 +31,8 @@
 			"freertos.h": "c",
 			"queue.h": "c",
 			"tcp_server_task.h": "c",
-			"message_type.h": "c"
+			"message_type.h": "c",
+			"netdb.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {
