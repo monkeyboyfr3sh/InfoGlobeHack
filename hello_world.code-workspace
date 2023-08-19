@@ -34,7 +34,8 @@
 			"message_type.h": "c",
 			"netdb.h": "c",
 			"esp_system.h": "c",
-			"string.h": "c"
+			"string.h": "c",
+			"frame_maker_task.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

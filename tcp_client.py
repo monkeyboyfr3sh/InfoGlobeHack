@@ -4,7 +4,7 @@ import socket
 import time
 from typing import Any
 
-HOST = "192.168.0.106"  # The server's hostname or IP address
+HOST = "192.168.0.126"  # The server's hostname or IP address
 PORT = 55555  # The port used by the server
 
 class InfoGlobeController():
