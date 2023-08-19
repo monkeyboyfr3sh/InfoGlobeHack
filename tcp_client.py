@@ -116,7 +116,8 @@ if __name__ == "__main__":
     # time.sleep(2)
 
     # globe("hell11o")
-    globe.set_text_single_scroll_left("Connecting...")
+    # globe.set_text_single_scroll_left("Connecting...")
+    globe.set_text_single_scroll_left("\x81")
     # globe.set_text_stationary_front("my_string")
     # globe.set_text_stationary_right("my_string")
     # globe.instant_blank()

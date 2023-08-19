@@ -27,8 +27,13 @@
 
 static const char * TAG = "TCP_TASK";
 
-char ip_addr_string_buff[32] = {0};
+// Prototypes
+static bool is_our_netif(const char *prefix, esp_netif_t *netif);
+static int lookup_ip(char *ip_addr_string_buff);
+static void do_retransmit(const int sock, QueueHandle_t display_queue);
+static int setup_tcp_socket(int addr_family, int port);
 
+// Implementations
 static bool is_our_netif(const char *prefix, esp_netif_t *netif)
 {
     return strncmp(prefix, esp_netif_get_desc(netif), strlen(prefix) - 1) == 0;
@@ -78,6 +83,80 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
     } while (len > 0);
 }
 
+static int setup_tcp_socket(int addr_family, int port)
+{
+    // Now start TCP stuff
+    struct sockaddr_storage dest_addr;
+    int ip_protocol = 0;
+
+    if (addr_family == AF_INET) {
+        struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
+        dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
+        dest_addr_ip4->sin_family = AF_INET;
+        dest_addr_ip4->sin_port = htons(port);
+        ip_protocol = IPPROTO_IP;
+    }
+
+    int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
+    if (listen_sock < 0) {
+        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
+        return -1;
+    }
+    int opt = 1;
+    setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    ESP_LOGI(TAG, "Socket created");
+
+    int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    if (err != 0) {
+        ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
+        ESP_LOGE(TAG, "IPPROTO: %d", addr_family);
+        return -2;
+    }
+    ESP_LOGI(TAG, "Socket bound, port %d", port);
+
+    err = listen(listen_sock, 1);
+    if (err != 0) {
+        ESP_LOGE(TAG, "Error occurred during listen: errno %d", errno);
+        return -2;
+    }
+
+    return listen_sock;
+}
+
+static int lookup_ip(char *ip_addr_string_buff)
+{
+    // loop vars
+    esp_netif_t *netif = NULL;
+    esp_netif_ip_info_t ip;
+    int ip_count = 0;
+
+    // Iterate through all interfaces
+    for (int i = 0; i < esp_netif_get_nr_of_ifs(); ++i) {
+        netif = esp_netif_next(netif);
+
+        // Check if the desc matches us
+        if (is_our_netif("example_connect", netif)) {
+            
+            // Log the IP
+            ESP_LOGI(TAG, "Connected to %s", esp_netif_get_desc(netif));
+            ESP_ERROR_CHECK(esp_netif_get_ip_info(netif, &ip));
+            sprintf(ip_addr_string_buff,IPSTR, IP2STR(&ip.ip));
+            ESP_LOGI(TAG, "- IPv4 address: %s",ip_addr_string_buff);
+            
+            // Got another!
+            ip_count += 1;
+        }
+    }
+
+    return ip_count;
+}
+
+// int listen_for_client(int listen_sock)
+// {
+
+// }
+
 void tcp_server_task(void *pvParameters)
 {
     // Grab queue
@@ -101,66 +180,38 @@ void tcp_server_task(void *pvParameters)
     // ESP_ERROR_CHECK(wifi_connect());
     ESP_ERROR_CHECK(example_connect());
 
-    esp_netif_t *netif = NULL;
-    esp_netif_ip_info_t ip;
-    for (int i = 0; i < esp_netif_get_nr_of_ifs(); ++i) {
-        netif = esp_netif_next(netif);
-        if (is_our_netif("example_connect", netif)) {
-            ESP_LOGI(TAG, "Connected to %s", esp_netif_get_desc(netif));
-            ESP_ERROR_CHECK(esp_netif_get_ip_info(netif, &ip));
-            sprintf(ip_addr_string_buff,IPSTR, IP2STR(&ip.ip));
-            ESP_LOGI(TAG, "- IPv4 address: %s",ip_addr_string_buff);
-        }
+
+    // Lookup our IP
+    char ip_addr_string_buff[32] = {0};
+    int ip_result = lookup_ip(ip_addr_string_buff);
+    if(ip_result<=0){
+        ESP_LOGW(TAG,"Failed to get IP!");
     }
 
     // Set display to the IP addresss
     send_string_w_bytes_to_queue(display_queue, ip_addr_string_buff, strlen(ip_addr_string_buff), 0x00, 0x10);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    // Now start TCP stuff
+    // Setup TCP socket
+    bool need_to_cleanup = false;
+    int listen_sock = setup_tcp_socket((int)AF_INET, CONFIG_INFOGLOBE_PORT);
+    if(listen_sock<0){
+        ESP_LOGW(TAG,"Failed to setup listen socket!");
+
+        // Socket was allocated!
+        if(listen_sock < -1 ){
+            need_to_cleanup = true;
+        }
+    }
+
+    // Loop vars
     char addr_str[128];
-    int addr_family = (int)AF_INET;
-    int ip_protocol = 0;
     int keepAlive = 1;
     int keepIdle = KEEPALIVE_IDLE;
     int keepInterval = KEEPALIVE_INTERVAL;
     int keepCount = KEEPALIVE_COUNT;
-    struct sockaddr_storage dest_addr;
 
-    if (addr_family == AF_INET) {
-        struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
-        dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
-        dest_addr_ip4->sin_family = AF_INET;
-        dest_addr_ip4->sin_port = htons(CONFIG_INFOGLOBE_PORT);
-        ip_protocol = IPPROTO_IP;
-    }
-
-    int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-    if (listen_sock < 0) {
-        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
-        vTaskDelete(NULL);
-        return;
-    }
-    int opt = 1;
-    setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    ESP_LOGI(TAG, "Socket created");
-
-    int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-    if (err != 0) {
-        ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
-        ESP_LOGE(TAG, "IPPROTO: %d", addr_family);
-        goto CLEAN_UP;
-    }
-    ESP_LOGI(TAG, "Socket bound, port %d", CONFIG_INFOGLOBE_PORT);
-
-    err = listen(listen_sock, 1);
-    if (err != 0) {
-        ESP_LOGE(TAG, "Error occurred during listen: errno %d", errno);
-        goto CLEAN_UP;
-    }
-
-    while (1) {
+    while (listen_sock>0) {
 
         ESP_LOGI(TAG, "Socket listening");
 
@@ -177,6 +228,7 @@ void tcp_server_task(void *pvParameters)
         setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdle, sizeof(int));
         setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepInterval, sizeof(int));
         setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepCount, sizeof(int));
+        
         // Convert ip address to string
         if (source_addr.ss_family == PF_INET) {
             inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
@@ -189,8 +241,10 @@ void tcp_server_task(void *pvParameters)
         close(sock);
     }
 
-CLEAN_UP:
-    close(listen_sock);
+    // Have a socket to cleanup
+    if(need_to_cleanup){ close(listen_sock); }
+
+    // Exit
     vTaskDelete(NULL);
 }
 

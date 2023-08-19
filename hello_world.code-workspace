@@ -37,7 +37,8 @@
 			"string.h": "c",
 			"frame_maker_task.h": "c",
 			"stdio.h": "c",
-			"nvs_flash.h": "c"
+			"nvs_flash.h": "c",
+			"animations.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {
