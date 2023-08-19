@@ -35,7 +35,9 @@
 			"netdb.h": "c",
 			"esp_system.h": "c",
 			"string.h": "c",
-			"frame_maker_task.h": "c"
+			"frame_maker_task.h": "c",
+			"stdio.h": "c",
+			"nvs_flash.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

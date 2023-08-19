@@ -27,9 +27,7 @@
 
 static const char * TAG = "TCP_TASK";
 
-extern QueueHandle_t buffer_queue;
-
-static void do_retransmit(const int sock)
+static void do_retransmit(const int sock, QueueHandle_t display_queue)
 {
     int len;
     char rx_buffer[128];
@@ -55,7 +53,7 @@ static void do_retransmit(const int sock)
             memcpy(queue_buffer, rx_buffer, len);
 
             // Send the buffer to the console task
-            push_buffer_to_queue(buffer_queue, queue_buffer, len);
+            push_buffer_to_queue(display_queue, queue_buffer, len);
 
             // send() can return less bytes than supplied length.
             // Walk-around for robust implementation.
@@ -75,6 +73,9 @@ static void do_retransmit(const int sock)
 
 void tcp_server_task(void *pvParameters)
 {
+    // Grab queue
+    QueueHandle_t display_queue = (QueueHandle_t)(pvParameters);
+
     char addr_str[128];
     int addr_family = (int)AF_INET;
     int ip_protocol = 0;
@@ -140,7 +141,7 @@ void tcp_server_task(void *pvParameters)
         }
         ESP_LOGI(TAG, "Socket accepted ip address: %s", addr_str);
 
-        do_retransmit(sock);
+        do_retransmit(sock, display_queue);
 
         shutdown(sock, 0);
         close(sock);

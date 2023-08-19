@@ -26,8 +26,6 @@ int tx_bit_index = 0;
 int tx_byte_index = 0;
 int tx_len = 0;
 
-extern QueueHandle_t buffer_queue;
-
 // Function prototypes
 static void timer_callback(void *arg);
 static void initalize_message(void);
@@ -35,6 +33,9 @@ static void initalize_message(void);
 // OLYMPIA INFOGLOBE
 void ir_tx_task(void *pvParameters)
 {
+    // Grab queue
+    QueueHandle_t display_queue = (QueueHandle_t)(pvParameters);
+
     // Configure LEDC timer for 38 kHz
     ledc_timer_config_t ledc_timer = {
         .speed_mode = LEDC_SPEED_MODE,
@@ -78,7 +79,7 @@ void ir_tx_task(void *pvParameters)
             ESP_LOGI(TAG,"TX Complete!");
 
             // Wait for 3s
-            if (pop_buffer_from_queue(buffer_queue, &received_buffer_struct) == pdPASS) {
+            if (pop_buffer_from_queue(display_queue, &received_buffer_struct) == pdPASS) {
                 vTaskDelay(pdMS_TO_TICKS(100));
                 printf("Received buffer of size %d: ", received_buffer_struct.size);
                 for (size_t i = 0; i < received_buffer_struct.size; i++) {
