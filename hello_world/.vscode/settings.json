@@ -1,7 +1,7 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
-  "idf.portWin": "COM4",
-  "idf.adapterTargetName": "esp32",
+  "idf.portWin": "COM21",
+  "idf.adapterTargetName": "esp32s2",
   "files.associations": {
     "*.txt": "cmake",
     "esp_log.h": "c",
@@ -22,5 +22,8 @@
     "future": "c",
     "system_error": "c",
     "*.ipp": "c"
-  }
+  },
+  "idf.openOcdConfigs": [
+    "board/esp32s2-bridge.cfg"
+  ]
 }
