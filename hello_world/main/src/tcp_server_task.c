@@ -152,10 +152,37 @@ static int lookup_ip(char *ip_addr_string_buff)
     return ip_count;
 }
 
-// int listen_for_client(int listen_sock)
-// {
+int listen_for_client(int listen_sock, char * addr_str)
+{
+    // Config
+    int keepAlive = 1;
+    int keepIdle = CONFIG_INFOGLOBE_KEEPALIVE_IDLE;
+    int keepInterval = CONFIG_INFOGLOBE_KEEPALIVE_INTERVAL;
+    int keepCount = CONFIG_INFOGLOBE_KEEPALIVE_COUNT;
 
-// }
+    // Wait and listen for client
+    struct sockaddr_storage source_addr; // Large enough for both IPv4 or IPv6
+    socklen_t addr_len = sizeof(source_addr);
+    int sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno);
+        return sock;
+    }
+
+    // Set tcp keepalive option
+    setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, sizeof(int));
+    setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdle, sizeof(int));
+    setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepInterval, sizeof(int));
+    setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepCount, sizeof(int));
+    
+    // Convert ip address to string
+    if (source_addr.ss_family == PF_INET) {
+        inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
+    }
+    ESP_LOGI(TAG, "Socket accepted ip address: %s", addr_str);
+
+    return sock;
+}
 
 void tcp_server_task(void *pvParameters)
 {
@@ -204,39 +231,20 @@ void tcp_server_task(void *pvParameters)
         }
     }
 
-    // Loop vars
+    // Wait and listen for a client
     char addr_str[128];
-    int keepAlive = 1;
-    int keepIdle = KEEPALIVE_IDLE;
-    int keepInterval = KEEPALIVE_INTERVAL;
-    int keepCount = KEEPALIVE_COUNT;
+    int sock = -1;
 
     while (listen_sock>0) {
 
+        // Listen
         ESP_LOGI(TAG, "Socket listening");
-
-        struct sockaddr_storage source_addr; // Large enough for both IPv4 or IPv6
-        socklen_t addr_len = sizeof(source_addr);
-        int sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-        if (sock < 0) {
-            ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno);
-            break;
-        }
-
-        // Set tcp keepalive option
-        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdle, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepInterval, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepCount, sizeof(int));
+        sock = listen_for_client(listen_sock,addr_str);
         
-        // Convert ip address to string
-        if (source_addr.ss_family == PF_INET) {
-            inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
-        }
-        ESP_LOGI(TAG, "Socket accepted ip address: %s", addr_str);
-
+        // Host session
         do_retransmit(sock, display_queue);
 
+        // Cleanup
         shutdown(sock, 0);
         close(sock);
     }
