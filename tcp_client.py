@@ -49,7 +49,7 @@ class InfoGlobeController():
         self.s.sendall(tx_data)
 
     def set_text_single_scroll_left(self, my_string):
-        tx_data = self.construct_infoglobe_message(my_string,0x03,0x5f)
+        tx_data = self.construct_infoglobe_message(my_string,0x00,0x00)
         self.s.sendall(tx_data)
 
     def set_text_many_scroll_left(self, my_string):
@@ -106,16 +106,17 @@ if __name__ == "__main__":
     shift_idx = 13
 
     # tx_data = bytes([0x05,0x00])
-    # tx_data += "New ".encode()
-    # tx_data += hex(blink_idx).encode()
-    # tx_data += " New".encode()
+    # tx_data += "< Booting >".encode()
+    # # tx_data += "New ".encode()
+    # # tx_data += hex(blink_idx).encode()
+    # # tx_data += " New".encode()
     # tx_data += bytes([0x0])
     # tx_data += bytes([blink_idx,shift_idx])
     # globe.send_bytes(tx_data)
     # time.sleep(2)
 
     # globe("hell11o")
-    globe.set_text_single_scroll_left("192.168.00.15")
+    globe.set_text_single_scroll_left("Connecting...")
     # globe.set_text_stationary_front("my_string")
     # globe.set_text_stationary_right("my_string")
     # globe.instant_blank()

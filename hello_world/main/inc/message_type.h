@@ -20,3 +20,5 @@ typedef struct {
 
 BaseType_t pop_buffer_from_queue(QueueHandle_t buffer_queue, msg_buffer_t *received_buffer_struct);
 void push_buffer_to_queue(QueueHandle_t buffer_queue, uint8_t *data, size_t size);
+void send_string_to_queue(QueueHandle_t buffer_queue, const char *str_msg, size_t str_len);
+void send_string_w_bytes_to_queue(QueueHandle_t buffer_queue, const char *str_msg, size_t str_len, uint8_t header_byte, uint8_t tail_byte);

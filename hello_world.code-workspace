@@ -32,7 +32,9 @@
 			"queue.h": "c",
 			"tcp_server_task.h": "c",
 			"message_type.h": "c",
-			"netdb.h": "c"
+			"netdb.h": "c",
+			"esp_system.h": "c",
+			"string.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

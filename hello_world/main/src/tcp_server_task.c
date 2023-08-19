@@ -76,7 +76,7 @@ static void do_retransmit(const int sock)
 void tcp_server_task(void *pvParameters)
 {
     char addr_str[128];
-    int addr_family = (int)pvParameters;
+    int addr_family = (int)AF_INET;
     int ip_protocol = 0;
     int keepAlive = 1;
     int keepIdle = KEEPALIVE_IDLE;

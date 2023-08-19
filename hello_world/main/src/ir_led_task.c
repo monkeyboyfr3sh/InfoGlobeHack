@@ -27,7 +27,6 @@ int tx_byte_index = 0;
 int tx_len = 0;
 
 extern QueueHandle_t buffer_queue;
-extern char ip_addr_string_buff[MAX_MESSAGE_LEN];
 
 // Function prototypes
 static void timer_callback(void *arg);
@@ -65,23 +64,6 @@ void ir_tx_task(void *pvParameters)
     esp_timer_handle_t timer_handler;
     ESP_ERROR_CHECK(esp_timer_create(&my_timer_args, &timer_handler));
     ESP_ERROR_CHECK(esp_timer_start_periodic(timer_handler, 1000));
-
-    // Set display to the IP addresss
-    // Allocate buffer
-    uint8_t len = strlen(ip_addr_string_buff)+2;
-    uint8_t *init_message_buff = (uint8_t *)malloc(len);
-    if (init_message_buff == NULL) {
-        ESP_LOGE(TAG,"Failed to allocate memory for buffer\n");
-        return;
-    }
-
-    // Copy data
-    init_message_buff[0] = 0x03;
-    memcpy(&init_message_buff[1], ip_addr_string_buff, strlen(ip_addr_string_buff));
-    init_message_buff[len-1] = 0x5f;
-
-    // Send the buffer to the console task
-    push_buffer_to_queue(buffer_queue, init_message_buff, len);
 
     msg_buffer_t received_buffer_struct;
     while (1) {
