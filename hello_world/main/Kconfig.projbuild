@@ -1,4 +1,15 @@
-menu "Example Configuration"
+menu "InfoGlobe Configuration"
+
+    config INFOGLOBE_PORT
+        int "Port"
+        range 0 65535
+        default 55555
+        help
+            Local port the InfoGlobe server will listen on.
+
+endmenu
+
+menu "Wifi Configuration"
 
     config EXAMPLE_IPV4
         bool "IPV4"

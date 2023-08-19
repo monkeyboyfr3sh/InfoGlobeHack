@@ -5,7 +5,7 @@ import time
 from typing import Any
 
 HOST = "192.168.0.106"  # The server's hostname or IP address
-PORT = 5555  # The port used by the server
+PORT = 55555  # The port used by the server
 
 class InfoGlobeController():
     def __init__(self, host, port) -> None:
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # time.sleep(2)
 
     # globe("hell11o")
-    globe.set_text_single_scroll_left("192.168.00.105")
+    globe.set_text_single_scroll_left("192.168.00.15")
     # globe.set_text_stationary_front("my_string")
     # globe.set_text_stationary_right("my_string")
     # globe.instant_blank()

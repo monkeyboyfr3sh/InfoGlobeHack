@@ -24,7 +24,7 @@
 static const char * TAG = "MAIN";
 
 // Definitions
-#define PORT                        5555
+// #define CONFIG_INFOGLOBE_PORT                        5555
 #define KEEPALIVE_IDLE              CONFIG_EXAMPLE_KEEPALIVE_IDLE
 #define KEEPALIVE_INTERVAL          CONFIG_EXAMPLE_KEEPALIVE_INTERVAL
 #define KEEPALIVE_COUNT             CONFIG_EXAMPLE_KEEPALIVE_COUNT
@@ -306,7 +306,7 @@ void tcp_server_task(void *pvParameters)
         struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
         dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
         dest_addr_ip4->sin_family = AF_INET;
-        dest_addr_ip4->sin_port = htons(PORT);
+        dest_addr_ip4->sin_port = htons(CONFIG_INFOGLOBE_PORT);
         ip_protocol = IPPROTO_IP;
     }
 
@@ -327,7 +327,7 @@ void tcp_server_task(void *pvParameters)
         ESP_LOGE(TAG, "IPPROTO: %d", addr_family);
         goto CLEAN_UP;
     }
-    ESP_LOGI(TAG, "Socket bound, port %d", PORT);
+    ESP_LOGI(TAG, "Socket bound, port %d", CONFIG_INFOGLOBE_PORT);
 
     err = listen(listen_sock, 1);
     if (err != 0) {
