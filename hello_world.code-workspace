@@ -27,7 +27,11 @@
 			"xutility": "c",
 			"future": "c",
 			"system_error": "c",
-			"*.ipp": "c"
+			"*.ipp": "c",
+			"freertos.h": "c",
+			"queue.h": "c",
+			"tcp_server_task.h": "c",
+			"message_type.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {
