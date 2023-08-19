@@ -52,7 +52,7 @@ void ir_tx_task(void *pvParameters)
         .channel = LED_CHANNEL,
         .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = LEDC_TIMER,
-        .duty = 100,  // 50% duty cycle for a square wave
+        .duty = 140,  // 50% duty cycle for a square wave
     };
     ledc_channel_config(&ledc_channel);
 

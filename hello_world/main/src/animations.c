@@ -75,3 +75,22 @@ void run_animation_2(QueueHandle_t display_queue)
     send_string_to_queue(display_queue, msg, bw+5);
     vTaskDelay(pdMS_TO_TICKS(2000));
 }
+
+
+void run_animation_time_1(QueueHandle_t display_queue)
+{
+    const size_t msg_max = 32;
+    char msg[msg_max];
+    
+    // Zero memory
+    memset(msg,0,msg_max);
+
+    // Now animate!
+    size_t bw = 0x0C;
+    msg[1] = 0x00;
+    bw = snprintf(&msg[2], msg_max, "12:00am");
+    msg[bw+4] = 0x01;
+    
+    send_string_to_queue(display_queue, msg, bw+5);
+    vTaskDelay(pdMS_TO_TICKS(6000));
+}
