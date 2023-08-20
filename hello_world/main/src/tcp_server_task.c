@@ -24,6 +24,7 @@
 #include "string.h"
 
 #include "message_type.h"
+#include "sntp_helper.h"
 
 static const char * TAG = "TCP_TASK";
 
@@ -207,7 +208,6 @@ void tcp_server_task(void *pvParameters)
     // ESP_ERROR_CHECK(wifi_connect());
     ESP_ERROR_CHECK(example_connect());
 
-
     // Lookup our IP
     char ip_addr_string_buff[32] = {0};
     int ip_result = lookup_ip(ip_addr_string_buff);
@@ -218,6 +218,25 @@ void tcp_server_task(void *pvParameters)
     // Set display to the IP addresss
     send_string_w_bytes_to_queue(display_queue, ip_addr_string_buff, strlen(ip_addr_string_buff), 0x00, 0x10);
     vTaskDelay(pdMS_TO_TICKS(100));
+
+    // Init sntp
+    init_sntp();
+    
+    // // Now get time
+    // struct tm timeinfo;
+    // get_current_time(&timeinfo);
+    // ESP_LOGI(TAG,"Current time: %s", asctime(&timeinfo));
+
+    // Get time
+    struct tm timeinfo;
+    get_current_time(&timeinfo);
+
+    // Format time
+    char formatted_time[12]; // HH:MM:SS AM/PM format
+    format_time(formatted_time, &timeinfo, false);
+
+    // Print it
+    ESP_LOGI(TAG, "Current time: %s", formatted_time);
 
     // Setup TCP socket
     bool need_to_cleanup = false;

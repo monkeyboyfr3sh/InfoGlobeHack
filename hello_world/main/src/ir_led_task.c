@@ -20,6 +20,9 @@
 
 static const char * TAG = "IR_TASK";
 
+#define PWM_DUTY        128
+#define BIT_PERIOD_MS   1000
+
 // Globals
 uint8_t message[MAX_MESSAGE_LEN] = {0}; // Example message
 int tx_bit_index = 0;
@@ -52,7 +55,7 @@ void ir_tx_task(void *pvParameters)
         .channel = LED_CHANNEL,
         .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = LEDC_TIMER,
-        .duty = 140,  // 50% duty cycle for a square wave
+        .duty = PWM_DUTY,  // 50% duty cycle for a square wave
     };
     ledc_channel_config(&ledc_channel);
 
@@ -64,7 +67,7 @@ void ir_tx_task(void *pvParameters)
         .name = "My Timer"};
     esp_timer_handle_t timer_handler;
     ESP_ERROR_CHECK(esp_timer_create(&my_timer_args, &timer_handler));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer_handler, 1000));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(timer_handler, BIT_PERIOD_MS));
 
     msg_buffer_t received_buffer_struct;
     while (1) {
@@ -98,7 +101,7 @@ void ir_tx_task(void *pvParameters)
                 memcpy(&message[0], received_buffer_struct.buffer, tx_len);
 
                 // Leading and trailing zeros
-                ESP_ERROR_CHECK(esp_timer_start_periodic(timer_handler, 1000));
+                ESP_ERROR_CHECK(esp_timer_start_periodic(timer_handler, BIT_PERIOD_MS));
 
                 ESP_LOGI(TAG,"TX Begin!");
 
@@ -117,7 +120,7 @@ static void timer_callback(void *param)
     if (bit) {
         ledc_set_duty(LEDC_SPEED_MODE, LED_CHANNEL, 0);
     } else {
-        ledc_set_duty(LEDC_SPEED_MODE, LED_CHANNEL, 100);
+        ledc_set_duty(LEDC_SPEED_MODE, LED_CHANNEL, PWM_DUTY);
     }
     ledc_update_duty(LEDC_SPEED_MODE, LED_CHANNEL);
 

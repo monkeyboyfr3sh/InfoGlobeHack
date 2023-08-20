@@ -24,5 +24,5 @@ void app_main(void)
     xTaskCreate(ir_tx_task, "ir_tx", 4096, (void*)display_queue, 20, NULL);
 
     // Start frame maker task
-    xTaskCreate(frame_maker_task, "frame_maker", 4096, (void*)display_queue, 20, NULL);
+    xTaskCreate(frame_maker_task, "frame_maker", 4096, (void*)display_queue, 5, NULL);
 }

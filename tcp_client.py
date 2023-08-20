@@ -102,22 +102,23 @@ if __name__ == "__main__":
     # Create an info globe controller
     globe = InfoGlobeController(HOST, PORT)
 
-    blink_idx = 0xc
+    # blink_idx = 0xc
+    blink_idx = 0x0
     shift_idx = 13
 
-    # tx_data = bytes([0x05,0x00])
-    # tx_data += "< Booting >".encode()
-    # # tx_data += "New ".encode()
-    # # tx_data += hex(blink_idx).encode()
-    # # tx_data += " New".encode()
-    # tx_data += bytes([0x0])
-    # tx_data += bytes([blink_idx,shift_idx])
-    # globe.send_bytes(tx_data)
+    tx_data = bytes([0x05,0x00])
+    tx_data += "< Booting >".encode()
+    # tx_data += "New ".encode()
+    # tx_data += hex(blink_idx).encode()
+    # tx_data += " New".encode()
+    tx_data += bytes([0x0])
+    tx_data += bytes([blink_idx,shift_idx])
+    globe.send_bytes(tx_data)
     # time.sleep(2)
 
     # globe("hell11o")
     # globe.set_text_single_scroll_left("Connecting...")
-    globe.set_text_single_scroll_left("\x81")
+    # globe.set_text_single_scroll_left("\x81")
     # globe.set_text_stationary_front("my_string")
     # globe.set_text_stationary_right("my_string")
     # globe.instant_blank()
