@@ -226,10 +226,6 @@ void tcp_server_task(void *pvParameters)
         ESP_LOGW(TAG,"Failed to get IP!");
     }
 
-    // // Set display to the IP addresss
-    // send_string_w_bytes_to_queue(display_queue, ip_addr_string_buff, strlen(ip_addr_string_buff), 0x00, 0x10);
-    // vTaskDelay(pdMS_TO_TICKS(100));
-
     // Init sntp
     init_sntp();
 
