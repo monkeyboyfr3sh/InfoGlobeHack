@@ -44,7 +44,7 @@ void ir_tx_task(void *pvParameters)
         .speed_mode = LEDC_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_8_BIT,
         .timer_num = LEDC_TIMER,
-        .freq_hz = 38460,
+        .freq_hz = 38540,
     };
     ledc_timer_config(&ledc_timer);
 

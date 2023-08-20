@@ -29,11 +29,14 @@ void frame_maker_task(void *pvParameters)
     xTaskCreate(tcp_server_task, "tcp_server", 4096, (void*)display_queue, 5, NULL);
     vTaskDelay(pdMS_TO_TICKS(6000));
     
-    while(1)
-    {
-        run_animation_time_1(display_queue);
-        // run_animation_1(display_queue);
-        // run_animation_2(display_queue);
-        vTaskDelay(1);
-    }
+    // while(1)
+    // {
+    //     run_animation_time_1(display_queue);
+    //     // run_animation_1(display_queue);
+    //     // run_animation_2(display_queue);
+    //     vTaskDelay(1);
+    // }
+
+    // Exit
+    vTaskDelete(NULL);
 }

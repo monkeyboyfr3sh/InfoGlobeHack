@@ -208,6 +208,17 @@ void tcp_server_task(void *pvParameters)
     // ESP_ERROR_CHECK(wifi_connect());
     ESP_ERROR_CHECK(example_connect());
 
+    // Set display to the IP addresss
+    char msg[msg_max];
+    msg[0] = 0x05;
+    msg[1] = 0x00;
+    bw = snprintf(&msg[2], msg_max, "Connected!");
+    msg[bw + 2] = 0x00;
+    msg[bw + 3] = 0x00;
+    msg[bw + 4] = 8;
+    send_string_to_queue(display_queue, msg, bw + 5);
+    vTaskDelay(pdMS_TO_TICKS(3000));
+
     // Lookup our IP
     char ip_addr_string_buff[32] = {0};
     int ip_result = lookup_ip(ip_addr_string_buff);
@@ -222,11 +233,6 @@ void tcp_server_task(void *pvParameters)
     // Init sntp
     init_sntp();
     
-    // // Now get time
-    // struct tm timeinfo;
-    // get_current_time(&timeinfo);
-    // ESP_LOGI(TAG,"Current time: %s", asctime(&timeinfo));
-
     // Get time
     struct tm timeinfo;
     get_current_time(&timeinfo);
