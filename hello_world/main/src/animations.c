@@ -62,6 +62,47 @@ void run_animation_2(QueueHandle_t display_queue, uint32_t animation_dur_ms)
     vTaskDelay(pdMS_TO_TICKS(animation_dur_ms));
 }
 
+void run_world_domination(QueueHandle_t display_queue)
+{
+    const char *world_msg = "W O R L D";
+    const char *domination_msg = "D O M I N A T I O N";
+
+    for(int i = 0;i<2;i++)
+    {
+        // World
+        string_with_blink_shift(display_queue,
+            world_msg, strlen(world_msg),
+            strlen(world_msg)+2, strlen(world_msg)-1);
+        vTaskDelay(pdMS_TO_TICKS(3000));
+
+        // Domination
+        string_with_blink_shift(display_queue,
+            domination_msg, strlen(domination_msg),
+            strlen(domination_msg)+2, strlen(domination_msg)-1);
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+}
+
+void run_hello_world(QueueHandle_t display_queue)
+{
+    const char *hello_msg = "H E L L O";
+    const char *world_msg = "W O R L D";
+
+    for(int i = 0;i<2;i++)
+    {
+        // Hello
+        string_with_blink_shift(display_queue,
+            hello_msg, strlen(hello_msg),
+            strlen(hello_msg)+2, strlen(hello_msg)-1);
+        vTaskDelay(pdMS_TO_TICKS(3000));
+
+        // World
+        string_with_blink_shift(display_queue,
+            world_msg, strlen(world_msg),
+            strlen(world_msg)+2, strlen(world_msg)-1);
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+}
 
 // Define a global variable to store the last minute
 static int last_minute = -1;
