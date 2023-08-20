@@ -215,7 +215,7 @@ void tcp_server_task(void *pvParameters)
     bw = snprintf(&msg[2], msg_max, "Connected!");
     msg[bw + 2] = 0x00;
     msg[bw + 3] = 0x00;
-    msg[bw + 4] = 8;
+    msg[bw + 4] = 11;
     send_string_to_queue(display_queue, msg, bw + 5);
     vTaskDelay(pdMS_TO_TICKS(3000));
 
@@ -226,23 +226,12 @@ void tcp_server_task(void *pvParameters)
         ESP_LOGW(TAG,"Failed to get IP!");
     }
 
-    // Set display to the IP addresss
-    send_string_w_bytes_to_queue(display_queue, ip_addr_string_buff, strlen(ip_addr_string_buff), 0x00, 0x10);
-    vTaskDelay(pdMS_TO_TICKS(100));
+    // // Set display to the IP addresss
+    // send_string_w_bytes_to_queue(display_queue, ip_addr_string_buff, strlen(ip_addr_string_buff), 0x00, 0x10);
+    // vTaskDelay(pdMS_TO_TICKS(100));
 
     // Init sntp
     init_sntp();
-    
-    // Get time
-    struct tm timeinfo;
-    get_current_time(&timeinfo);
-
-    // Format time
-    char formatted_time[12]; // HH:MM:SS AM/PM format
-    format_time(formatted_time, &timeinfo, false);
-
-    // Print it
-    ESP_LOGI(TAG, "Current time: %s", formatted_time);
 
     // Setup TCP socket
     bool need_to_cleanup = false;

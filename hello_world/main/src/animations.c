@@ -14,67 +14,52 @@
 
 static const char * TAG = "ANIMATIONS";
 
-void run_boot_animation(QueueHandle_t display_queue)
+void string_with_blink_shift(QueueHandle_t display_queue, const char * str_buff, size_t str_len, uint8_t blink_idx, uint8_t shift_idx)
 {
-    const size_t msg_max = 32;
-    char msg[msg_max];
-    
-    // Zero memory
-    memset(msg,0,msg_max);
+    ESP_LOGI(TAG,"string length: %d",str_len);
+    ESP_LOG_BUFFER_HEX_LEVEL(TAG,str_buff,str_len,ESP_LOG_INFO);
 
-    // Now animate!
-    size_t bw = 0x0C;
+    char msg[str_len+5];
+    memset(msg,0,sizeof(msg));
+
+    // Populate message
     msg[0] = 0x05;
     msg[1] = 0x00;
-    bw = snprintf(&msg[2], msg_max, "< Booting >");
-    msg[bw+2] = 0x00;
-    msg[bw+3] = 0x0C;
-    msg[bw+4] = 0x0D;
-    
-    send_string_to_queue(display_queue, msg, bw+5);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    memcpy(&msg[2], str_buff, str_len);
+    msg[str_len + 2] = 0x00;
+    msg[str_len + 3] = blink_idx;
+    msg[str_len + 4] = shift_idx;
+
+    // Send it to display
+    send_string_to_queue(display_queue, msg, str_len + 5);
 }
 
-void run_animation_1(QueueHandle_t display_queue)
+void run_boot_animation(QueueHandle_t display_queue, uint32_t animation_dur_ms)
 {
-    const size_t msg_max = 32;
-    char msg[msg_max];
-    
-    // Zero memory
-    memset(msg,0,msg_max);
-
     // Now animate!
-    size_t bw = 0x0C;
-    msg[0] = 0x05;
-    msg[1] = 0x00;
-    bw = snprintf(&msg[2], msg_max, "< Animation 1 >");
-    msg[bw+2] = 0x00;
-    msg[bw+3] = 0x0C;
-    msg[bw+4] = 0x0D;
-    
-    send_string_to_queue(display_queue, msg, bw+5);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    const char *boot_msg = "< Booting >";
+    string_with_blink_shift(display_queue,
+        boot_msg, strlen(boot_msg),
+        0x0C, strlen(boot_msg)-1);
+    vTaskDelay(pdMS_TO_TICKS(animation_dur_ms));
 }
 
-void run_animation_2(QueueHandle_t display_queue)
+void run_animation_1(QueueHandle_t display_queue, uint32_t animation_dur_ms)
 {
-    const size_t msg_max = 32;
-    char msg[msg_max];
-    
-    // Zero memory
-    memset(msg,0,msg_max);
+    const char *animation_msg = "H E L L O";
+    string_with_blink_shift(display_queue,
+        animation_msg, strlen(animation_msg),
+        strlen(animation_msg)+2, strlen(animation_msg)-1);
+    vTaskDelay(pdMS_TO_TICKS(animation_dur_ms));
+}
 
-    // Now animate!
-    size_t bw = 0x0C;
-    msg[0] = 0x05;
-    msg[1] = 0x00;
-    bw = snprintf(&msg[2], msg_max, "! Animation 2 !");
-    msg[bw+2] = 0x00;
-    msg[bw+3] = 0x0C;
-    msg[bw+4] = 0x0D;
-    
-    send_string_to_queue(display_queue, msg, bw+5);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+void run_animation_2(QueueHandle_t display_queue, uint32_t animation_dur_ms)
+{
+    const char *animation_msg = "W O R L D";
+    string_with_blink_shift(display_queue,
+        animation_msg, strlen(animation_msg),
+        strlen(animation_msg)+2, strlen(animation_msg)-1);
+    vTaskDelay(pdMS_TO_TICKS(animation_dur_ms));
 }
 
 
@@ -136,15 +121,9 @@ void run_animation_time_1(QueueHandle_t display_queue)
         ESP_LOGI(TAG, "Current time: %s", formatted_time);
 
         // Now animate!
-        size_t bw = 0x0C;
-        msg[0] = 0x05;
-        msg[1] = 0x00;
-        bw = snprintf(&msg[2], msg_max, formatted_time);
-        msg[bw + 2] = 0x00;
-        msg[bw + 3] = 0x00;
-        msg[bw + 4] = 8;
-
-        send_string_to_queue(display_queue, msg, bw + 5);
+        string_with_blink_shift(display_queue,
+            formatted_time, 8,
+            0, 8);
     }
 
     vTaskDelay(pdMS_TO_TICKS(10));

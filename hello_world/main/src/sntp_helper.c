@@ -1,20 +1,52 @@
 #include "sntp_helper.h"
 #include <time.h>
 #include <sntp.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 
-void init_sntp(void)
+
+#define TIME_SYNC_BIT (1 << 0) // Define a bit for time synchronization event
+EventGroupHandle_t timeSyncEventGroup = NULL; // Event group handle
+
+void init_time_sync(void)
 {
+    timeSyncEventGroup = xEventGroupCreate();
+}
+
+void init_sntp(void) {
+
+    // Create an event group
+    if(timeSyncEventGroup == NULL){
+        init_time_sync();
+    }
+
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_setservername(0, "pool.ntp.org");
     sntp_init();
-    set_time_zone("America/Chicago"); // Set your desired time zone here
 
-    // Wait for sync to finish
+    // Wait for status to change
     while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET) {
-        vTaskDelay( pdMS_TO_TICKS(1000) ); // Wait for synchronization
+        vTaskDelay(1);
     }
+
+    // Set bit for others
+    xEventGroupSetBits(timeSyncEventGroup, TIME_SYNC_BIT);
 }
 
+// Example function to wait for time synchronization
+void wait_for_time_sync(void)
+{
+    // Can't work here
+    if (timeSyncEventGroup==NULL){
+        return;
+    }
+
+    // Wait for the time synchronization bit to be set
+    EventBits_t bits = xEventGroupWaitBits(timeSyncEventGroup, TIME_SYNC_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+    if (bits & TIME_SYNC_BIT) {
+        // Time synchronization has occurred, continue with your code
+    }
+}
 void get_current_time(struct tm *timeinfo)
 {
     time_t now;
