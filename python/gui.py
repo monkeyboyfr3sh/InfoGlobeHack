@@ -1,4 +1,5 @@
 import sys
+from PyQt5.QtGui import QIcon  # Import QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel
 
 def connect_button_click():
@@ -11,7 +12,9 @@ def send_button_click():
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    
+
+    # Set the application icon
+    app.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Replace 'path_to_your_icon.ico' with the actual path
     # Create a main window
     window = QWidget()
     window.setWindowTitle("Qt App with Tabs and Buttons")
