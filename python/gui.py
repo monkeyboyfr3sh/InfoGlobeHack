@@ -1,7 +1,7 @@
 # Import necessary modules
 import sys
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget
 from PyQt5.QtCore import Qt
 
 # Create a class for the Qt application with tabs
@@ -23,8 +23,15 @@ class QtAppWithTabs(QWidget):
     # Initialize the UI components
     def init_ui(self):
         self.setWindowTitle("Qt App with Tabs and Buttons")  # Set window title
-        self.setGeometry(100, 100, 600, 400)  # Set window geometry
         self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Set window icon
+
+        self.resize(600, 400)  # Set initial size of the window
+
+        # Calculate the position to center the window on the screen
+        screen_geometry = QDesktopWidget().screenGeometry()
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)
 
         layout = QVBoxLayout(self)  # Main layout for the entire window
         tab_widget = QTabWidget()  # Widget to hold tabs
