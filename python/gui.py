@@ -1,7 +1,7 @@
 # Import necessary modules
 import sys
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox
 from PyQt5.QtCore import Qt
 
 # Create a class for the Qt application with tabs
@@ -57,11 +57,21 @@ class QtAppWithTabs(QWidget):
 
         tx_data_label = QLabel("Enter Tx Data:")  # Label for the input field
         tx_data_label.setAlignment(Qt.AlignCenter)  # Align the label to the center
+
+        # Create checkboxes for additional options
+        options_layout = QHBoxLayout()
+        self.checkbox_option1 = QCheckBox("Option 1")
+        self.checkbox_option2 = QCheckBox("Option 2")
+        options_layout.addWidget(self.checkbox_option1)
+        options_layout.addWidget(self.checkbox_option2)
+
         self.text_entry_tx_data = QLineEdit()  # Input field for Tx data entry
+
         send_button = QPushButton('Send')  # Button to trigger data send
         send_button.clicked.connect(self.send_button_click)  # Connect button click to callback
 
         tx_data_layout.addWidget(tx_data_label)
+        tx_data_layout.addLayout(options_layout)  # Add checkboxes layout
         tx_data_layout.addWidget(self.text_entry_tx_data)
         tx_data_layout.addWidget(send_button)
         tx_data_tab.setLayout(tx_data_layout)  # Set layout for the Tx Data tab
