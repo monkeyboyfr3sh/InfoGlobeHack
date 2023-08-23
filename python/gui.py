@@ -22,8 +22,18 @@ class QtAppWithTabs(QWidget):
             self.tcp_worker_thread = QThread()
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
+            # Connect the connect_success signal to a slot
+            self.tcp_worker.connect_status.connect(self.on_connect_status)
             self.tcp_worker_thread.started.connect(self.tcp_worker.run)
             self.tcp_worker_thread.start()
+
+    # Slot to be called when the connect_success signal is emitted
+    @pyqtSlot(int)
+    def on_connect_status(self, connect_status):
+        if(connect_status>=0):
+            print("Connection successful!")  # You can add any logic you want here
+        else:
+            print(f"Connect error{connect_status}")
 
     def tcp_worker_finished(self):
         print("TCP worker finished")
