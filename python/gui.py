@@ -93,6 +93,7 @@ class QtAppWithTabs(QWidget):
         self.port_entry_connect = QLineEdit()
 
         # Connect the "returnPressed" signal of the port input field to the "connect_button_click" function
+        self.text_entry_connect.returnPressed.connect(self.connect_button_click)
         self.port_entry_connect.returnPressed.connect(self.connect_button_click)
 
         self.connect_button = QPushButton('Connect')  # Store the button as an attribute
