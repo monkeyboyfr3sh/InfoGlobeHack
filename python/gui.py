@@ -1,8 +1,10 @@
+import json
 import sys
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 from PyQt5.QtGui import QPalette, QColor
+from qt_material import apply_stylesheet
 
 from tcp_worker import TcpConnectWorker,TcpTextWorker
 
@@ -158,8 +160,35 @@ class QtAppWithTabs(QWidget):
         self.setLayout(layout)  # Set main layout for the window
         self.show()  # Show the window
 
+def load_palette_from_file(file_path):
+    with open(file_path, 'r') as f:
+        palette_data = json.load(f)
+
+    palette = QPalette()
+    for role, color_values in palette_data.items():
+        color = QColor(*color_values)
+        palette.setColor(getattr(QPalette, role), color)
+
+    return palette
+
 # Entry point of the program
 if __name__ == '__main__':
-    app = QApplication(sys.argv)  # Create the application instance
+
+    config_file_path = './python/gui_settings.json'
+    # dark_palette = load_palette_from_file(config_file_path)
+    # app = QApplication(sys.argv)
+    # app.setStyle("Fusion")
+    # app.setPalette(dark_palette)
+
+    dark_palette = load_palette_from_file(config_file_path)
+    
+    app = QApplication(sys.argv)
+    apply_stylesheet(app, theme='light_blue.xml')  # Applying the Material style
+    
+    palette = app.palette()
+    palette.setColor(QPalette.Window, QColor(*dark_palette.color(QPalette.Window).getRgb()))
+    palette.setColor(QPalette.WindowText, Qt.white)
+    app.setPalette(palette)
+
     qt_app = QtAppWithTabs()  # Create an instance of the QtAppWithTabs class
     sys.exit(app.exec_())  # Execute the application event loop and handle exit
