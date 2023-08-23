@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBox
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 from PyQt5.QtGui import QPalette, QColor
 
-from tcp_worker import TcpWorker
+from tcp_worker import TcpConnectWorker,TcpWorker
 
 class QtAppWithTabs(QWidget):
     def __init__(self):
@@ -19,7 +19,7 @@ class QtAppWithTabs(QWidget):
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         if self.tcp_worker_thread is None:
-            self.tcp_worker = TcpWorker(host, port)
+            self.tcp_worker = TcpConnectWorker(host, port)
             self.tcp_worker_thread = QThread()
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
@@ -65,7 +65,6 @@ class QtAppWithTabs(QWidget):
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
             # Connect the connect_success signal to a slot
-            self.tcp_worker.connect_status.connect(self.on_connect_status)
             self.tcp_worker_thread.started.connect(self.tcp_worker.run)
             self.tcp_worker_thread.start()
 

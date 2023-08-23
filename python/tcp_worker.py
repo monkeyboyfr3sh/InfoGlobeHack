@@ -29,6 +29,33 @@ def globe_action(globe: InfoGlobeController):
     # globe.set_text_stationary_right("my_string")
     # globe.instant_blank()
 
+class TcpConnectWorker(QObject):
+    finished = pyqtSignal()  # Signal to indicate that the worker has finished
+    connect_status = pyqtSignal(int)  # Signal to indicate that the worker has finished
+
+    def __init__(self, host, port):
+        super().__init__()
+        self.host = host
+        self.port = port
+
+    @pyqtSlot()
+    def run(self):
+        
+        try:
+            # Connect to host
+            print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
+            globe = InfoGlobeController(self.host, int(self.port))
+            self.connect_status.emit(0)
+        except socket.gaierror as err:
+            print(f"Could not connect due to a DNS resolution error: {err}")
+            self.connect_status.emit(-1)
+        except Exception as err:
+            print("An unexpected error occurred:", err)
+            self.connect_status.emit(-2)
+
+        # Simulate some work
+        self.finished.emit()
+
 class TcpWorker(QObject):
     finished = pyqtSignal()  # Signal to indicate that the worker has finished
     connect_status = pyqtSignal(int)  # Signal to indicate that the worker has finished
@@ -45,6 +72,9 @@ class TcpWorker(QObject):
             # Connect to host
             print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
             globe = InfoGlobeController(self.host, int(self.port))
+
+            globe_action(globe)
+
             self.connect_status.emit(0)
         except socket.gaierror as err:
             print(f"Could not connect due to a DNS resolution error: {err}")
