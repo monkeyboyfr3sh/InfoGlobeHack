@@ -2,6 +2,7 @@ import sys
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
+from PyQt5.QtGui import QPalette, QColor
 
 from tcp_worker import TcpWorker
 
@@ -29,11 +30,14 @@ class QtAppWithTabs(QWidget):
 
     # Slot to be called when the connect_success signal is emitted
     @pyqtSlot(int)
+
     def on_connect_status(self, connect_status):
         if(connect_status>=0):
             print("Connection successful!")  # You can add any logic you want here
+            self.set_connect_box_color('green')
         else:
             print(f"Connect error{connect_status}")
+            self.set_connect_box_color('red')
 
     def tcp_worker_finished(self):
         print("TCP worker finished")
@@ -47,6 +51,18 @@ class QtAppWithTabs(QWidget):
     def send_button_click(self):
         input_text = self.text_entry_tx_data.text()  # Get text from the input field
         print(f"Send button clicked! Text: {input_text}")  # Print the clicked button and input text
+
+    def set_connect_box_color(self, status):
+        palette = self.text_entry_connect.palette()
+        if status == 'green':
+            background_color = QColor(0, 255, 0)  # Green
+        elif status == 'red':
+            background_color = QColor(255, 0, 0)  # Red
+        else:
+            return  # Invalid status, do nothing
+        
+        # Set the background color using a stylesheet
+        self.connect_button.setStyleSheet(f"background-color: {background_color.name()};")
 
     # Initialize the UI components
     def init_ui(self):
@@ -75,18 +91,18 @@ class QtAppWithTabs(QWidget):
         port_label = QLabel("Enter port:")
         port_label.setAlignment(Qt.AlignCenter)
         self.port_entry_connect = QLineEdit()
-        
+
         # Connect the "returnPressed" signal of the port input field to the "connect_button_click" function
         self.port_entry_connect.returnPressed.connect(self.connect_button_click)
 
-        connect_button = QPushButton('Connect')
-        connect_button.clicked.connect(self.connect_button_click)
+        self.connect_button = QPushButton('Connect')  # Store the button as an attribute
+        self.connect_button.clicked.connect(self.connect_button_click)
 
         connect_layout.addWidget(connect_label)
         connect_layout.addWidget(self.text_entry_connect)
         connect_layout.addWidget(port_label)
         connect_layout.addWidget(self.port_entry_connect)
-        connect_layout.addWidget(connect_button)
+        connect_layout.addWidget(self.connect_button)  # Add the button to the layout
         connect_tab.setLayout(connect_layout)
 
         # Create the Tx Data tab
