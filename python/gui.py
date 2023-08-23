@@ -60,7 +60,7 @@ class QtAppWithTabs(QWidget):
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         if self.tcp_worker_thread is None:
-            self.tcp_worker = TcpWorker(host, port)
+            self.tcp_worker = TcpWorker(host, port, input_text)
             self.tcp_worker_thread = QThread()
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)

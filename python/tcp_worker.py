@@ -60,10 +60,11 @@ class TcpWorker(QObject):
     finished = pyqtSignal()  # Signal to indicate that the worker has finished
     connect_status = pyqtSignal(int)  # Signal to indicate that the worker has finished
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, message):
         super().__init__()
         self.host = host
         self.port = port
+        self.message = message
 
     @pyqtSlot()
     def run(self):
@@ -73,7 +74,14 @@ class TcpWorker(QObject):
             print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
             globe = InfoGlobeController(self.host, int(self.port))
 
-            globe_action(globe)
+            blink_idx = 0x0
+            shift_idx = 13
+
+            tx_data = bytes([0x05,0x00])
+            tx_data += f"{self.message}".encode()
+            tx_data += bytes([0x0])
+            tx_data += bytes([blink_idx,shift_idx])
+            globe.send_bytes(tx_data)
 
             self.connect_status.emit(0)
         except socket.gaierror as err:

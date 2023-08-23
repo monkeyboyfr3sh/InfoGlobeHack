@@ -40,20 +40,20 @@ void frame_maker_task(void *pvParameters)
 
     while(1)
     {
-        // Always run time animation
-        run_animation_time_1(display_queue);
+        // // Always run time animation
+        // run_animation_time_1(display_queue);
         
-        // Occasionally run animation 1
-        if ( (xTaskGetTickCount()-ani_1_tick) > pdMS_TO_TICKS(100000) ) {
-            ani_1_tick = xTaskGetTickCount();
-            run_world_domination(display_queue);
-        }
+        // // Occasionally run animation 1
+        // if ( (xTaskGetTickCount()-ani_1_tick) > pdMS_TO_TICKS(100000) ) {
+        //     ani_1_tick = xTaskGetTickCount();
+        //     run_world_domination(display_queue);
+        // }
 
-        // Occasionally run animation 2
-        if ( (xTaskGetTickCount()-ani_2_tick) > pdMS_TO_TICKS(60000) ) {
-            ani_2_tick = xTaskGetTickCount();
-            run_hello_world(display_queue);
-        }
+        // // Occasionally run animation 2
+        // if ( (xTaskGetTickCount()-ani_2_tick) > pdMS_TO_TICKS(60000) ) {
+        //     ani_2_tick = xTaskGetTickCount();
+        //     run_hello_world(display_queue);
+        // }
 
         vTaskDelay(1);
     }
