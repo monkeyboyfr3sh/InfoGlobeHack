@@ -18,9 +18,9 @@ class QtAppWithTabs(QWidget):
 
     def init_ui(self):
         self.setWindowTitle("Qt App with Tabs and Buttons")
-        self.setGeometry(100, 100, 400, 300)
-        self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Replace with actual icon path
-
+        self.setGeometry(100, 100, 600, 400)
+        self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))
+        
         layout = QVBoxLayout(self)
         tab_widget = QTabWidget()
 
