@@ -4,7 +4,7 @@ import socket
 import time
 from typing import Any
 
-HOST = "192.168.0.126"  # The server's hostname or IP address
+HOST = "192.168.0.94"  # The server's hostname or IP address
 PORT = 55555  # The port used by the server
 
 class InfoGlobeController():
@@ -96,7 +96,6 @@ class InfoGlobeController():
             message += bytes([tail_byte_value])
         
         return message
-
 
 if __name__ == "__main__":
     # Create an info globe controller

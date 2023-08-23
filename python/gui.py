@@ -1,20 +1,37 @@
-# Import necessary modules
 import sys
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 
-# Create a class for the Qt application with tabs
+from tcp_worker import TcpWorker
+
 class QtAppWithTabs(QWidget):
     def __init__(self):
         super().__init__()
         self.init_ui()  # Initialize the UI components
+        self.tcp_worker = None
+        self.tcp_worker_thread = None
 
-    # Callback function for the Connect button click
     def connect_button_click(self):
         host = self.text_entry_connect.text()
         port = self.port_entry_connect.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
+
+        if self.tcp_worker_thread is None:
+            self.tcp_worker = TcpWorker(host, port)
+            self.tcp_worker_thread = QThread()
+            self.tcp_worker.moveToThread(self.tcp_worker_thread)
+            self.tcp_worker.finished.connect(self.tcp_worker_finished)
+            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
+            self.tcp_worker_thread.start()
+
+    def tcp_worker_finished(self):
+        print("TCP worker finished")
+        self.tcp_worker_thread.quit()
+        self.tcp_worker_thread.wait()
+        self.tcp_worker_thread.deleteLater()
+        self.tcp_worker_thread = None
+        self.tcp_worker = None
 
     # Callback function for the Send button click
     def send_button_click(self):
