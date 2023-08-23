@@ -10,6 +10,7 @@
 
 #include <sys/param.h>
 #include "esp_system.h"
+#include "driver/gpio.h"
 
 #include "message_type.h"
 #include "sntp_helper.h"
@@ -38,10 +39,31 @@ void frame_maker_task(void *pvParameters)
     TickType_t ani_1_tick = xTaskGetTickCount();
     TickType_t ani_2_tick = xTaskGetTickCount();
 
+    bool prev_io_level = true;
+    bool curr_io_level = true;
+    gpio_set_direction(GPIO_NUM_0,GPIO_MODE_INPUT);
+    bool time_on = false;
+    
     while(1)
     {
-        // // Always run time animation
-        // run_animation_time_1(display_queue);
+
+        // Detect falling edge
+        curr_io_level = gpio_get_level(GPIO_NUM_0);
+        if( (curr_io_level==0) && (prev_io_level==true) ){
+            time_on = !time_on;
+            
+            if(time_on){
+                ESP_LOGI(TAG,"Time display is now enabled!");
+            } else {
+                ESP_LOGI(TAG,"Time display is now disabled!");
+            }
+        }
+        prev_io_level = curr_io_level;
+
+        if( time_on ) {
+            // Always run time animation
+            run_animation_time_1(display_queue);
+        }
         
         // // Occasionally run animation 1
         // if ( (xTaskGetTickCount()-ani_1_tick) > pdMS_TO_TICKS(100000) ) {
