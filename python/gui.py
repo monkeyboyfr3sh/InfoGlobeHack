@@ -37,6 +37,10 @@ class QtAppWithTabs(QWidget):
         if(connect_status>=0):
             print("Connection successful!")  # You can add any logic you want here
             self.set_connect_box_color('green')
+
+            # Save the host and port after successfully connecting
+            self.save_host_port(self.tcp_worker.host, self.tcp_worker.port)
+
         else:
             print(f"Connect error{connect_status}")
             self.set_connect_box_color('red')
@@ -71,6 +75,9 @@ class QtAppWithTabs(QWidget):
             self.tcp_worker_thread.started.connect(self.tcp_worker.run)
             self.tcp_worker_thread.start()
 
+        # Clear the field
+        self.text_entry_tx_data.setText("")
+
     def set_connect_box_color(self, status):
         palette = self.text_entry_connect.palette()
         if status == 'green':
@@ -83,8 +90,26 @@ class QtAppWithTabs(QWidget):
         # Set the background color using a stylesheet
         self.connect_button.setStyleSheet(f"background-color: {background_color.name()};")
 
+    def load_host_port(self):
+        try:
+            with open('./python/config.json', 'r') as file:
+                data = json.load(file)
+                self.text_entry_connect.setText(data["host"])
+                self.port_entry_connect.setText(data["port"])
+        except (FileNotFoundError, KeyError, json.JSONDecodeError):
+            # If there's any error reading the file or the required data, 
+            # we can simply pass and continue. This ensures that the application 
+            # doesn't crash if the file doesn't exist yet or if it's malformed.
+            pass
+
+    def save_host_port(self, host, port):
+        with open('./python/config.json', 'w') as file:
+            json.dump({"host": host, "port": port}, file)
+
+
     # Initialize the UI components
     def init_ui(self):
+
         self.setWindowTitle("Qt App with Tabs and Buttons")  # Set window title
         self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Set window icon
 
@@ -125,6 +150,9 @@ class QtAppWithTabs(QWidget):
         connect_layout.addWidget(self.connect_button)  # Add the button to the layout
         connect_tab.setLayout(connect_layout)
 
+        # Load default host and port from file
+        self.load_host_port()
+
         # Create the Tx Data tab
         tx_data_tab = QWidget()
         tx_data_layout = QVBoxLayout(tx_data_tab)
@@ -152,7 +180,6 @@ class QtAppWithTabs(QWidget):
         tx_data_layout.addWidget(send_button)
         tx_data_tab.setLayout(tx_data_layout)
 
-
         tab_widget.addTab(connect_tab, "Connect")  # Add Connect tab to the tab widget
         tab_widget.addTab(tx_data_tab, "Tx Data")  # Add Tx Data tab to the tab widget
 
@@ -172,23 +199,10 @@ def load_palette_from_file(file_path):
     return palette
 
 # Entry point of the program
-if __name__ == '__main__':
-
-    config_file_path = './python/gui_settings.json'
-    # dark_palette = load_palette_from_file(config_file_path)
-    # app = QApplication(sys.argv)
-    # app.setStyle("Fusion")
-    # app.setPalette(dark_palette)
-
-    dark_palette = load_palette_from_file(config_file_path)
-    
+if __name__ == '__main__':    
     app = QApplication(sys.argv)
     apply_stylesheet(app, theme='light_blue.xml')  # Applying the Material style
     
-    palette = app.palette()
-    palette.setColor(QPalette.Window, QColor(*dark_palette.color(QPalette.Window).getRgb()))
-    palette.setColor(QPalette.WindowText, Qt.white)
-    app.setPalette(palette)
 
     qt_app = QtAppWithTabs()  # Create an instance of the QtAppWithTabs class
     sys.exit(app.exec_())  # Execute the application event loop and handle exit
