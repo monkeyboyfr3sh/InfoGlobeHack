@@ -56,15 +56,16 @@ class TcpConnectWorker(QObject):
         # Simulate some work
         self.finished.emit()
 
-class TcpWorker(QObject):
+class TcpTextWorker(QObject):
     finished = pyqtSignal()  # Signal to indicate that the worker has finished
     connect_status = pyqtSignal(int)  # Signal to indicate that the worker has finished
 
-    def __init__(self, host, port, message):
+    def __init__(self, host, port, message, blinky_enable):
         super().__init__()
         self.host = host
         self.port = port
         self.message = message
+        self.blinky_enable = blinky_enable
 
     @pyqtSlot()
     def run(self):
@@ -74,11 +75,12 @@ class TcpWorker(QObject):
             print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
             globe = InfoGlobeController(self.host, int(self.port))
 
-            blink_idx = 0x0
-            shift_idx = 13
+            msg = f"{self.message}"
+            blink_idx = len(msg)+1 if self.blinky_enable else 0
+            shift_idx = len(msg)
 
             tx_data = bytes([0x05,0x00])
-            tx_data += f"{self.message}".encode()
+            tx_data += msg.encode()
             tx_data += bytes([0x0])
             tx_data += bytes([blink_idx,shift_idx])
             globe.send_bytes(tx_data)

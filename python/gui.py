@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBox
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 from PyQt5.QtGui import QPalette, QColor
 
-from tcp_worker import TcpConnectWorker,TcpWorker
+from tcp_worker import TcpConnectWorker,TcpTextWorker
 
 class QtAppWithTabs(QWidget):
     def __init__(self):
@@ -60,7 +60,8 @@ class QtAppWithTabs(QWidget):
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         if self.tcp_worker_thread is None:
-            self.tcp_worker = TcpWorker(host, port, input_text)
+            blinky_enable = self.checkbox_option1.isChecked()
+            self.tcp_worker = TcpTextWorker(host, port, input_text, blinky_enable)
             self.tcp_worker_thread = QThread()
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
@@ -130,7 +131,7 @@ class QtAppWithTabs(QWidget):
         tx_data_label.setAlignment(Qt.AlignCenter)
 
         options_layout = QHBoxLayout()
-        self.checkbox_option1 = QCheckBox("Option 1")
+        self.checkbox_option1 = QCheckBox("Blinky Text")
         self.checkbox_option2 = QCheckBox("Option 2")
         options_layout.addWidget(self.checkbox_option1)
         options_layout.addWidget(self.checkbox_option2)
