@@ -43,7 +43,9 @@
 			"stdlib.h": "c",
 			"_locale.h": "c",
 			"ota_service.h": "c",
-			"ota_server_task.h": "c"
+			"ota_server_task.h": "c",
+			"gpio.h": "c",
+			"nvs.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {
