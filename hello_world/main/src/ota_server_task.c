@@ -1,4 +1,4 @@
-#include"tcp_server_task.h"
+#include "ota_server_task.h"
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -31,7 +31,6 @@ static const char * TAG = "TCP_TASK";
 // Prototypes
 static bool is_our_netif(const char *prefix, esp_netif_t *netif);
 static int lookup_ip(char *ip_addr_string_buff);
-static void do_retransmit(const int sock, QueueHandle_t display_queue);
 static int setup_tcp_socket(int addr_family, int port);
 
 // Implementations
@@ -40,7 +39,7 @@ static bool is_our_netif(const char *prefix, esp_netif_t *netif)
     return strncmp(prefix, esp_netif_get_desc(netif), strlen(prefix) - 1) == 0;
 }
 
-static void do_retransmit(const int sock, QueueHandle_t display_queue)
+static void do_retransmit(const int sock)
 {
     int len;
     char rx_buffer[128];
@@ -54,19 +53,20 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
         } else {
             rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
             ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
+            ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,len,ESP_LOG_INFO);
 
-            // Allocate buffer
-            uint8_t *queue_buffer = (uint8_t *)malloc(len);
-            if (queue_buffer == NULL) {
-                ESP_LOGE(TAG,"Failed to allocate memory for buffer\n");
-                return;
-            }
+            // // Allocate buffer
+            // uint8_t *queue_buffer = (uint8_t *)malloc(len);
+            // if (queue_buffer == NULL) {
+            //     ESP_LOGE(TAG,"Failed to allocate memory for buffer\n");
+            //     return;
+            // }
 
-            // Copy data
-            memcpy(queue_buffer, rx_buffer, len);
+            // // Copy data
+            // memcpy(queue_buffer, rx_buffer, len);
 
-            // Send the buffer to the console task
-            push_buffer_to_queue(display_queue, queue_buffer, len);
+            // // Send the buffer to the console task
+            // push_buffer_to_queue(display_queue, queue_buffer, len);
 
             // send() can return less bytes than supplied length.
             // Walk-around for robust implementation.
@@ -185,39 +185,12 @@ static int listen_for_client(int listen_sock, char * addr_str)
     return sock;
 }
 
-void tcp_server_task(void *pvParameters)
+void ota_server_task(void *pvParameters)
 {
     // Grab queue
-    QueueHandle_t display_queue = (QueueHandle_t)(pvParameters);
+    // QueueHandle_t display_queue = (QueueHandle_t)(pvParameters);
 
-    // Set display to the IP addresss
-    const size_t msg_max = 32;
-    char connect_msg[msg_max];
-    size_t bw = snprintf(connect_msg,msg_max,"Connecting...");
-    send_string_w_bytes_to_queue(display_queue, connect_msg, bw, 0x00, 0x0);
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    // ESP_ERROR_CHECK(wifi_connect());
-    ESP_ERROR_CHECK(example_connect());
-
-    // Set display to the IP addresss
-    char msg[msg_max];
-    msg[0] = 0x05;
-    msg[1] = 0x00;
-    bw = snprintf(&msg[2], msg_max, "Connected!");
-    msg[bw + 2] = 0x00;
-    msg[bw + 3] = 0x00;
-    msg[bw + 4] = 11;
-    send_string_to_queue(display_queue, msg, bw + 5);
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    const int ota_port = 22222;
 
     // Lookup our IP
     char ip_addr_string_buff[32] = {0};
@@ -226,12 +199,9 @@ void tcp_server_task(void *pvParameters)
         ESP_LOGW(TAG,"Failed to get IP!");
     }
 
-    // Init sntp
-    init_sntp();
-
     // Setup TCP socket
     bool need_to_cleanup = false;
-    int listen_sock = setup_tcp_socket((int)AF_INET, CONFIG_INFOGLOBE_PORT);
+    int listen_sock = setup_tcp_socket((int)AF_INET, ota_port);
     if(listen_sock<0){
         ESP_LOGW(TAG,"Failed to setup listen socket!");
 
@@ -252,7 +222,7 @@ void tcp_server_task(void *pvParameters)
         sock = listen_for_client(listen_sock,addr_str);
         
         // Host session
-        do_retransmit(sock, display_queue);
+        do_retransmit(sock);
 
         // Cleanup
         shutdown(sock, 0);

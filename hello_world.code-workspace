@@ -41,7 +41,9 @@
 			"animations.h": "c",
 			"sntp_helper.h": "c",
 			"stdlib.h": "c",
-			"_locale.h": "c"
+			"_locale.h": "c",
+			"ota_service.h": "c",
+			"ota_server_task.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

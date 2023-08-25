@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 from PyQt5.QtGui import QPalette, QColor
 from qt_material import apply_stylesheet
 
-from tcp_worker import TcpConnectWorker,TcpTextWorker
+from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker
 
 class QtAppWithTabs(QWidget):
     def __init__(self):
@@ -68,6 +68,42 @@ class QtAppWithTabs(QWidget):
         if self.tcp_worker_thread is None:
             blinky_enable = self.checkbox_option1.isChecked()
             self.tcp_worker = TcpTextWorker(host, port, input_text, blinky_enable)
+            self.tcp_worker_thread = QThread()
+            self.tcp_worker.moveToThread(self.tcp_worker_thread)
+            self.tcp_worker.finished.connect(self.tcp_worker_finished)
+            # Connect the connect_success signal to a slot
+            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
+            self.tcp_worker_thread.start()
+
+        # Clear the field
+        self.text_entry_tx_data.setText("")
+
+    # Callback function for the Send bytes button click
+    def send_bytes_button_click(self):
+        
+        # Get user input
+        input_text = self.text_entry_tx_data.text()  # Get text from the input field
+        
+        # Convert to hex
+        input_text_without_spaces = input_text.replace(" ", "")
+
+        if len(input_text_without_spaces) == 1:
+            input_text_without_spaces = "0" + input_text_without_spaces
+
+        bytes_result = bytes.fromhex(input_text_without_spaces)
+        print(bytes_result)
+        
+        print(f"Send bytes button clicked! Text: {input_text}")  # Print the clicked button and input text
+        print(f"Hex bytes: {bytes_result}")  # Print the formatted hexadecimal bytes
+        
+        # Now connect!
+        host = self.text_entry_connect.text()
+        port = self.port_entry_connect.text()
+        print(f"Connect button clicked! Host: {host}, Port: {port}")
+
+        if self.tcp_worker_thread is None:
+            blinky_enable = self.checkbox_option1.isChecked()
+            self.tcp_worker = TcpRawByteWorker(host, port, bytes_result)
             self.tcp_worker_thread = QThread()
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
@@ -167,17 +203,21 @@ class QtAppWithTabs(QWidget):
         options_layout.addWidget(self.checkbox_option2)
 
         self.text_entry_tx_data = QLineEdit()
-        
+
         # Connect the "returnPressed" signal of the Tx data input field to the "send_button_click" function
         self.text_entry_tx_data.returnPressed.connect(self.send_button_click)
 
         send_button = QPushButton('Send')
         send_button.clicked.connect(self.send_button_click)
 
+        send_bytes_button = QPushButton('Send Bytes')  # New "Send Bytes" button
+        send_bytes_button.clicked.connect(self.send_bytes_button_click)  # Connect to appropriate function
+
         tx_data_layout.addWidget(tx_data_label)
         tx_data_layout.addLayout(options_layout)
         tx_data_layout.addWidget(self.text_entry_tx_data)
         tx_data_layout.addWidget(send_button)
+        tx_data_layout.addWidget(send_bytes_button)  # Add the new button to the layout
         tx_data_tab.setLayout(tx_data_layout)
 
         tab_widget.addTab(connect_tab, "Connect")  # Add Connect tab to the tab widget
@@ -186,6 +226,7 @@ class QtAppWithTabs(QWidget):
         layout.addWidget(tab_widget)  # Add tab widget to the main layout
         self.setLayout(layout)  # Set main layout for the window
         self.show()  # Show the window
+
 
 def load_palette_from_file(file_path):
     with open(file_path, 'r') as f:
