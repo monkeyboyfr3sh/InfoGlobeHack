@@ -26,7 +26,7 @@
 #include "message_type.h"
 #include "sntp_helper.h"
 
-static const char * TAG = "TCP_TASK";
+static const char * TAG = "OTA_TASK";
 
 // Prototypes
 static bool is_our_netif(const char *prefix, esp_netif_t *netif);

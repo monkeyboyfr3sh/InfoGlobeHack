@@ -87,8 +87,8 @@ class QtAppWithTabs(QWidget):
         # Convert to hex
         input_text_without_spaces = input_text.replace(" ", "")
 
-        if len(input_text_without_spaces) == 1:
-            input_text_without_spaces = "0" + input_text_without_spaces
+        if len(input_text_without_spaces) % 2 == 1:
+            input_text_without_spaces = input_text_without_spaces[:-1] + "0" + input_text_without_spaces[-1]
 
         bytes_result = bytes.fromhex(input_text_without_spaces)
         print(bytes_result)
@@ -165,10 +165,12 @@ class QtAppWithTabs(QWidget):
         connect_layout = QVBoxLayout(connect_tab)
 
         connect_label = QLabel("Enter host:")
+        connect_label.setStyleSheet("font-size: 30px;") 
         connect_label.setAlignment(Qt.AlignCenter)
         self.text_entry_connect = QLineEdit()
 
         port_label = QLabel("Enter port:")
+        port_label.setStyleSheet("font-size: 30px;") 
         port_label.setAlignment(Qt.AlignCenter)
         self.port_entry_connect = QLineEdit()
 
@@ -194,6 +196,7 @@ class QtAppWithTabs(QWidget):
         tx_data_layout = QVBoxLayout(tx_data_tab)
 
         tx_data_label = QLabel("Enter Tx Data:")
+        tx_data_label.setStyleSheet("font-size: 45px;") 
         tx_data_label.setAlignment(Qt.AlignCenter)
 
         options_layout = QHBoxLayout()
