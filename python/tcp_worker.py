@@ -109,22 +109,22 @@ class TcpRawByteWorker(QObject):
     @pyqtSlot()
     def run(self):
         
-        # try:
-        # Connect to host
-        print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
-        globe = InfoGlobeController(self.host, int(self.port))
+        try:
+            # Connect to host
+            print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
+            globe = InfoGlobeController(self.host, int(self.port))
 
-        tx_data = bytes(self.byte_buffer)
-        # tx_data = bytes([self.byte_buffer])
-        globe.send_bytes(tx_data)
+            tx_data = bytes(self.byte_buffer)
+            # tx_data = bytes([self.byte_buffer])
+            globe.send_bytes(tx_data)
 
-        self.connect_status.emit(0)
-        # except socket.gaierror as err:
-        #     print(f"Could not connect due to a DNS resolution error: {err}")
-        #     self.connect_status.emit(-1)
-        # except Exception as err:
-        #     print("An unexpected error occurred:", err)
-        #     self.connect_status.emit(-2)
+            self.connect_status.emit(0)
+        except socket.gaierror as err:
+            print(f"Could not connect due to a DNS resolution error: {err}")
+            self.connect_status.emit(-1)
+        except Exception as err:
+            print("An unexpected error occurred:", err)
+            self.connect_status.emit(-2)
 
         # Simulate some work
         self.finished.emit()
@@ -142,22 +142,22 @@ class TcpOTAtWorker(QObject):
     @pyqtSlot()
     def run(self):
         
-        # try:
-        # Connect to host
-        print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
-        globe = InfoGlobeController(self.host, int(self.port))
+        try:
+            # Connect to host
+            print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
+            globe = InfoGlobeController(self.host, int(self.port))
 
-        # tx_data = bytes(self.byte_buffer)
-        # tx_data = bytes([self.byte_buffer])
-        # globe.send_bytes(tx_data)
+            # tx_data = bytes(self.byte_buffer)
+            # tx_data = bytes([self.byte_buffer])
+            # globe.send_bytes(tx_data)
 
-        self.connect_status.emit(0)
-        # except socket.gaierror as err:
-        #     print(f"Could not connect due to a DNS resolution error: {err}")
-        #     self.connect_status.emit(-1)
-        # except Exception as err:
-        #     print("An unexpected error occurred:", err)
-        #     self.connect_status.emit(-2)
+            self.connect_status.emit(0)
+        except socket.gaierror as err:
+            print(f"Could not connect due to a DNS resolution error: {err}")
+            self.connect_status.emit(-1)
+        except Exception as err:
+            print("An unexpected error occurred:", err)
+            self.connect_status.emit(-2)
 
         # Simulate some work
         self.finished.emit()
