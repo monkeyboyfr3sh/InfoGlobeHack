@@ -112,6 +112,7 @@ static void do_retransmit(const int sock)
     esp_partition_get_sha256(esp_ota_get_running_partition(), sha_256);
     print_sha256(sha_256, "SHA-256 for current firmware: ");
 
+    ESP_LOGI(TAG,"Getting running partition");
     const esp_partition_t *running = esp_ota_get_running_partition();
     esp_ota_img_states_t ota_state;
     if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK) {
@@ -128,16 +129,17 @@ static void do_retransmit(const int sock)
         }
     }
 
-
     esp_err_t err;
-    /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
     esp_ota_handle_t update_handle = 0 ;
     const esp_partition_t *update_partition = NULL;
 
-    ESP_LOGI(TAG, "Starting OTA example");
-
+    ESP_LOGI(TAG,"Getting boot partition");
     const esp_partition_t *configured = esp_ota_get_boot_partition();
-
+    if (configured == NULL){
+        return ;
+        // task_fatal_error();
+    }
+    
     // if (configured != running) {
     //     ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
     //              configured->address, running->address);
@@ -146,9 +148,12 @@ static void do_retransmit(const int sock)
     // ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
     //          running->type, running->subtype, running->address);
 
-    // Get update partition
+    ESP_LOGI(TAG,"Getting update partition");
     update_partition = esp_ota_get_next_update_partition(NULL);
-    assert(update_partition != NULL);
+    if (update_partition == NULL){
+        return ;
+        // task_fatal_error();
+    }
     // ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
     //          update_partition->subtype, update_partition->address);
 
@@ -157,13 +162,13 @@ static void do_retransmit(const int sock)
     /*deal with all receive packet*/
     bool image_header_was_checked = false;
 
-
     int data_read = 0;
     do {
         len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
         if (len < 0) {
             ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
-            task_fatal_error();
+            return ;
+            // task_fatal_error();
         } else if (len == 0) {
             ESP_LOGW(TAG, "Connection closed");
         } else {
@@ -173,13 +178,14 @@ static void do_retransmit(const int sock)
 
             // Read some data
             data_read += len;
+            const size_t header_size = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t);
 
             // Do we need to check header?
             if (image_header_was_checked == false) {
                 esp_app_desc_t new_app_info;
                 
                 // Data read needs to be at least size of header
-                if (data_read > sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t)) {
+                if ( data_read > header_size ) {
                     // check current version with downloading
                     memcpy(&new_app_info, &ota_write_data[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)], sizeof(esp_app_desc_t));
                     ESP_LOGI(TAG, "New firmware version: %s", new_app_info.version);
@@ -218,15 +224,17 @@ static void do_retransmit(const int sock)
                     if (err != ESP_OK) {
                         ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
                         esp_ota_abort(update_handle);
-                        task_fatal_error();
+                        return ;
+                        // task_fatal_error();
                     }
                     ESP_LOGI(TAG, "esp_ota_begin succeeded");
-                } 
+                }
                 
                 else {
-                    ESP_LOGE(TAG, "received package is not fit len");
-                    esp_ota_abort(update_handle);
-                    task_fatal_error();
+                    ESP_LOGW(TAG,"RX %d bytes, min for header is %d bytes", data_read, header_size );
+                    // ESP_LOGE(TAG, "received package is not fit len");
+                    // esp_ota_abort(update_handle);
+                    // task_fatal_error();
                 }
             }
 
@@ -272,7 +280,8 @@ static void do_retransmit(const int sock)
         } else {
             ESP_LOGE(TAG, "esp_ota_end failed (%s)!", esp_err_to_name(err));
         }
-        task_fatal_error();
+        return ;
+        // task_fatal_error();
     }
 
     // // Update boot partition

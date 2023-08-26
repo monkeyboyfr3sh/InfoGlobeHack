@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBox
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 from PyQt5.QtGui import QPalette, QColor
 from qt_material import apply_stylesheet
+import re
 
 from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker
 
@@ -84,9 +85,13 @@ class QtAppWithTabs(QWidget):
         # Get user input
         input_text = self.text_entry_tx_data.text()  # Get text from the input field
         
-        # Convert to hex
-        input_text_without_spaces = input_text.replace(" ", "")
+        # Remove non-hex characters using a regular expression
+        input_text_hex = re.sub(r'[^0-9a-fA-F]', '', input_text)
 
+        # Remove spaces
+        input_text_without_spaces = input_text_hex.replace(" ", "")
+
+        # Convert to hex
         if len(input_text_without_spaces) % 2 == 1:
             input_text_without_spaces = input_text_without_spaces[:-1] + "0" + input_text_without_spaces[-1]
 
