@@ -7,7 +7,7 @@ from PyQt5.QtGui import QPalette, QColor
 from qt_material import apply_stylesheet
 import re
 
-from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker
+from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker
 
 class QtAppWithTabs(QWidget):
     def __init__(self):
@@ -16,6 +16,52 @@ class QtAppWithTabs(QWidget):
         self.tcp_worker = None
         self.tcp_worker_thread = None
 
+    def tcp_worker_finished(self):
+        print("TCP worker finished")
+        self.tcp_worker_thread.quit()
+        self.tcp_worker_thread.wait()
+        self.tcp_worker_thread.deleteLater()
+        self.tcp_worker_thread = None
+        self.tcp_worker = None
+
+    '''
+        Connect Tab Definition
+    '''
+
+    # Initialize the Connect tab UI components
+    def connect_tab_init(self):
+        connect_tab = QWidget()
+        connect_layout = QVBoxLayout(connect_tab)
+
+        connect_label = QLabel("Enter host:")
+        connect_label.setStyleSheet("font-size: 30px;")
+        connect_label.setAlignment(Qt.AlignCenter)
+        self.text_entry_connect = QLineEdit()
+
+        port_label = QLabel("Enter port:")
+        port_label.setStyleSheet("font-size: 30px;")
+        port_label.setAlignment(Qt.AlignCenter)
+        self.port_entry_connect = QLineEdit()
+
+        # Connect the "returnPressed" signal of the port input field to the "connect_button_click" function
+        self.text_entry_connect.returnPressed.connect(self.connect_button_click)
+        self.port_entry_connect.returnPressed.connect(self.connect_button_click)
+
+        self.connect_button = QPushButton('Connect')  # Store the button as an attribute
+        self.connect_button.clicked.connect(self.connect_button_click)
+
+        connect_layout.addWidget(connect_label)
+        connect_layout.addWidget(self.text_entry_connect)
+        connect_layout.addWidget(port_label)
+        connect_layout.addWidget(self.port_entry_connect)
+        connect_layout.addWidget(self.connect_button)  # Add the button to the layout
+        connect_tab.setLayout(connect_layout)
+
+        # Load default host and port from file
+        self.load_host_port()
+
+        return connect_tab
+    
     def connect_button_click(self):
         host = self.text_entry_connect.text()
         port = self.port_entry_connect.text()
@@ -33,7 +79,6 @@ class QtAppWithTabs(QWidget):
 
     # Slot to be called when the connect_success signal is emitted
     @pyqtSlot(int)
-
     def on_connect_status(self, connect_status):
         if(connect_status>=0):
             print("Connection successful!")  # You can add any logic you want here
@@ -46,14 +91,73 @@ class QtAppWithTabs(QWidget):
             print(f"Connect error{connect_status}")
             self.set_connect_box_color('red')
 
-    def tcp_worker_finished(self):
-        print("TCP worker finished")
-        self.tcp_worker_thread.quit()
-        self.tcp_worker_thread.wait()
-        self.tcp_worker_thread.deleteLater()
-        self.tcp_worker_thread = None
-        self.tcp_worker = None
+    def load_host_port(self):
+        try:
+            with open('./python/config.json', 'r') as file:
+                data = json.load(file)
+                self.text_entry_connect.setText(data["host"])
+                self.port_entry_connect.setText(data["port"])
+        except (FileNotFoundError, KeyError, json.JSONDecodeError):
+            # If there's any error reading the file or the required data, 
+            # we can simply pass and continue. This ensures that the application 
+            # doesn't crash if the file doesn't exist yet or if it's malformed.
+            pass
 
+    def save_host_port(self, host, port):
+        with open('./python/config.json', 'w') as file:
+            json.dump({"host": host, "port": port}, file)
+
+    def set_connect_box_color(self, status):
+        palette = self.text_entry_connect.palette()
+        if status == 'green':
+            background_color = QColor(0, 255, 0)  # Green
+        elif status == 'red':
+            background_color = QColor(255, 0, 0)  # Red
+        else:
+            return  # Invalid status, do nothing
+        
+        # Set the background color using a stylesheet
+        self.connect_button.setStyleSheet(f"background-color: {background_color.name()};")
+
+    '''
+        TX Data Tab Definition
+    '''
+
+    # Initialize the Tx Data tab UI components
+    def tx_data_tab_init(self):
+        tx_data_tab = QWidget()
+        tx_data_layout = QVBoxLayout(tx_data_tab)
+
+        tx_data_label = QLabel("Enter Tx Data:")
+        tx_data_label.setStyleSheet("font-size: 45px;")
+        tx_data_label.setAlignment(Qt.AlignCenter)
+
+        options_layout = QHBoxLayout()
+        self.checkbox_option1 = QCheckBox("Blinky Text")
+        self.checkbox_option2 = QCheckBox("Option 2")
+        options_layout.addWidget(self.checkbox_option1)
+        options_layout.addWidget(self.checkbox_option2)
+
+        self.text_entry_tx_data = QLineEdit()
+
+        # Connect the "returnPressed" signal of the Tx data input field to the "send_button_click" function
+        self.text_entry_tx_data.returnPressed.connect(self.send_button_click)
+
+        send_button = QPushButton('Send')
+        send_button.clicked.connect(self.send_button_click)
+
+        send_bytes_button = QPushButton('Send Bytes')  # New "Send Bytes" button
+        send_bytes_button.clicked.connect(self.send_bytes_button_click)  # Connect to appropriate function
+
+        tx_data_layout.addWidget(tx_data_label)
+        tx_data_layout.addLayout(options_layout)
+        tx_data_layout.addWidget(self.text_entry_tx_data)
+        tx_data_layout.addWidget(send_button)
+        tx_data_layout.addWidget(send_bytes_button)  # Add the new button to the layout
+        tx_data_tab.setLayout(tx_data_layout)
+
+        return tx_data_tab
+    
     # Callback function for the Send button click
     def send_button_click(self):
         
@@ -119,103 +223,9 @@ class QtAppWithTabs(QWidget):
         # Clear the field
         self.text_entry_tx_data.setText("")
 
-    def set_connect_box_color(self, status):
-        palette = self.text_entry_connect.palette()
-        if status == 'green':
-            background_color = QColor(0, 255, 0)  # Green
-        elif status == 'red':
-            background_color = QColor(255, 0, 0)  # Red
-        else:
-            return  # Invalid status, do nothing
-        
-        # Set the background color using a stylesheet
-        self.connect_button.setStyleSheet(f"background-color: {background_color.name()};")
-
-    def load_host_port(self):
-        try:
-            with open('./python/config.json', 'r') as file:
-                data = json.load(file)
-                self.text_entry_connect.setText(data["host"])
-                self.port_entry_connect.setText(data["port"])
-        except (FileNotFoundError, KeyError, json.JSONDecodeError):
-            # If there's any error reading the file or the required data, 
-            # we can simply pass and continue. This ensures that the application 
-            # doesn't crash if the file doesn't exist yet or if it's malformed.
-            pass
-
-    def save_host_port(self, host, port):
-        with open('./python/config.json', 'w') as file:
-            json.dump({"host": host, "port": port}, file)
-
-
-    # Initialize the Connect tab UI components
-    def connect_tab_init(self):
-        connect_tab = QWidget()
-        connect_layout = QVBoxLayout(connect_tab)
-
-        connect_label = QLabel("Enter host:")
-        connect_label.setStyleSheet("font-size: 30px;")
-        connect_label.setAlignment(Qt.AlignCenter)
-        self.text_entry_connect = QLineEdit()
-
-        port_label = QLabel("Enter port:")
-        port_label.setStyleSheet("font-size: 30px;")
-        port_label.setAlignment(Qt.AlignCenter)
-        self.port_entry_connect = QLineEdit()
-
-        # Connect the "returnPressed" signal of the port input field to the "connect_button_click" function
-        self.text_entry_connect.returnPressed.connect(self.connect_button_click)
-        self.port_entry_connect.returnPressed.connect(self.connect_button_click)
-
-        self.connect_button = QPushButton('Connect')  # Store the button as an attribute
-        self.connect_button.clicked.connect(self.connect_button_click)
-
-        connect_layout.addWidget(connect_label)
-        connect_layout.addWidget(self.text_entry_connect)
-        connect_layout.addWidget(port_label)
-        connect_layout.addWidget(self.port_entry_connect)
-        connect_layout.addWidget(self.connect_button)  # Add the button to the layout
-        connect_tab.setLayout(connect_layout)
-
-        # Load default host and port from file
-        self.load_host_port()
-
-        return connect_tab
-
-    # Initialize the Tx Data tab UI components
-    def tx_data_tab_init(self):
-        tx_data_tab = QWidget()
-        tx_data_layout = QVBoxLayout(tx_data_tab)
-
-        tx_data_label = QLabel("Enter Tx Data:")
-        tx_data_label.setStyleSheet("font-size: 45px;")
-        tx_data_label.setAlignment(Qt.AlignCenter)
-
-        options_layout = QHBoxLayout()
-        self.checkbox_option1 = QCheckBox("Blinky Text")
-        self.checkbox_option2 = QCheckBox("Option 2")
-        options_layout.addWidget(self.checkbox_option1)
-        options_layout.addWidget(self.checkbox_option2)
-
-        self.text_entry_tx_data = QLineEdit()
-
-        # Connect the "returnPressed" signal of the Tx data input field to the "send_button_click" function
-        self.text_entry_tx_data.returnPressed.connect(self.send_button_click)
-
-        send_button = QPushButton('Send')
-        send_button.clicked.connect(self.send_button_click)
-
-        send_bytes_button = QPushButton('Send Bytes')  # New "Send Bytes" button
-        send_bytes_button.clicked.connect(self.send_bytes_button_click)  # Connect to appropriate function
-
-        tx_data_layout.addWidget(tx_data_label)
-        tx_data_layout.addLayout(options_layout)
-        tx_data_layout.addWidget(self.text_entry_tx_data)
-        tx_data_layout.addWidget(send_button)
-        tx_data_layout.addWidget(send_bytes_button)  # Add the new button to the layout
-        tx_data_tab.setLayout(tx_data_layout)
-
-        return tx_data_tab
+    '''
+        OTA Tab Definition
+    '''
 
     def ota_tab_init(self):
         ota_tab = QWidget()
@@ -227,13 +237,12 @@ class QtAppWithTabs(QWidget):
 
         self.file_path_text = QLineEdit()
 
+        self.file_path_label = QLabel("Selected binary file: ")
         load_file_button = QPushButton('Load File')
         load_file_button.clicked.connect(self.load_file_button_click)  # Connect to the new function
 
-        send_button = QPushButton('Send')
-        send_button.clicked.connect(self.send_button_click)
-
-        self.file_path_label = QLabel("Selected binary file: ")
+        send_button = QPushButton('Send Binary')
+        send_button.clicked.connect(self.send_binary_button_click)
 
         # Now set the layout
         ota_layout.addWidget(ota_label)
@@ -256,6 +265,30 @@ class QtAppWithTabs(QWidget):
         ota_tab.setLayout(ota_layout)
 
         return ota_tab
+    
+    # Callback function for the Send button click
+    def send_binary_button_click(self):
+        
+        # Get user input 
+        binary_file_path = self.file_path_text.text()  # Get text from the input field
+        print(f"Sending file: {binary_file_path}")  # Print the clicked button and input text
+
+        # Now connect!
+        host = self.text_entry_connect.text()
+        port = self.port_entry_connect.text()
+        print(f"Connect button clicked! Host: {host}, Port: {port}")
+
+        if self.tcp_worker_thread is None:
+            self.tcp_worker = TcpOTAtWorker(host, port, binary_file_path)
+            self.tcp_worker_thread = QThread()
+            self.tcp_worker.moveToThread(self.tcp_worker_thread)
+            self.tcp_worker.finished.connect(self.tcp_worker_finished)
+            # Connect the connect_success signal to a slot
+            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
+            self.tcp_worker_thread.start()
+
+        # Clear the field
+        self.text_entry_tx_data.setText("")
 
     def load_file_button_click(self):
         file_dialog = QFileDialog()
