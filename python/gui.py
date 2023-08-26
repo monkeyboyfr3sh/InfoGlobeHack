@@ -1,7 +1,7 @@
 import json
 import sys
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox, QFileDialog, QFrame
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 from PyQt5.QtGui import QPalette, QColor
 from qt_material import apply_stylesheet
@@ -148,34 +148,18 @@ class QtAppWithTabs(QWidget):
             json.dump({"host": host, "port": port}, file)
 
 
-    # Initialize the UI components
-    def init_ui(self):
-
-        self.setWindowTitle("Qt App with Tabs and Buttons")  # Set window title
-        self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Set window icon
-
-        self.resize(600, 400)  # Set initial size of the window
-
-        # Calculate the position to center the window on the screen
-        screen_geometry = QDesktopWidget().screenGeometry()
-        x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
-
-        layout = QVBoxLayout(self)  # Main layout for the entire window
-        tab_widget = QTabWidget()  # Widget to hold tabs
-
-        # Create the Connect tab
+    # Initialize the Connect tab UI components
+    def connect_tab_init(self):
         connect_tab = QWidget()
         connect_layout = QVBoxLayout(connect_tab)
 
         connect_label = QLabel("Enter host:")
-        connect_label.setStyleSheet("font-size: 30px;") 
+        connect_label.setStyleSheet("font-size: 30px;")
         connect_label.setAlignment(Qt.AlignCenter)
         self.text_entry_connect = QLineEdit()
 
         port_label = QLabel("Enter port:")
-        port_label.setStyleSheet("font-size: 30px;") 
+        port_label.setStyleSheet("font-size: 30px;")
         port_label.setAlignment(Qt.AlignCenter)
         self.port_entry_connect = QLineEdit()
 
@@ -196,12 +180,15 @@ class QtAppWithTabs(QWidget):
         # Load default host and port from file
         self.load_host_port()
 
-        # Create the Tx Data tab
+        return connect_tab
+
+    # Initialize the Tx Data tab UI components
+    def tx_data_tab_init(self):
         tx_data_tab = QWidget()
         tx_data_layout = QVBoxLayout(tx_data_tab)
 
         tx_data_label = QLabel("Enter Tx Data:")
-        tx_data_label.setStyleSheet("font-size: 45px;") 
+        tx_data_label.setStyleSheet("font-size: 45px;")
         tx_data_label.setAlignment(Qt.AlignCenter)
 
         options_layout = QHBoxLayout()
@@ -228,24 +215,94 @@ class QtAppWithTabs(QWidget):
         tx_data_layout.addWidget(send_bytes_button)  # Add the new button to the layout
         tx_data_tab.setLayout(tx_data_layout)
 
+        return tx_data_tab
+
+    def ota_tab_init(self):
+        ota_tab = QWidget()
+        ota_layout = QVBoxLayout(ota_tab)
+
+        ota_label = QLabel("Select OTA Binary:")
+        ota_label.setStyleSheet("font-size: 45px;")
+        ota_label.setAlignment(Qt.AlignCenter)
+
+        self.file_path_text = QLineEdit()
+
+        load_file_button = QPushButton('Load File')
+        load_file_button.clicked.connect(self.load_file_button_click)  # Connect to the new function
+
+        send_button = QPushButton('Send')
+        send_button.clicked.connect(self.send_button_click)
+
+        self.file_path_label = QLabel("Selected binary file: ")
+
+        # Now set the layout
+        ota_layout.addWidget(ota_label)
+
+        # Group ota file select
+        ota_file_select_layout = QVBoxLayout()
+        ota_file_select_layout.addWidget(self.file_path_label)  # Add the file path label
+        ota_file_select_layout.addWidget(self.file_path_text)        
+        ota_file_select_layout.addWidget(load_file_button)  # Add the Load File button
+
+        # Add a horizontal line for separation
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        ota_file_select_layout.addWidget(line)
+
+        ota_layout.addLayout(ota_file_select_layout)
+        ota_layout.addWidget(send_button)
+
+        ota_tab.setLayout(ota_layout)
+
+        return ota_tab
+
+    def load_file_button_click(self):
+        file_dialog = QFileDialog()
+        file_path, _ = file_dialog.getOpenFileName()
+        
+        if file_path:
+            self.file_path_text.setText(file_path)
+
+    # Initialize the main UI components
+    def init_ui(self):
+        self.setWindowTitle("Qt App with Tabs and Buttons")  # Set window title
+        self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Set window icon
+
+        self.resize(600, 400)  # Set initial size of the window
+
+        # Calculate the position to center the window on the screen
+        screen_geometry = QDesktopWidget().screenGeometry()
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)
+
+        layout = QVBoxLayout(self)  # Main layout for the entire window
+        tab_widget = QTabWidget()  # Widget to hold tabs
+
+        connect_tab = self.connect_tab_init()  # Initialize the Connect tab
+        tx_data_tab = self.tx_data_tab_init()    # Initialize the Tx Data tab
+        ota_tab = self.ota_tab_init()    # Initialize the OTA tab
+
         tab_widget.addTab(connect_tab, "Connect")  # Add Connect tab to the tab widget
         tab_widget.addTab(tx_data_tab, "Tx Data")  # Add Tx Data tab to the tab widget
+        tab_widget.addTab(ota_tab, "Over-The-Air")  # Add Tx Data tab to the tab widget
 
         layout.addWidget(tab_widget)  # Add tab widget to the main layout
-        self.setLayout(layout)  # Set main layout for the window
+        self.setLayout(layout)  # Set the main layout for the window
         self.show()  # Show the window
 
 
-def load_palette_from_file(file_path):
-    with open(file_path, 'r') as f:
-        palette_data = json.load(f)
+    def load_palette_from_file(file_path):
+        with open(file_path, 'r') as f:
+            palette_data = json.load(f)
 
-    palette = QPalette()
-    for role, color_values in palette_data.items():
-        color = QColor(*color_values)
-        palette.setColor(getattr(QPalette, role), color)
+        palette = QPalette()
+        for role, color_values in palette_data.items():
+            color = QColor(*color_values)
+            palette.setColor(getattr(QPalette, role), color)
 
-    return palette
+        return palette
 
 # Entry point of the program
 if __name__ == '__main__':    
