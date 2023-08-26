@@ -164,7 +164,7 @@ static void do_retransmit(const int sock)
 
     int data_read = 0;
     do {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+        len = recv(sock, (void *)&rx_buffer[data_read], sizeof(rx_buffer) - 1, 0);
         if (len < 0) {
             ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
             return ;
@@ -173,7 +173,7 @@ static void do_retransmit(const int sock)
             ESP_LOGW(TAG, "Connection closed");
         } else {
             rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
+            ESP_LOGI(TAG, "Received %d bytes:", len);
             ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,len,ESP_LOG_INFO);
 
             // Read some data
