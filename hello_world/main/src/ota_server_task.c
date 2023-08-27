@@ -34,6 +34,9 @@
 
 static const char * TAG = "OTA_TASK";
 
+#define BUFFSIZE 256
+#define HASH_LEN 32 /* SHA-256 digest length */
+
 // Prototypes
 static bool is_our_netif(const char *prefix, esp_netif_t *netif);
 static int lookup_ip(char *ip_addr_string_buff);
@@ -46,26 +49,6 @@ static bool is_our_netif(const char *prefix, esp_netif_t *netif)
     return strncmp(prefix, esp_netif_get_desc(netif), strlen(prefix) - 1) == 0;
 }
 
-#define BUFFSIZE 1024
-#define HASH_LEN 32 /* SHA-256 digest length */
-
-/*an ota data write buffer ready to write to the flash*/
-static char ota_write_data[BUFFSIZE + 1] = { 0 };
-extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
-extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
-
-#define OTA_URL_SIZE 256
-
-static void __attribute__((noreturn)) task_fatal_error(void)
-{
-    ESP_LOGE(TAG, "Exiting task due to fatal error...");
-    (void)vTaskDelete(NULL);
-
-    while (1) {
-        ;
-    }
-}
-
 static void print_sha256 (const uint8_t *image_hash, const char *label)
 {
     char hash_print[HASH_LEN * 2 + 1];
@@ -76,21 +59,10 @@ static void print_sha256 (const uint8_t *image_hash, const char *label)
     ESP_LOGI(TAG, "%s: %s", label, hash_print);
 }
 
-static void infinite_loop(void)
-{
-    int i = 0;
-    ESP_LOGI(TAG, "When a new firmware is available on the server, press the reset button to download it");
-    while(1) {
-        ESP_LOGI(TAG, "Waiting for a new firmware ... %d", ++i);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-    }
-}
-
-#define MAX_RX_SIZE 1024
 static void do_retransmit(const int sock)
 {
     int len;
-    char * rx_buffer = malloc(sizeof(char)*MAX_RX_SIZE);
+    char * rx_buffer = malloc(sizeof(char)*BUFFSIZE);
 
     uint8_t sha_256[HASH_LEN] = { 0 };
     esp_partition_t partition;
@@ -167,7 +139,7 @@ static void do_retransmit(const int sock)
 
     int data_read = 0;
     do {
-        len = recv(sock, (void *)&rx_buffer[data_read], sizeof(rx_buffer), 0);
+        len = recv(sock, (void *)&rx_buffer[data_read], BUFFSIZE, 0);
         if (len < 0) {
             ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
             free(rx_buffer);
@@ -176,8 +148,8 @@ static void do_retransmit(const int sock)
         } else if (len == 0) {
             ESP_LOGW(TAG, "Connection closed");
         } else {
-            ESP_LOGI(TAG, "Received %d bytes:", len);
-            ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,len,ESP_LOG_INFO);
+            // ESP_LOGI(TAG, "Received %d bytes:", len);
+            // ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,len,ESP_LOG_INFO);
 
             // Read some data
             data_read += len;
@@ -190,11 +162,8 @@ static void do_retransmit(const int sock)
                 // Data read needs to be at least size of header
                 if ( data_read > header_size ) {
                     
-                    // Copy read data into write buffer
-                    memcpy(ota_write_data,rx_buffer,data_read);
-
                     // check current version with downloading
-                    memcpy(&new_app_info, &ota_write_data[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)], sizeof(esp_app_desc_t));
+                    memcpy(&new_app_info, &rx_buffer[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)], sizeof(esp_app_desc_t));
                     ESP_LOGI(TAG, "New firmware version: %s", new_app_info.version);
 
                     esp_app_desc_t running_app_info;
@@ -214,7 +183,8 @@ static void do_retransmit(const int sock)
                             ESP_LOGW(TAG, "New version is the same as invalid version.");
                             ESP_LOGW(TAG, "Previously, there was an attempt to launch the firmware with %s version, but it failed.", invalid_app_info.version);
                             ESP_LOGW(TAG, "The firmware has been rolled back to the previous version.");
-                            infinite_loop();
+                            free(rx_buffer);
+                            return ;
                         }
                     }
 
@@ -249,11 +219,8 @@ static void do_retransmit(const int sock)
             // Header has been checked, can use data
             else {
 
-                // Copy read data into write buffer
-                memcpy(ota_write_data,rx_buffer,data_read);
-
                 // Write data to the partition
-                err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
+                err = esp_ota_write( update_handle, (const void *)rx_buffer, data_read);
                 if (err != ESP_OK) {
                     esp_ota_abort(update_handle);
                     free(rx_buffer);

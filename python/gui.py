@@ -245,7 +245,7 @@ class QtAppWithTabs(QWidget):
         send_button.clicked.connect(self.send_binary_button_click)
 
         # Inside your existing code
-        progress_bar = QProgressBar()
+        self.progress_bar = QProgressBar()
 
         # Now set the layout
         ota_layout.addWidget(ota_label)
@@ -259,7 +259,7 @@ class QtAppWithTabs(QWidget):
         ota_layout.addLayout(ota_file_select_layout)  # Add the horizontal layout
         ota_layout.addWidget(send_button)
 
-        ota_layout.addWidget(progress_bar)
+        ota_layout.addWidget(self.progress_bar)
 
         ota_tab.setLayout(ota_layout)
 
@@ -284,6 +284,7 @@ class QtAppWithTabs(QWidget):
             self.tcp_worker_thread = QThread()
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
+            self.tcp_worker.progress_percent.connect(self.progress_percent_update)
             # Connect the connect_success signal to a slot
             self.tcp_worker_thread.started.connect(self.tcp_worker.run)
             self.tcp_worker_thread.start()
@@ -294,6 +295,13 @@ class QtAppWithTabs(QWidget):
         
         if file_path:
             self.file_path_text.setText(file_path)
+
+    @pyqtSlot(float)
+    def progress_percent_update(self, percent):
+        print(f"Percent = {percent}",end='\r')
+        # Update the progress bar value based on your progress
+        progress = int(percent * 100)
+        self.progress_bar.setValue(progress)
 
     # Initialize the main UI components
     def init_ui(self):
