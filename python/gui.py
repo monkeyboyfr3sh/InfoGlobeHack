@@ -229,40 +229,37 @@ class QtAppWithTabs(QWidget):
     '''
 
     def ota_tab_init(self):
-        ota_tab = QWidget()
-        ota_layout = QVBoxLayout(ota_tab)
+        ota_tab = QWidget()  # Create the tab widget
+        ota_layout = QVBoxLayout(ota_tab)  # Create the main layout for the tab
 
         ota_label = QLabel("Select OTA Binary:")
         ota_label.setStyleSheet("font-size: 45px;")
         ota_label.setAlignment(Qt.AlignCenter)
 
-        self.file_path_text = QLineEdit()
+        self.file_path_text = QLineEdit()  # Create the line edit widget for file path input
 
         self.file_path_label = QLabel("Selected binary file: ")
         load_file_button = QPushButton('Load File')
-        load_file_button.clicked.connect(self.load_file_button_click)  # Connect to the new function
+        load_file_button.clicked.connect(self.load_file_button_click)  # Connect to the load file function
 
         send_button = QPushButton('Send Binary')
-        send_button.clicked.connect(self.send_binary_button_click)
+        send_button.clicked.connect(self.send_binary_button_click)  # Connect to the send binary function
 
-        # Inside your existing code
-        self.progress_bar = QProgressBar()
+        self.progress_bar = QProgressBar(ota_tab)
 
-        # Now set the layout
+        # Group ota file select widgets in a horizontal layout
+        ota_file_layout = QHBoxLayout()
+        ota_file_layout.addWidget(self.file_path_label)
+        ota_file_layout.addWidget(self.file_path_text)
+        ota_file_layout.addWidget(load_file_button)
+
+        # Add all widgets and layouts to the main layout
         ota_layout.addWidget(ota_label)
-
-        # Group ota file select
-        ota_file_select_layout = QHBoxLayout()  # Use QHBoxLayout for horizontal arrangement
-        ota_file_select_layout.addWidget(self.file_path_label)  # Add the file path label
-        ota_file_select_layout.addWidget(self.file_path_text)
-        ota_file_select_layout.addWidget(load_file_button)  # Add the Load File button
-
-        ota_layout.addLayout(ota_file_select_layout)  # Add the horizontal layout
+        ota_layout.addLayout(ota_file_layout)
         ota_layout.addWidget(send_button)
-
         ota_layout.addWidget(self.progress_bar)
 
-        ota_tab.setLayout(ota_layout)
+        ota_tab.setLayout(ota_layout)  # Set the main layout for the tab
 
         return ota_tab
 
@@ -304,8 +301,9 @@ class QtAppWithTabs(QWidget):
         # Update the progress bar value based on your progress
         progress = int(percent * 100)
         self.progress_bar.setValue(progress)
-        # Update the progress text in the format "XX%"" inside the progress bar
-        self.progress_bar.setFormat(f"{progress}%")
+        
+        # Force the progress bar to repaint to immediately show the changes
+        QApplication.processEvents()
 
     # Initialize the main UI components
     def init_ui(self):
