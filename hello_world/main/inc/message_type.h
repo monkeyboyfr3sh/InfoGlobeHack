@@ -13,6 +13,7 @@
 #include "freertos/queue.h"
 
 // Data Prototypes
+// TODO: Should create union of message types. Some can be internal trigger for animation layer, others can be direct msg push to display
 typedef struct {
     size_t size;
     uint8_t *buffer;

@@ -16,6 +16,7 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "protocol_examples_common.h"
+#include "string.h"
 
 #include "lwip/err.h"
 #include "lwip/sockets.h"
@@ -138,6 +139,9 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
     bool image_header_was_checked = false;
     const size_t header_size = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t);
     int data_read = 0;
+    TickType_t ota_start_time = xTaskGetTickCount();
+    TickType_t ota_status_print_time = xTaskGetTickCount();
+    int display_percent = 0;
 
     /*deal with all receive packet*/
     do {
@@ -209,11 +213,14 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
                     }
                     ESP_LOGI(TAG, "esp_ota_begin succeeded");
 
-                    // Show update on display
+                    // Time when OTA really started
+                    ota_start_time = xTaskGetTickCount();
+
+                    // Show update start on display
                     const char *ota_start_msg = "< Starting OTA >";
                     string_with_blink_shift(display_queue,
                         ota_start_msg, strlen(ota_start_msg),
-                        strlen(ota_start_msg)-1, strlen(ota_start_msg)-1);
+                        strlen(ota_start_msg)+2, strlen(ota_start_msg)+2);
                 }
                 
                 else {
@@ -226,8 +233,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
 
             // Header has been checked, can use data
             else {
-                // ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,data_read, ESP_LOG_INFO);
-                // Write data to the partition
+
                 err = esp_ota_write( update_handle, (const void *)rx_buffer, data_read);
                 if (err != ESP_OK) {
                     esp_ota_abort(update_handle);
@@ -239,6 +245,24 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
                 binary_file_length += data_read;
                 data_read = 0;
                 ESP_LOGD(TAG, "Written image length %d", binary_file_length);
+            
+
+                // After time, start showing percent progress
+                if( xTaskGetTickCount()-ota_start_time > pdMS_TO_TICKS(8000)) {
+
+                    if( xTaskGetTickCount()-ota_status_print_time > pdMS_TO_TICKS(1000) )
+                    {
+                        ota_status_print_time = xTaskGetTickCount();
+                        int runtime = (int)( ( pdTICKS_TO_MS( xTaskGetTickCount()-ota_start_time ) / 1000 ) );
+                        // Update Display
+                        char progress_msg[128] = {0};
+                        snprintf(progress_msg,sizeof(progress_msg),"Updating... (%ds)", runtime);
+                        string_with_blink_shift(display_queue,
+                            progress_msg, strlen(progress_msg),
+                            0, strlen(progress_msg)+4);
+                    }
+
+                }
             }
             
             // Send an ACK
@@ -272,6 +296,12 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
     ESP_LOGI(TAG, "Prepare to restart system!");
     for(int i = 3;i>0;i--){
         ESP_LOGI(TAG,"Restarting in %d...",i);
+        // Update Display
+        char reboot_msg[128] = {0};
+        snprintf(reboot_msg,sizeof(reboot_msg),"Reboot in %d", i);
+        string_with_blink_shift(display_queue,
+            reboot_msg, strlen(reboot_msg),
+            0, strlen(reboot_msg));
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
     esp_restart();

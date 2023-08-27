@@ -46,7 +46,8 @@
 			"ota_server_task.h": "c",
 			"gpio.h": "c",
 			"nvs.h": "c",
-			"param.h": "c"
+			"param.h": "c",
+			"*.inc": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

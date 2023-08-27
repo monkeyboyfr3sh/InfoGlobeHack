@@ -1,8 +1,8 @@
 import json
 import sys
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox, QFileDialog, QFrame, QProgressBar
-from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox, QFileDialog, QFrame, QProgressBar, QStyleFactory
+from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread, QFile
 from PyQt5.QtGui import QPalette, QColor
 from qt_material import apply_stylesheet
 import re
@@ -10,7 +10,7 @@ import re
 from file_helper import get_file_total_bytes
 from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker
 
-class QtAppWithTabs(QWidget):
+class InfoGlobeCC(QWidget):
     def __init__(self):
         super().__init__()
         self.init_ui()  # Initialize the UI components
@@ -345,11 +345,40 @@ class QtAppWithTabs(QWidget):
 
         return palette
 
-# Entry point of the program
-if __name__ == '__main__':    
-    app = QApplication(sys.argv)
-    apply_stylesheet(app, theme='light_blue.xml')  # Applying the Material style
+def set_dark_fusion_style():
+    app.setStyle("Fusion")
     
+    # Load the QSS file
+    qss_file = QFile("./python/custom_qstyle.qss")
+    qss_file.open(QFile.ReadOnly | QFile.Text)
+    qss = qss_file.readAll()
+    qss = bytes(qss).decode("utf-8")
+    app.setStyleSheet(qss)  # Apply the loaded QSS to the application
+    
+    # palette = QPalette()
+    
+    # # Set dark background color
+    # palette.setColor(QPalette.Window, QColor(53, 53, 53))
+    # palette.setColor(QPalette.WindowText, Qt.white)
+    
+    # # Set dark foreground color
+    # palette.setColor(QPalette.Button, QColor(53, 53, 53))
+    # palette.setColor(QPalette.ButtonText, Qt.white)
+    
+    # app.setPalette(palette)
 
-    qt_app = QtAppWithTabs()  # Create an instance of the QtAppWithTabs class
+# Entry point of the program
+if __name__ == '__main__':  
+    print("Available Styles:", QStyleFactory.keys())
+
+    app = QApplication(sys.argv)
+
+    # Use style sheets
+    # apply_stylesheet(app, theme='light_blue.xml')  # Applying the Material style
+    # apply_stylesheet(app, theme='dark_blue.xml')  # Applying the Material style
+
+    # Set the Fusion style
+    set_dark_fusion_style()
+
+    qt_app = InfoGlobeCC()  # Create an instance of the InfoGlobeCC class
     sys.exit(app.exec_())  # Execute the application event loop and handle exit

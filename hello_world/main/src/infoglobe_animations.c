@@ -49,13 +49,13 @@ void run_boot_animation(QueueHandle_t display_queue, uint32_t animation_dur_ms)
     const char *boot_msg = "< Booting >";
     string_with_blink_shift(display_queue,
         boot_msg, strlen(boot_msg),
-        0x0C, strlen(boot_msg)-1);
+        0x0C, strlen(boot_msg));
     vTaskDelay(pdMS_TO_TICKS(animation_dur_ms/2));
 
-    const char *fw_version = "Ver: 0.4";
+    const char *fw_version = "Ver: 0.5";
     string_with_blink_shift(display_queue,
         fw_version, strlen(fw_version),
-        0x00, strlen(fw_version)-1);
+        0x00, strlen(fw_version));
     vTaskDelay(pdMS_TO_TICKS(animation_dur_ms/2));
 }
 
