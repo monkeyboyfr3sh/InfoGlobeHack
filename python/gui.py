@@ -290,6 +290,13 @@ class InfoGlobeCC(QWidget):
             self.tcp_worker_thread.started.connect(self.tcp_worker.run)
             self.tcp_worker_thread.start()
 
+        # TODO: Need to make soem constructor method, and get the start like this
+        # if(thread not exist)
+            # create tcp worker
+            # connect worker signals
+            # thread constructor method with optional auto start
+
+
     def load_file_button_click(self):
         file_dialog = QFileDialog()
         file_path, _ = file_dialog.getOpenFileName()

@@ -35,15 +35,27 @@ class TcpWorkerBase(QObject):
             self.connect_status.emit(-2)
             return None
 
+    def perform_task(self, globe : InfoGlobeController):
+
+        # Do work!
+        pass
+
     @pyqtSlot()
     def run(self):
-        
+
         # Connect to the globe
         globe = self.connect_to_globe()
+
+        # Could not connect to the globe
         if globe is None:
             print(f"Failed to connect to globe @ {self.host}:{self.port}")
 
-        # Exit
+        # Succesful connect
+        else:
+            # Perform task
+            self.perform_task(globe)
+        
+        #  Indicate exit
         self.finished.emit()
 
 class TcpConnectWorker(TcpWorkerBase):
@@ -56,26 +68,18 @@ class TcpTextWorker(TcpWorkerBase):
         self.message = message
         self.blinky_enable = blinky_enable
 
-    @pyqtSlot()
-    def run(self):
+    def perform_task(self, globe : InfoGlobeController):
         
-        # Connect to the globe
-        globe = self.connect_to_globe()
-        if globe is not None:
-            msg = f"{self.message}"
-            blink_idx = len(msg)+1 if self.blinky_enable else 0
-            shift_idx = len(msg)
+        # Successful connect
+        msg = f"{self.message}"
+        blink_idx = len(msg)+1 if self.blinky_enable else 0
+        shift_idx = len(msg)
 
-            tx_data = bytes([0x05,0x00])
-            tx_data += msg.encode()
-            tx_data += bytes([0x0])
-            tx_data += bytes([blink_idx,shift_idx])
-            globe.send_bytes(tx_data)
-        else:
-            print(f"Failed to connect to globe @ {self.host}:{self.port}")
-
-        # Exit
-        self.finished.emit()
+        tx_data = bytes([0x05,0x00])
+        tx_data += msg.encode()
+        tx_data += bytes([0x0])
+        tx_data += bytes([blink_idx,shift_idx])
+        globe.send_bytes(tx_data)
 
 class TcpRawByteWorker(TcpWorkerBase):
 
@@ -83,20 +87,11 @@ class TcpRawByteWorker(TcpWorkerBase):
         super().__init__(host,port)
         self.byte_buffer = byte_buffer
 
-    @pyqtSlot()
-    def run(self):
+    def perform_task(self, globe : InfoGlobeController):
 
-        # Connect to the globe
-        globe = self.connect_to_globe()
-        if globe is not None:
-            tx_data = bytes(self.byte_buffer)
-            globe.send_bytes(tx_data)
-        else:
-            print(f"Failed to connect to globe @ {self.host}:{self.port}")
-
-
-        # Simulate some work
-        self.finished.emit()
+        # Successful connect
+        tx_data = bytes(self.byte_buffer)
+        globe.send_bytes(tx_data)
 
 class TcpOTAtWorker(TcpWorkerBase):
     progress_percent = pyqtSignal(float)
@@ -107,18 +102,7 @@ class TcpOTAtWorker(TcpWorkerBase):
         self.binary_size = get_file_total_bytes(self.binary_file_path)
         self.chunk_size = chunk_size
 
-    @pyqtSlot()
-    def run(self):
-        
-        # Connect to the globe
-        globe = self.connect_to_globe()
-        if globe is None:
-            print(f"Failed to connect to globe @ {self.host}:{self.port}")
-            tx_data = bytes(self.byte_buffer)
-            globe.send_bytes(tx_data)
-            # Simulate some work
-            self.finished.emit()
-            return
+    def perform_task(self, globe : InfoGlobeController):
         
         # Inside the run method after the connection is established
         try:
@@ -148,5 +132,3 @@ class TcpOTAtWorker(TcpWorkerBase):
             print("Binary file not found.")
         except Exception as err:
             print("An error occurred while reading and sending data:", err)
-
-        self.finished.emit()
