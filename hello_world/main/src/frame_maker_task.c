@@ -14,7 +14,7 @@
 
 #include "message_type.h"
 #include "sntp_helper.h"
-#include "animations.h"
+#include "infoglobe_animations.h"
 
 #include "tcp_server_task.h"
 #include "ota_server_task.h"

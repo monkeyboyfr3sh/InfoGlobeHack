@@ -38,14 +38,15 @@
 			"frame_maker_task.h": "c",
 			"stdio.h": "c",
 			"nvs_flash.h": "c",
-			"animations.h": "c",
+			"infoglobe_animations.h": "c",
 			"sntp_helper.h": "c",
 			"stdlib.h": "c",
 			"_locale.h": "c",
 			"ota_service.h": "c",
 			"ota_server_task.h": "c",
 			"gpio.h": "c",
-			"nvs.h": "c"
+			"nvs.h": "c",
+			"param.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

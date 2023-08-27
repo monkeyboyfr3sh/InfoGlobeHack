@@ -29,6 +29,7 @@
 #include "driver/gpio.h"
 #include "errno.h"
 
+#include "infoglobe_animations.h"
 #include "message_type.h"
 #include "sntp_helper.h"
 
@@ -59,7 +60,7 @@ static void print_sha256 (const uint8_t *image_hash, const char *label)
     ESP_LOGI(TAG, "%s: %s", label, hash_print);
 }
 
-static void do_retransmit(const int sock)
+static void do_retransmit(const int sock, QueueHandle_t display_queue)
 {
     int len;
     char * rx_buffer = malloc(sizeof(char)*BUFFSIZE);
@@ -207,6 +208,12 @@ static void do_retransmit(const int sock)
                         // task_fatal_error();
                     }
                     ESP_LOGI(TAG, "esp_ota_begin succeeded");
+
+                    // Show update on display
+                    const char *ota_start_msg = "< Starting OTA >";
+                    string_with_blink_shift(display_queue,
+                        ota_start_msg, strlen(ota_start_msg),
+                        strlen(ota_start_msg)-1, strlen(ota_start_msg)-1);
                 }
                 
                 else {
@@ -396,7 +403,7 @@ static bool diagnostic(void)
 void ota_server_task(void *pvParameters)
 {
     // Grab queue
-    // QueueHandle_t display_queue = (QueueHandle_t)(pvParameters);
+    QueueHandle_t display_queue = (QueueHandle_t)(pvParameters);
 
     const int ota_port = 22222;
 
@@ -430,7 +437,7 @@ void ota_server_task(void *pvParameters)
         sock = listen_for_client(listen_sock,addr_str);
         
         // Host session
-        do_retransmit(sock);
+        do_retransmit(sock, display_queue);
 
         // Cleanup
         shutdown(sock, 0);

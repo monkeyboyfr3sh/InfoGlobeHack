@@ -1,3 +1,12 @@
+// #include "infoglobe_animations.h"
+/**
+ * //FIXME: 
+ *  - Including this breaks build.
+ *  = Maybe circular include?
+ *  - Maybe try using traditional IFNDEF header
+ * 
+*/
+
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
