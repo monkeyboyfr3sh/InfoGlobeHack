@@ -39,7 +39,7 @@ void frame_maker_task(void *pvParameters)
     wait_for_time_sync();
 
     // Create OTA server thread
-    xTaskCreate(ota_server_task, "ota_server_task", 4096, NULL, 5, NULL);
+    xTaskCreate(ota_server_task, "ota_server_task", 4096, (void*)display_queue, 5, NULL);
     
     TickType_t ani_1_tick = xTaskGetTickCount();
     TickType_t ani_2_tick = xTaskGetTickCount();
