@@ -233,8 +233,8 @@ class InfoGlobeCC(QWidget):
         ota_layout = QVBoxLayout(ota_tab)  # Create the main layout for the tab
 
         ota_label = QLabel("Select OTA Binary:")
-        ota_label.setStyleSheet("font-size: 45px;")
         ota_label.setAlignment(Qt.AlignCenter)
+        ota_label.setStyleSheet("font-size: 45px;")
 
         self.file_path_text = QLineEdit()  # Create the line edit widget for file path input
 
@@ -244,6 +244,7 @@ class InfoGlobeCC(QWidget):
 
         send_button = QPushButton('Send Binary')
         send_button.clicked.connect(self.send_binary_button_click)  # Connect to the send binary function
+        
 
         self.progress_bar = QProgressBar(ota_tab)
 
@@ -354,18 +355,6 @@ def set_dark_fusion_style():
     qss = qss_file.readAll()
     qss = bytes(qss).decode("utf-8")
     app.setStyleSheet(qss)  # Apply the loaded QSS to the application
-    
-    # palette = QPalette()
-    
-    # # Set dark background color
-    # palette.setColor(QPalette.Window, QColor(53, 53, 53))
-    # palette.setColor(QPalette.WindowText, Qt.white)
-    
-    # # Set dark foreground color
-    # palette.setColor(QPalette.Button, QColor(53, 53, 53))
-    # palette.setColor(QPalette.ButtonText, Qt.white)
-    
-    # app.setPalette(palette)
 
 # Entry point of the program
 if __name__ == '__main__':  
@@ -373,11 +362,7 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
 
-    # Use style sheets
-    # apply_stylesheet(app, theme='light_blue.xml')  # Applying the Material style
-    # apply_stylesheet(app, theme='dark_blue.xml')  # Applying the Material style
-
-    # Set the Fusion style
+    # Custom Dark Fusion Inspired
     set_dark_fusion_style()
 
     qt_app = InfoGlobeCC()  # Create an instance of the InfoGlobeCC class

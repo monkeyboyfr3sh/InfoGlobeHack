@@ -8,6 +8,8 @@ QWidget {
     selection-background-color: #1E90FF;
     selection-color: white;
     border: 0px solid #454545;
+    text-align: center;
+    font-size: 15px;
 }
 
 QPushButton {
