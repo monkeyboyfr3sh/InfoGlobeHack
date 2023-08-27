@@ -5,6 +5,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 
+from file_helper import get_file_total_bytes
 from tcp_client import InfoGlobeController
 
 def globe_action(globe: InfoGlobeController):
@@ -139,7 +140,7 @@ class TcpOTAtWorker(QObject):
         self.host = host
         self.port = port
         self.binary_file_path = binary_file_path
-        self.binary_size = self.get_file_total_bytes(self.binary_file_path)
+        self.binary_size = get_file_total_bytes(self.binary_file_path)
         self.chunk_size = chunk_size
 
     @pyqtSlot()
@@ -152,17 +153,27 @@ class TcpOTAtWorker(QObject):
 
             # Inside the run method after the connection is established
             try:
+                total_tx_size = 0
                 with open(self.binary_file_path, 'rb') as binary_file:
 
                     while True:
                         chunk = binary_file.read(self.chunk_size)  # Define 'chunk_size' appropriately
+                        total_tx_size += len(chunk)
                         if not chunk:
                             break  # No more data to send
 
                         globe.send_bytes(chunk)  # Use the appropriate method to send data
 
                         # Update percentage
-                        self.progress_percent.emit(len(chunk)/self.binary_size)
+                        self.progress_percent.emit(total_tx_size/self.binary_size)
+
+                        # TODO: Need to check for ACK/NACK
+                        data = globe.s.recv(1024)
+                        # if not data:
+                        #     print("got empty data, exiting")
+                        # else:
+                        #     print("Received: ",end='')
+                        #     print(data)
 
             except FileNotFoundError:
                 print("Binary file not found.")
@@ -179,9 +190,3 @@ class TcpOTAtWorker(QObject):
 
         # Simulate some work
         self.finished.emit()
-
-    def get_file_total_bytes(self, file_path):
-        total_bytes = 0
-        with open(file_path, 'rb') as binary_file:
-            total_bytes = len(binary_file.read())
-        return total_bytes

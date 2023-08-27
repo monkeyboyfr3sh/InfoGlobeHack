@@ -34,7 +34,7 @@
 
 static const char * TAG = "OTA_TASK";
 
-#define BUFFSIZE 256
+#define BUFFSIZE 8192
 #define HASH_LEN 32 /* SHA-256 digest length */
 
 // Prototypes
@@ -134,12 +134,13 @@ static void do_retransmit(const int sock)
 
     int binary_file_length = 0;
 
-    /*deal with all receive packet*/
     bool image_header_was_checked = false;
-
+    const size_t header_size = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t);
     int data_read = 0;
+
+    /*deal with all receive packet*/
     do {
-        len = recv(sock, (void *)&rx_buffer[data_read], BUFFSIZE, 0);
+        len = recv(sock, (void *)&rx_buffer[data_read], (BUFFSIZE-data_read), 0);
         if (len < 0) {
             ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
             free(rx_buffer);
@@ -153,14 +154,14 @@ static void do_retransmit(const int sock)
 
             // Read some data
             data_read += len;
-            const size_t header_size = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t);
 
             // Do we need to check header?
             if (image_header_was_checked == false) {
-                esp_app_desc_t new_app_info;
                 
                 // Data read needs to be at least size of header
                 if ( data_read > header_size ) {
+                    
+                    esp_app_desc_t new_app_info;
                     
                     // check current version with downloading
                     memcpy(&new_app_info, &rx_buffer[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)], sizeof(esp_app_desc_t));
@@ -218,7 +219,7 @@ static void do_retransmit(const int sock)
 
             // Header has been checked, can use data
             else {
-
+                // ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,data_read, ESP_LOG_INFO);
                 // Write data to the partition
                 err = esp_ota_write( update_handle, (const void *)rx_buffer, data_read);
                 if (err != ESP_OK) {
@@ -233,23 +234,11 @@ static void do_retransmit(const int sock)
                 ESP_LOGD(TAG, "Written image length %d", binary_file_length);
             }
             
-            // send() can return less bytes than supplied length.
-            // Walk-around for robust implementation.
-            int to_write = len;
-            while (to_write > 0) {
-                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
-                if (written < 0) {
-                    ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-                    // Failed to retransmit, giving up
-                    free(rx_buffer);
-                    return;
-                }
-                to_write -= written;
-            }
+            // Send an ACK
+            char * ack_buff = "OK";
+            int written = send(sock, ack_buff, strlen(ack_buff), 0);
         }
     } while (len > 0);
-
-
 
     ESP_LOGI(TAG, "Total Write binary data length: %d", binary_file_length);
 
@@ -266,14 +255,19 @@ static void do_retransmit(const int sock)
         // task_fatal_error();
     }
 
-    // // Update boot partition
-    // err = esp_ota_set_boot_partition(update_partition);
-    // if (err != ESP_OK) {
-    //     ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
-    //     task_fatal_error();
-    // }
-    // ESP_LOGI(TAG, "Prepare to restart system!");
-    // esp_restart();
+    // Update boot partition
+    err = esp_ota_set_boot_partition(update_partition);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
+        free(rx_buffer);
+        return ;
+    }
+    ESP_LOGI(TAG, "Prepare to restart system!");
+    for(int i = 3;i>0;i--){
+        ESP_LOGI(TAG,"Restarting in %d...",i);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    esp_restart();
     free(rx_buffer);
     return ;
 }

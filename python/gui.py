@@ -7,6 +7,7 @@ from PyQt5.QtGui import QPalette, QColor
 from qt_material import apply_stylesheet
 import re
 
+from file_helper import get_file_total_bytes
 from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker
 
 class QtAppWithTabs(QWidget):
@@ -276,8 +277,10 @@ class QtAppWithTabs(QWidget):
         # Now connect!
         host = self.text_entry_connect.text()
         port = self.port_entry_connect.text()
-        chunk_size = 1024
-        print(f"Connect button clicked! Host: {host}, Port: {port}. Chunk size: {chunk_size}")
+        chunk_size = 4096
+        file_size = get_file_total_bytes(binary_file_path)
+        print(f"Connect button clicked! Host: {host}, Port: {port}")
+        print(f"File Size: {file_size}, Chunk Size: {chunk_size}")
 
         if self.tcp_worker_thread is None:
             self.tcp_worker = TcpOTAtWorker(host, port, binary_file_path, chunk_size)
@@ -298,17 +301,18 @@ class QtAppWithTabs(QWidget):
 
     @pyqtSlot(float)
     def progress_percent_update(self, percent):
-        print(f"Percent = {percent}",end='\r')
         # Update the progress bar value based on your progress
         progress = int(percent * 100)
         self.progress_bar.setValue(progress)
+        # Update the progress text in the format "XX%"" inside the progress bar
+        self.progress_bar.setFormat(f"{progress}%")
 
     # Initialize the main UI components
     def init_ui(self):
-        self.setWindowTitle("Qt App with Tabs and Buttons")  # Set window title
+        self.setWindowTitle("InfoGlobe Command Center")  # Set window title
         self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Set window icon
 
-        self.resize(700, 400)  # Set initial size of the window
+        self.resize(800, 400)  # Set initial size of the window
 
         # Calculate the position to center the window on the screen
         screen_geometry = QDesktopWidget().screenGeometry()
