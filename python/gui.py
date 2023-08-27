@@ -1,7 +1,7 @@
 import json
 import sys
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox, QFileDialog, QFrame
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox, QFileDialog, QFrame, QProgressBar
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread
 from PyQt5.QtGui import QPalette, QColor
 from qt_material import apply_stylesheet
@@ -244,27 +244,27 @@ class QtAppWithTabs(QWidget):
         send_button = QPushButton('Send Binary')
         send_button.clicked.connect(self.send_binary_button_click)
 
+        # Inside your existing code
+        progress_bar = QProgressBar()
+
         # Now set the layout
         ota_layout.addWidget(ota_label)
 
         # Group ota file select
-        ota_file_select_layout = QVBoxLayout()
+        ota_file_select_layout = QHBoxLayout()  # Use QHBoxLayout for horizontal arrangement
         ota_file_select_layout.addWidget(self.file_path_label)  # Add the file path label
-        ota_file_select_layout.addWidget(self.file_path_text)        
+        ota_file_select_layout.addWidget(self.file_path_text)
         ota_file_select_layout.addWidget(load_file_button)  # Add the Load File button
 
-        # Add a horizontal line for separation
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-        ota_file_select_layout.addWidget(line)
-
-        ota_layout.addLayout(ota_file_select_layout)
+        ota_layout.addLayout(ota_file_select_layout)  # Add the horizontal layout
         ota_layout.addWidget(send_button)
+
+        ota_layout.addWidget(progress_bar)
 
         ota_tab.setLayout(ota_layout)
 
         return ota_tab
+
     
     # Callback function for the Send button click
     def send_binary_button_click(self):
@@ -276,19 +276,17 @@ class QtAppWithTabs(QWidget):
         # Now connect!
         host = self.text_entry_connect.text()
         port = self.port_entry_connect.text()
-        print(f"Connect button clicked! Host: {host}, Port: {port}")
+        chunk_size = 1024
+        print(f"Connect button clicked! Host: {host}, Port: {port}. Chunk size: {chunk_size}")
 
         if self.tcp_worker_thread is None:
-            self.tcp_worker = TcpOTAtWorker(host, port, binary_file_path)
+            self.tcp_worker = TcpOTAtWorker(host, port, binary_file_path, chunk_size)
             self.tcp_worker_thread = QThread()
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
             # Connect the connect_success signal to a slot
             self.tcp_worker_thread.started.connect(self.tcp_worker.run)
             self.tcp_worker_thread.start()
-
-        # Clear the field
-        self.text_entry_tx_data.setText("")
 
     def load_file_button_click(self):
         file_dialog = QFileDialog()
@@ -302,7 +300,7 @@ class QtAppWithTabs(QWidget):
         self.setWindowTitle("Qt App with Tabs and Buttons")  # Set window title
         self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Set window icon
 
-        self.resize(600, 400)  # Set initial size of the window
+        self.resize(700, 400)  # Set initial size of the window
 
         # Calculate the position to center the window on the screen
         screen_geometry = QDesktopWidget().screenGeometry()

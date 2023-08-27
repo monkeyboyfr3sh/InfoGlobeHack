@@ -86,10 +86,11 @@ static void infinite_loop(void)
     }
 }
 
+#define MAX_RX_SIZE 1024
 static void do_retransmit(const int sock)
 {
     int len;
-    char rx_buffer[128];
+    char * rx_buffer = malloc(sizeof(char)*MAX_RX_SIZE);
 
     uint8_t sha_256[HASH_LEN] = { 0 };
     esp_partition_t partition;
@@ -136,6 +137,7 @@ static void do_retransmit(const int sock)
     ESP_LOGI(TAG,"Getting boot partition");
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     if (configured == NULL){
+        free(rx_buffer);
         return ;
         // task_fatal_error();
     }
@@ -151,6 +153,7 @@ static void do_retransmit(const int sock)
     ESP_LOGI(TAG,"Getting update partition");
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL){
+        free(rx_buffer);
         return ;
         // task_fatal_error();
     }
@@ -164,15 +167,15 @@ static void do_retransmit(const int sock)
 
     int data_read = 0;
     do {
-        len = recv(sock, (void *)&rx_buffer[data_read], sizeof(rx_buffer) - 1, 0);
+        len = recv(sock, (void *)&rx_buffer[data_read], sizeof(rx_buffer), 0);
         if (len < 0) {
             ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
+            free(rx_buffer);
             return ;
             // task_fatal_error();
         } else if (len == 0) {
             ESP_LOGW(TAG, "Connection closed");
         } else {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
             ESP_LOGI(TAG, "Received %d bytes:", len);
             ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,len,ESP_LOG_INFO);
 
@@ -186,6 +189,10 @@ static void do_retransmit(const int sock)
                 
                 // Data read needs to be at least size of header
                 if ( data_read > header_size ) {
+                    
+                    // Copy read data into write buffer
+                    memcpy(ota_write_data,rx_buffer,data_read);
+
                     // check current version with downloading
                     memcpy(&new_app_info, &ota_write_data[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)], sizeof(esp_app_desc_t));
                     ESP_LOGI(TAG, "New firmware version: %s", new_app_info.version);
@@ -224,6 +231,7 @@ static void do_retransmit(const int sock)
                     if (err != ESP_OK) {
                         ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
                         esp_ota_abort(update_handle);
+                        free(rx_buffer);
                         return ;
                         // task_fatal_error();
                     }
@@ -240,11 +248,16 @@ static void do_retransmit(const int sock)
 
             // Header has been checked, can use data
             else {
+
+                // Copy read data into write buffer
+                memcpy(ota_write_data,rx_buffer,data_read);
+
                 // Write data to the partition
                 err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
                 if (err != ESP_OK) {
                     esp_ota_abort(update_handle);
-                    task_fatal_error();
+                    free(rx_buffer);
+                    return ;
                 }
 
                 // Update count, reset data read
@@ -261,6 +274,7 @@ static void do_retransmit(const int sock)
                 if (written < 0) {
                     ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
                     // Failed to retransmit, giving up
+                    free(rx_buffer);
                     return;
                 }
                 to_write -= written;
@@ -280,6 +294,7 @@ static void do_retransmit(const int sock)
         } else {
             ESP_LOGE(TAG, "esp_ota_end failed (%s)!", esp_err_to_name(err));
         }
+        free(rx_buffer);
         return ;
         // task_fatal_error();
     }
@@ -292,6 +307,7 @@ static void do_retransmit(const int sock)
     // }
     // ESP_LOGI(TAG, "Prepare to restart system!");
     // esp_restart();
+    free(rx_buffer);
     return ;
 }
 

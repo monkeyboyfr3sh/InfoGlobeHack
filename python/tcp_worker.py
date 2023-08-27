@@ -132,12 +132,15 @@ class TcpRawByteWorker(QObject):
 class TcpOTAtWorker(QObject):
     finished = pyqtSignal()  # Signal to indicate that the worker has finished
     connect_status = pyqtSignal(int)  # Signal to indicate that the worker has finished
+    progress_percent = pyqtSignal(float)
 
-    def __init__(self, host, port, binary_file_path):
+    def __init__(self, host, port, binary_file_path, chunk_size):
         super().__init__()
         self.host = host
         self.port = port
         self.binary_file_path = binary_file_path
+        self.binary_size = self.get_file_total_bytes(self.binary_file_path)
+        self.chunk_size = chunk_size
 
     @pyqtSlot()
     def run(self):
@@ -147,9 +150,24 @@ class TcpOTAtWorker(QObject):
             print(f"Connecting to InfoGlobe: {self.host}:{self.port}")
             globe = InfoGlobeController(self.host, int(self.port))
 
-            # tx_data = bytes(self.byte_buffer)
-            # tx_data = bytes([self.byte_buffer])
-            # globe.send_bytes(tx_data)
+            # Inside the run method after the connection is established
+            try:
+                with open(self.binary_file_path, 'rb') as binary_file:
+
+                    while True:
+                        chunk = binary_file.read(self.chunk_size)  # Define 'chunk_size' appropriately
+                        if not chunk:
+                            break  # No more data to send
+
+                        globe.send_bytes(chunk)  # Use the appropriate method to send data
+
+                        # Update percentage
+                        self.progress_percent.emit(len(chunk)/self.binary_size)
+
+            except FileNotFoundError:
+                print("Binary file not found.")
+            except Exception as err:
+                print("An error occurred while reading and sending data:", err)
 
             self.connect_status.emit(0)
         except socket.gaierror as err:
@@ -161,3 +179,9 @@ class TcpOTAtWorker(QObject):
 
         # Simulate some work
         self.finished.emit()
+
+    def get_file_total_bytes(self, file_path):
+        total_bytes = 0
+        with open(file_path, 'rb') as binary_file:
+            total_bytes = len(binary_file.read())
+        return total_bytes
