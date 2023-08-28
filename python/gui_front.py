@@ -1,14 +1,13 @@
 import json
 import sys
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QDesktopWidget, QCheckBox, QFileDialog, QFrame, QProgressBar, QStyleFactory
-from PyQt5.QtCore import Qt, QObject, pyqtSignal, pyqtSlot, QThread, QFile
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QDesktopWidget
+from PyQt5.QtCore import QFile
 from PyQt5.QtGui import QPalette, QColor
-from qt_material import apply_stylesheet
-import re
 
-from file_helper import get_file_total_bytes
-from gui_back import ConnectTab, TXDataTab, OTATab
+from connect_tab import ConnectTab
+from tx_data_tab import TXDataTab
+from ota_tab import OTATab
 
 class InfoGlobeCC(QWidget):
 
