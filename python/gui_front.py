@@ -8,6 +8,7 @@ from PyQt5.QtGui import QPalette, QColor
 from connect_tab import ConnectTab
 from tx_data_tab import TXDataTab
 from ota_tab import OTATab
+from infoglobe_control_tab import InfoGlobeControlPanelTab
 
 class InfoGlobeCC(QWidget):
 
@@ -19,6 +20,7 @@ class InfoGlobeCC(QWidget):
 
         connect_tab = ConnectTab()  # Initialize the Connect tab
         tx_data_tab = TXDataTab(connect_tab)    # Initialize the Tx Data tab
+        control_panel_tab = InfoGlobeControlPanelTab(connect_tab)
         ota_tab = OTATab(connect_tab)    # Initialize the OTA tab
 
         layout = QVBoxLayout(self)  # Main layout for the entire window
@@ -26,6 +28,7 @@ class InfoGlobeCC(QWidget):
 
         tab_widget.addTab(connect_tab, "Connect")  # Add Connect tab to the tab widget
         tab_widget.addTab(tx_data_tab, "Tx Data")  # Add Tx Data tab to the tab widget
+        tab_widget.addTab(control_panel_tab, "Control Panel")
         tab_widget.addTab(ota_tab, "Over-The-Air")  # Add Tx Data tab to the tab widget
 
         layout.addWidget(tab_widget)  # Add tab widget to the main layout
