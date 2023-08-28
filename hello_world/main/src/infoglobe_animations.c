@@ -184,3 +184,14 @@ void run_animation_time_1(QueueHandle_t display_queue)
 
     vTaskDelay(pdMS_TO_TICKS(10));
 }
+
+void single_string_rotate(QueueHandle_t display_queue, const char * str_buff, size_t str_len, bool dir)
+{
+    char tx_buff[str_len+2];
+
+    tx_buff[0] = 0;
+    memcpy(&tx_buff[1],str_buff,str_len);
+    tx_buff[str_len+1] = 0;
+    // Send it to display
+    send_string_to_queue(display_queue, tx_buff, sizeof(tx_buff));
+}

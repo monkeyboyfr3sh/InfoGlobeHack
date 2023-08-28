@@ -23,6 +23,7 @@
 #include <lwip/netdb.h>
 #include "string.h"
 
+#include "infoglobe_animations.h"
 #include "message_type.h"
 #include "sntp_helper.h"
 
@@ -225,6 +226,9 @@ void tcp_server_task(void *pvParameters)
     if(ip_result<=0){
         ESP_LOGW(TAG,"Failed to get IP!");
     }
+
+    // Show IP
+    single_string_rotate(display_queue, ip_addr_string_buff, strlen(ip_addr_string_buff),1);
 
     // Init sntp
     init_sntp();
