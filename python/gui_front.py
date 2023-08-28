@@ -12,6 +12,10 @@ from gui_back import InfoGlobeCCTabs
 
 class InfoGlobeCC(InfoGlobeCCTabs):
 
+    def __init__(self):
+        super().__init__()
+        self.init_ui()  # Initialize the UI components
+
     def construct_layout(self):
         connect_tab = self.connect_tab_init()  # Initialize the Connect tab
         tx_data_tab = self.tx_data_tab_init()    # Initialize the Tx Data tab

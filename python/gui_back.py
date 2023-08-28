@@ -11,12 +11,12 @@ from file_helper import get_file_total_bytes
 from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker
 
 class InfoGlobeBase(QWidget):
-    pass
+    def __init__(self):
+        super().__init__()
 
 class InfoGlobeCCTabs(InfoGlobeBase):
     def __init__(self):
         super().__init__()
-        self.init_ui()  # Initialize the UI components
         self.tcp_worker = None
         self.tcp_worker_thread = None
 
