@@ -79,25 +79,6 @@ class TXDataTab(WorkingTabBase):
         host = self.connect_tab.host_entry.text()
         port = self.connect_tab.meessage_port_entry.text()
         return host, port
-    
-    def make_worker_thread(self, worker_thread : TcpWorkerBase, start_worker : bool):
-
-        # Only one worker active at a time
-        if self.tcp_worker_thread is None:
-
-            # Create a worker
-            self.tcp_worker = worker_thread
-            self.tcp_worker_thread = QThread()
-            self.tcp_worker.moveToThread(self.tcp_worker_thread)
-            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
-
-            # Connect the connect_success signal to a slot
-            self.tcp_worker.finished.connect(self.tcp_worker_finished)
-
-            # Start on input
-            if start_worker:
-                self.tcp_worker_thread.start()
-
 
     # Callback function for the Send bytes button click
     def send_bytes_button_click(self):

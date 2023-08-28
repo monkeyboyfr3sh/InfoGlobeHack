@@ -64,22 +64,11 @@ class OTATab(WorkingTabBase):
         print(f"Connect button clicked! Host: {host}, Port: {port}")
         print(f"File Size: {file_size}, Chunk Size: {chunk_size}")
 
-        if self.tcp_worker_thread is None:
-            self.tcp_worker = TcpOTAtWorker(host, port, binary_file_path, chunk_size)
-            self.tcp_worker_thread = QThread()
-            self.tcp_worker.moveToThread(self.tcp_worker_thread)
-            self.tcp_worker.finished.connect(self.tcp_worker_finished)
-            self.tcp_worker.progress_percent.connect(self.progress_percent_update)
-            # Connect the connect_success signal to a slot
-            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
-            self.tcp_worker_thread.start()
+        tcp_worker = TcpOTAtWorker(host, port, binary_file_path, chunk_size)
+        tcp_worker.progress_percent.connect(self.progress_percent_update)
 
-        # TODO: Need to make soem constructor method, and get the start like this
-        # if(thread not exist)
-            # create tcp worker
-            # connect worker signals
-            # thread constructor method with optional auto start
-
+        # Make the worker
+        self.make_worker_thread(tcp_worker, True)
 
     def load_file_button_click(self):
         file_dialog = QFileDialog()

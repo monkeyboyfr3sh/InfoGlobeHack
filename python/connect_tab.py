@@ -85,30 +85,22 @@ class ConnectTab(WorkingTabBase):
         port = self.meessage_port_entry.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
-        if self.tcp_worker_thread is None:
-            self.tcp_worker = TcpConnectWorker(host, port)
-            self.tcp_worker_thread = QThread()
-            self.tcp_worker.moveToThread(self.tcp_worker_thread)
-            self.tcp_worker.finished.connect(self.tcp_worker_finished)
-            # Connect the connect_success signal to a slot
-            self.tcp_worker.connect_status.connect(self.message_on_connect_status)
-            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
-            self.tcp_worker_thread.start()
+        tcp_worker = TcpConnectWorker(host, port)
+        tcp_worker.connect_status.connect(self.message_on_connect_status)
+
+        # Make the worker
+        self.make_worker_thread(tcp_worker, True)
 
     def connect_ota_button_click(self):
         host = self.host_entry.text()
         port = self.ota_port_entry.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
-        if self.tcp_worker_thread is None:
-            self.tcp_worker = TcpConnectWorker(host, port)
-            self.tcp_worker_thread = QThread()
-            self.tcp_worker.moveToThread(self.tcp_worker_thread)
-            self.tcp_worker.finished.connect(self.tcp_worker_finished)
-            # Connect the connect_success signal to a slot
-            self.tcp_worker.connect_status.connect(self.ota_on_connect_status)
-            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
-            self.tcp_worker_thread.start()
+        tcp_worker = TcpConnectWorker(host, port)
+        tcp_worker.connect_status.connect(self.ota_on_connect_status)
+
+        # Make the worker
+        self.make_worker_thread(tcp_worker, True)
 
     def show_save_dialog(self):
         file_dialog = QFileDialog()
