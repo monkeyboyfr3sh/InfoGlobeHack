@@ -8,6 +8,7 @@ from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWo
 
 from working_tab_base import WorkingTabBase
 from connect_tab import ConnectTab
+from tcp_worker import TcpWorkerBase
 
 class TXDataTab(WorkingTabBase):
 
@@ -48,7 +49,7 @@ class TXDataTab(WorkingTabBase):
         tx_data_layout.addWidget(send_bytes_button)  # Add the new button to the layout
         self.setLayout(tx_data_layout)
         self.connect_tab = connect_tab
- 
+
     # Callback function for the Send button click
     def send_button_click(self):
         
@@ -74,6 +75,30 @@ class TXDataTab(WorkingTabBase):
         # Clear the field
         self.text_entry_tx_data.setText("")
 
+    def get_host_port(self):
+        host = self.connect_tab.host_entry.text()
+        port = self.connect_tab.meessage_port_entry.text()
+        return host, port
+    
+    def make_worker_thread(self, worker_thread : TcpWorkerBase, start_worker : bool):
+
+        # Only one worker active at a time
+        if self.tcp_worker_thread is None:
+
+            # Create a worker
+            self.tcp_worker = worker_thread
+            self.tcp_worker_thread = QThread()
+            self.tcp_worker.moveToThread(self.tcp_worker_thread)
+            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
+
+            # Connect the connect_success signal to a slot
+            self.tcp_worker.finished.connect(self.tcp_worker_finished)
+
+            # Start on input
+            if start_worker:
+                self.tcp_worker_thread.start()
+
+
     # Callback function for the Send bytes button click
     def send_bytes_button_click(self):
         
@@ -97,20 +122,12 @@ class TXDataTab(WorkingTabBase):
         print(f"Hex bytes: {bytes_result}")  # Print the formatted hexadecimal bytes
         
         # Now connect!
-        host = self.host_entry.text()
-        port = self.meessage_port_entry.text()
+        host, port = self.get_host_port()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
-
-        if self.tcp_worker_thread is None:
-            blinky_enable = self.checkbox_option1.isChecked()
-            self.tcp_worker = TcpRawByteWorker(host, port, bytes_result)
-            self.tcp_worker_thread = QThread()
-            self.tcp_worker.moveToThread(self.tcp_worker_thread)
-            self.tcp_worker.finished.connect(self.tcp_worker_finished)
-            # Connect the connect_success signal to a slot
-            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
-            self.tcp_worker_thread.start()
-
+        tcp_worker = TcpRawByteWorker(host, port, bytes_result)
+        
+        # Make the worker
+        self.make_worker_thread(tcp_worker, True)
+        
         # Clear the field
         self.text_entry_tx_data.setText("")
-        
