@@ -32,39 +32,75 @@ class ConnectTab(WorkingTabBase):
     def __init__(self):
         super().__init__()
 
-        # Create the tab components
+        # Make labels
+        self.host_entry_label = QLabel("Enter host:")
+        self.host_entry_label.setStyleSheet("font-size: 30px;")
+        self.host_entry_label.setAlignment(Qt.AlignCenter)
+
+        self.message_port_label = QLabel("Enter message port:")
+        self.message_port_label.setStyleSheet("font-size: 30px;")
+        self.message_port_label.setAlignment(Qt.AlignCenter)
+
+        self.ota_port_label = QLabel("Enter OTA port:")
+        self.ota_port_label.setStyleSheet("font-size: 30px;")
+        self.ota_port_label.setAlignment(Qt.AlignCenter)
+
+        # Make Line entry
+        self.host_entry = QLineEdit()
+        self.meessage_port_entry = QLineEdit()
+        self.ota_port_entry = QLineEdit()
+
+        # Enter key does connect action
+        self.host_entry.returnPressed.connect(self.connect_message_button_click)
+        self.meessage_port_entry.returnPressed.connect(self.connect_message_button_click)
+        self.ota_port_entry.returnPressed.connect(self.connect_ota_button_click)
+
+        # Make buttons
+        self.message_connect_button = QPushButton('Connect')
+        self.message_connect_button.clicked.connect(self.connect_message_button_click)
+
+        self.ota_connect_button = QPushButton('Connect')
+        self.ota_connect_button.clicked.connect(self.connect_ota_button_click)
+
+        # Make Save and Load buttons
+        self.save_button = QPushButton('Save')
+        self.save_button.clicked.connect(self.show_save_dialog)
+
+        self.load_button = QPushButton('Load')
+        self.load_button.clicked.connect(self.show_load_dialog)
+
+        # Wrap the widgets together
         connect_layout = QVBoxLayout(self)
+        connect_layout.addWidget(self.host_entry_label)
+        connect_layout.addWidget(self.host_entry)
 
-        connect_label = QLabel("Enter host:")
-        connect_label.setStyleSheet("font-size: 30px;")
-        connect_label.setAlignment(Qt.AlignCenter)
-        self.text_entry_connect = QLineEdit()
+        connect_layout.addWidget(self.message_port_label)
+        connect_layout.addWidget(self.meessage_port_entry)
+        connect_layout.addWidget(self.message_connect_button)
 
-        port_label = QLabel("Enter port:")
-        port_label.setStyleSheet("font-size: 30px;")
-        port_label.setAlignment(Qt.AlignCenter)
-        self.port_entry_connect = QLineEdit()
+        connect_layout.addWidget(self.ota_port_label)
+        connect_layout.addWidget(self.ota_port_entry)
+        connect_layout.addWidget(self.ota_connect_button)
 
-        # Connect the "returnPressed" signal of the port input field to the "connect_button_click" function
-        self.text_entry_connect.returnPressed.connect(self.connect_button_click)
-        self.port_entry_connect.returnPressed.connect(self.connect_button_click)
+        # Add a horizontal separator (line) between save and load buttons
+        separator_line = QFrame()
+        separator_line.setFrameShape(QFrame.HLine)
+        separator_line.setFrameShadow(QFrame.Sunken)
+        connect_layout.addWidget(separator_line)
 
-        self.connect_button = QPushButton('Connect')  # Store the button as an attribute
-        self.connect_button.clicked.connect(self.connect_button_click)
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.load_button)
+        button_layout.addWidget(self.save_button)
+        connect_layout.addLayout(button_layout)
 
-        connect_layout.addWidget(connect_label)
-        connect_layout.addWidget(self.text_entry_connect)
-        connect_layout.addWidget(port_label)
-        connect_layout.addWidget(self.port_entry_connect)
-        connect_layout.addWidget(self.connect_button)  # Add the button to the layout
         self.setLayout(connect_layout)
 
         # Load default host and port from file
-        self.load_host_port()
+        self.load_host_port("./python/config.json")
 
-    def connect_button_click(self):
-        host = self.text_entry_connect.text()
-        port = self.port_entry_connect.text()
+    def connect_message_button_click(self):
+        host = self.host_entry.text()
+        port = self.meessage_port_entry.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         if self.tcp_worker_thread is None:
@@ -73,42 +109,82 @@ class ConnectTab(WorkingTabBase):
             self.tcp_worker.moveToThread(self.tcp_worker_thread)
             self.tcp_worker.finished.connect(self.tcp_worker_finished)
             # Connect the connect_success signal to a slot
-            self.tcp_worker.connect_status.connect(self.on_connect_status)
+            self.tcp_worker.connect_status.connect(self.message_on_connect_status)
             self.tcp_worker_thread.started.connect(self.tcp_worker.run)
             self.tcp_worker_thread.start()
 
-    # Slot to be called when the connect_success signal is emitted
-    @pyqtSlot(int)
-    def on_connect_status(self, connect_status):
-        if(connect_status>=0):
-            print("Connection successful!")  # You can add any logic you want here
-            self.set_connect_box_color('green')
+    def connect_ota_button_click(self):
+        host = self.host_entry.text()
+        port = self.ota_port_entry.text()
+        print(f"Connect button clicked! Host: {host}, Port: {port}")
 
-            # Save the host and port after successfully connecting
-            self.save_host_port(self.tcp_worker.host, self.tcp_worker.port)
+        if self.tcp_worker_thread is None:
+            self.tcp_worker = TcpConnectWorker(host, port)
+            self.tcp_worker_thread = QThread()
+            self.tcp_worker.moveToThread(self.tcp_worker_thread)
+            self.tcp_worker.finished.connect(self.tcp_worker_finished)
+            # Connect the connect_success signal to a slot
+            self.tcp_worker.connect_status.connect(self.ota_on_connect_status)
+            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
+            self.tcp_worker_thread.start()
 
-        else:
-            print(f"Connect error{connect_status}")
-            self.set_connect_box_color('red')
+    def show_save_dialog(self):
+        file_dialog = QFileDialog()
+        file_dialog.setAcceptMode(QFileDialog.AcceptSave)
+        file_dialog.setNameFilter("JSON files (*.json)")
+        if file_dialog.exec_() == QFileDialog.Accepted:
+            filename = file_dialog.selectedFiles()[0]
+            self.save_host_port(filename, self.host_entry.text(), self.meessage_port_entry.text(), self.ota_port_entry.text())
 
-    def load_host_port(self):
+    def show_load_dialog(self):
+        file_dialog = QFileDialog()
+        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        file_dialog.setNameFilter("JSON files (*.json)")
+        if file_dialog.exec_() == QFileDialog.Accepted:
+            filename = file_dialog.selectedFiles()[0]
+            self.load_host_port(filename)
+
+    def load_host_port(self, filename):
         try:
-            with open('./python/config.json', 'r') as file:
+            with open(filename, 'r') as file:
                 data = json.load(file)
-                self.text_entry_connect.setText(data["host"])
-                self.port_entry_connect.setText(data["port"])
+                self.host_entry.setText(data["host"])
+                self.meessage_port_entry.setText(data["message_port"])
+                self.ota_port_entry.setText(data["ota_port"])
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             # If there's any error reading the file or the required data, 
             # we can simply pass and continue. This ensures that the application 
             # doesn't crash if the file doesn't exist yet or if it's malformed.
             pass
 
-    def save_host_port(self, host, port):
-        with open('./python/config.json', 'w') as file:
-            json.dump({"host": host, "port": port}, file)
+    def save_host_port(self, filename, host, message_port, ota_port):
+        with open(filename, 'w') as file:
+            json.dump({"host": host, "message_port": message_port, "ota_port": ota_port}, file)
 
-    def set_connect_box_color(self, status):
-        palette = self.text_entry_connect.palette()
+    # Slot to be called when the connect_success signal is emitted
+    @pyqtSlot(int)
+    def message_on_connect_status(self, connect_status):
+        if(connect_status>=0):
+            print("Connection successful!")  # You can add any logic you want here
+            self.set_connect_box_color('green', self.message_connect_button)
+
+        else:
+            print(f"Connect error{connect_status}")
+            self.set_connect_box_color('red', self.message_connect_button)
+
+    # Slot to be called when the connect_success signal is emitted
+    @pyqtSlot(int)
+    def ota_on_connect_status(self, connect_status):
+        if(connect_status>=0):
+            print("Connection successful!")  # You can add any logic you want here
+            self.set_connect_box_color('green', self.ota_connect_button)
+
+        else:
+            print(f"Connect error{connect_status}")
+            self.set_connect_box_color('red', self.ota_connect_button)
+
+    def set_connect_box_color(self, status, button: QPushButton):
+
         if status == 'green':
             background_color = QColor(0, 255, 0)  # Green
         elif status == 'red':
@@ -117,7 +193,7 @@ class ConnectTab(WorkingTabBase):
             return  # Invalid status, do nothing
         
         # Set the background color using a stylesheet
-        self.connect_button.setStyleSheet(f"background-color: {background_color.name()};")
+        button.setStyleSheet(f"background-color: {background_color.name()};")
 
 class TXDataTab(WorkingTabBase):
 
@@ -167,8 +243,8 @@ class TXDataTab(WorkingTabBase):
         print(f"Send button clicked! Text: {input_text}")  # Print the clicked button and input text
 
         # Now connect!
-        host = self.connect_tab.text_entry_connect.text()
-        port = self.connect_tab.port_entry_connect.text()
+        host = self.connect_tab.host_entry.text()
+        port = self.connect_tab.meessage_port_entry.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         if self.tcp_worker_thread is None:
@@ -207,8 +283,8 @@ class TXDataTab(WorkingTabBase):
         print(f"Hex bytes: {bytes_result}")  # Print the formatted hexadecimal bytes
         
         # Now connect!
-        host = self.text_entry_connect.text()
-        port = self.port_entry_connect.text()
+        host = self.host_entry.text()
+        port = self.meessage_port_entry.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         if self.tcp_worker_thread is None:
@@ -274,8 +350,8 @@ class OTATab(WorkingTabBase):
         print(f"Sending file: {binary_file_path}")  # Print the clicked button and input text
 
         # Now connect!
-        host = self.connect_tab.text_entry_connect.text()
-        port = self.connect_tab.port_entry_connect.text()
+        host = self.connect_tab.host_entry.text()
+        port = self.connect_tab.ota_port_entry.text()
         chunk_size = 4096
         file_size = get_file_total_bytes(binary_file_path)
         print(f"Connect button clicked! Host: {host}, Port: {port}")
