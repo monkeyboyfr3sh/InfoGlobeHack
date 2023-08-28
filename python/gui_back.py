@@ -10,11 +10,7 @@ import re
 from file_helper import get_file_total_bytes
 from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker
 
-class InfoGlobeBase(QWidget):
-    def __init__(self):
-        super().__init__()
-
-class InfoGlobeCCTabs(InfoGlobeBase):
+class WorkingTabBase(QWidget):
     def __init__(self):
         super().__init__()
         self.tcp_worker = None
@@ -28,14 +24,16 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         self.tcp_worker_thread = None
         self.tcp_worker = None
 
+class ConnectTab(WorkingTabBase):
+
     '''
         Connect Tab Definition
     '''
+    def __init__(self):
+        super().__init__()
 
-    # Initialize the Connect tab UI components
-    def connect_tab_init(self):
-        connect_tab = QWidget()
-        connect_layout = QVBoxLayout(connect_tab)
+        # Create the tab components
+        connect_layout = QVBoxLayout(self)
 
         connect_label = QLabel("Enter host:")
         connect_label.setStyleSheet("font-size: 30px;")
@@ -59,13 +57,11 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         connect_layout.addWidget(port_label)
         connect_layout.addWidget(self.port_entry_connect)
         connect_layout.addWidget(self.connect_button)  # Add the button to the layout
-        connect_tab.setLayout(connect_layout)
+        self.setLayout(connect_layout)
 
         # Load default host and port from file
         self.load_host_port()
 
-        return connect_tab
-    
     def connect_button_click(self):
         host = self.text_entry_connect.text()
         port = self.port_entry_connect.text()
@@ -123,14 +119,16 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         # Set the background color using a stylesheet
         self.connect_button.setStyleSheet(f"background-color: {background_color.name()};")
 
+class TXDataTab(WorkingTabBase):
+
     '''
         TX Data Tab Definition
     '''
+    def __init__(self, connect_tab : ConnectTab):
+        super().__init__()
 
-    # Initialize the Tx Data tab UI components
-    def tx_data_tab_init(self):
-        tx_data_tab = QWidget()
-        tx_data_layout = QVBoxLayout(tx_data_tab)
+        # Create the tab components
+        tx_data_layout = QVBoxLayout(self)
 
         tx_data_label = QLabel("Enter Tx Data:")
         tx_data_label.setStyleSheet("font-size: 45px;")
@@ -158,10 +156,9 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         tx_data_layout.addWidget(self.text_entry_tx_data)
         tx_data_layout.addWidget(send_button)
         tx_data_layout.addWidget(send_bytes_button)  # Add the new button to the layout
-        tx_data_tab.setLayout(tx_data_layout)
-
-        return tx_data_tab
-    
+        self.setLayout(tx_data_layout)
+        self.connect_tab = connect_tab
+ 
     # Callback function for the Send button click
     def send_button_click(self):
         
@@ -170,8 +167,8 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         print(f"Send button clicked! Text: {input_text}")  # Print the clicked button and input text
 
         # Now connect!
-        host = self.text_entry_connect.text()
-        port = self.port_entry_connect.text()
+        host = self.connect_tab.text_entry_connect.text()
+        port = self.connect_tab.port_entry_connect.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         if self.tcp_worker_thread is None:
@@ -227,13 +224,17 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         # Clear the field
         self.text_entry_tx_data.setText("")
 
+class OTATab(WorkingTabBase):
+
     '''
         OTA Tab Definition
     '''
+    def __init__(self, connect_tab : ConnectTab):
+        super().__init__()
+        self.tcp_worker = None
+        self.tcp_worker_thread = None
 
-    def ota_tab_init(self):
-        ota_tab = QWidget()  # Create the tab widget
-        ota_layout = QVBoxLayout(ota_tab)  # Create the main layout for the tab
+        ota_layout = QVBoxLayout(self)  # Create the main layout for the tab
 
         ota_label = QLabel("Select OTA Binary:")
         ota_label.setAlignment(Qt.AlignCenter)
@@ -247,9 +248,8 @@ class InfoGlobeCCTabs(InfoGlobeBase):
 
         send_button = QPushButton('Send Binary')
         send_button.clicked.connect(self.send_binary_button_click)  # Connect to the send binary function
-        
 
-        self.progress_bar = QProgressBar(ota_tab)
+        self.progress_bar = QProgressBar(self)
 
         # Group ota file select widgets in a horizontal layout
         ota_file_layout = QHBoxLayout()
@@ -263,10 +263,8 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         ota_layout.addWidget(send_button)
         ota_layout.addWidget(self.progress_bar)
 
-        ota_tab.setLayout(ota_layout)  # Set the main layout for the tab
-
-        return ota_tab
-
+        self.setLayout(ota_layout)  # Set the main layout for the tab
+        self.connect_tab = connect_tab
     
     # Callback function for the Send button click
     def send_binary_button_click(self):
@@ -276,8 +274,8 @@ class InfoGlobeCCTabs(InfoGlobeBase):
         print(f"Sending file: {binary_file_path}")  # Print the clicked button and input text
 
         # Now connect!
-        host = self.text_entry_connect.text()
-        port = self.port_entry_connect.text()
+        host = self.connect_tab.text_entry_connect.text()
+        port = self.connect_tab.port_entry_connect.text()
         chunk_size = 4096
         file_size = get_file_total_bytes(binary_file_path)
         print(f"Connect button clicked! Host: {host}, Port: {port}")

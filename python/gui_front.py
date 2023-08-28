@@ -8,18 +8,19 @@ from qt_material import apply_stylesheet
 import re
 
 from file_helper import get_file_total_bytes
-from gui_back import InfoGlobeCCTabs
+from gui_back import ConnectTab, TXDataTab, OTATab
 
-class InfoGlobeCC(InfoGlobeCCTabs):
+class InfoGlobeCC(QWidget):
 
     def __init__(self):
         super().__init__()
         self.init_ui()  # Initialize the UI components
 
     def construct_layout(self):
-        connect_tab = self.connect_tab_init()  # Initialize the Connect tab
-        tx_data_tab = self.tx_data_tab_init()    # Initialize the Tx Data tab
-        ota_tab = self.ota_tab_init()    # Initialize the OTA tab
+
+        connect_tab = ConnectTab()  # Initialize the Connect tab
+        tx_data_tab = TXDataTab(connect_tab)    # Initialize the Tx Data tab
+        ota_tab = OTATab(connect_tab)    # Initialize the OTA tab
 
         layout = QVBoxLayout(self)  # Main layout for the entire window
         tab_widget = QTabWidget()  # Widget to hold tabs
@@ -29,7 +30,8 @@ class InfoGlobeCC(InfoGlobeCCTabs):
         tab_widget.addTab(ota_tab, "Over-The-Air")  # Add Tx Data tab to the tab widget
 
         layout.addWidget(tab_widget)  # Add tab widget to the main layout
-        return layout
+
+        self.setLayout(layout)  # Set the main layout for the window        
 
     # Initialize the main UI components
     def init_ui(self):
@@ -44,11 +46,9 @@ class InfoGlobeCC(InfoGlobeCCTabs):
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
 
-        # Make the layout
-        layout = self.construct_layout()
-
-        self.setLayout(layout)  # Set the main layout for the window        
-        self.show()  # Show the window
+        # Make the layout, and show the window
+        self.construct_layout()
+        self.show()
 
 
     def load_palette_from_file(file_path):
