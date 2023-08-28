@@ -2,3 +2,6 @@
 hello_world/build/*
 hello_world/trace/*
 *.pyc
+build/*
+*.spec
+*.exe
