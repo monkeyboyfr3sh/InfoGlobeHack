@@ -66,21 +66,27 @@ class ConnectTab(WorkingTabBase):
         connect_layout.addWidget(self.host_entry)
 
         message_layout = QVBoxLayout()
+        entry_layout = QHBoxLayout()
         message_layout.addWidget(self.message_port_label)
-        message_layout.addWidget(self.meessage_port_entry)
-        message_layout.addWidget(self.message_connect_button)
+        entry_layout.addWidget(self.meessage_port_entry)
+        entry_layout.addWidget(self.message_connect_button)
+        message_layout.addLayout(entry_layout)
         connect_layout.addLayout(message_layout)
 
         ota_layout = QVBoxLayout()
+        entry_layout = QHBoxLayout()
         ota_layout.addWidget(self.ota_port_label)
-        ota_layout.addWidget(self.ota_port_entry)
-        ota_layout.addWidget(self.ota_connect_button)
+        entry_layout.addWidget(self.ota_port_entry)
+        entry_layout.addWidget(self.ota_connect_button)
+        ota_layout.addLayout(entry_layout)
         connect_layout.addLayout(ota_layout)
 
         cmds_layout = QVBoxLayout()
+        entry_layout = QHBoxLayout()
         cmds_layout.addWidget(self.cmds_port_label)
-        cmds_layout.addWidget(self.cmds_port_entry)
-        cmds_layout.addWidget(self.cmds_connect_button)
+        entry_layout.addWidget(self.cmds_port_entry)
+        entry_layout.addWidget(self.cmds_connect_button)
+        cmds_layout.addLayout(entry_layout)
         connect_layout.addLayout(cmds_layout)
 
         # Add a horizontal separator (line) between save and load buttons

@@ -158,4 +158,5 @@ class TcpButtonConfigWorker(TcpWorkerBase):
         string_cmd = f'{self.command}'
         tx_data = bytes([self.button, 0x01])
         tx_data += string_cmd.encode()
+        tx_data += bytes([0x00])
         globe.send_bytes(tx_data)

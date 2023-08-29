@@ -78,7 +78,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
             // Look for config command
             if( (len>2) && (rx_buffer[1]==1) ){
                 // Assign button commands
-                int cmd_len = strnlen(&rx_buffer[2],sizeof(rx_buffer)-2);
+                int cmd_len = strnlen(&rx_buffer[2],sizeof(rx_buffer)-2)+1;
                 if(cmd_len < COMMAND_MAX_LEN){
                     ESP_LOGI(TAG,"Setting command %d to: '%s'", button_idx, &rx_buffer[2]);
                     memcpy(&button_command_lut[button_idx][0], &rx_buffer[2], cmd_len);
