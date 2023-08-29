@@ -40,7 +40,7 @@ class InfoGlobeCC(QWidget):
         self.setWindowTitle("InfoGlobe Command Center")  # Set window title
         self.setWindowIcon(QIcon('./python/Dakirby309-Simply-Styled-Xbox.ico'))  # Set window icon
 
-        self.resize(800, 400)  # Set initial size of the window
+        self.resize(600, 600)  # Set initial size of the window
 
         # Calculate the position to center the window on the screen
         screen_geometry = QDesktopWidget().screenGeometry()
@@ -70,7 +70,8 @@ def set_dark_fusion_style(app: QApplication):
     app.setStyle("Fusion")
     
     # Load the QSS file
-    qss_file = QFile("./python/yellow_material.qss")
+    qss_file = QFile("./python/styles/yellow_material.qss")
+    # qss_file = QFile("./python/styles/blue_material.qss")
     qss_file.open(QFile.ReadOnly | QFile.Text)
     qss = qss_file.readAll()
     qss = bytes(qss).decode("utf-8")
