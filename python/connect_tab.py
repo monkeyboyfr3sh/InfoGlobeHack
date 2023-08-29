@@ -60,10 +60,17 @@ class ConnectTab(WorkingTabBase):
         self.load_button = QPushButton('Load')
         self.load_button.clicked.connect(self.show_load_dialog)
 
+        separator_line = QFrame()
+        separator_line.setFrameShape(QFrame.HLine)
+        separator_line.setFrameShadow(QFrame.Sunken)
+
         # Wrap the widgets together
         connect_layout = QVBoxLayout(self)
         connect_layout.addWidget(self.host_entry_label)
         connect_layout.addWidget(self.host_entry)
+
+        # Seperator
+        connect_layout.addWidget(separator_line)
 
         message_layout = QVBoxLayout()
         entry_layout = QHBoxLayout()
@@ -89,10 +96,6 @@ class ConnectTab(WorkingTabBase):
         cmds_layout.addLayout(entry_layout)
         connect_layout.addLayout(cmds_layout)
 
-        # Add a horizontal separator (line) between save and load buttons
-        separator_line = QFrame()
-        separator_line.setFrameShape(QFrame.HLine)
-        separator_line.setFrameShadow(QFrame.Sunken)
         connect_layout.addWidget(separator_line)
 
         button_layout = QHBoxLayout()
