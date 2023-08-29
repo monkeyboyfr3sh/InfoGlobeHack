@@ -132,3 +132,15 @@ class TcpOTAtWorker(TcpWorkerBase):
             print("Binary file not found.")
         except Exception as err:
             print("An error occurred while reading and sending data:", err)
+
+class TcpButtonWorker(TcpWorkerBase):
+
+    def __init__(self, host, port, button):
+        super().__init__(host,port)
+        self.button = button
+
+    def perform_task(self, globe : InfoGlobeController):
+        
+        # Successful connect
+        tx_data = bytes([self.button])
+        globe.send_bytes(tx_data)

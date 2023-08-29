@@ -1,0 +1,27 @@
+menu "Application Configuration"
+
+	config SSH_USER
+		string "SSH Username"
+		default "ssh-user"
+		help
+			Username of SSH Connection.
+
+	config SSH_PASSWORD
+		string "SSH Password"
+		default "ssh-pass"
+		help
+			Password of SSH Connection.
+
+	config SSH_HOST
+		string "SSH Host"
+		default "ssh-host.local"
+		help
+			IP address or mDNS of SSH host.
+
+	config SSH_PORT
+		int "SSH Port"
+		default 22
+		help
+			Port number of SSH server.
+
+endmenu

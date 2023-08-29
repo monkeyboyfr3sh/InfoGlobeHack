@@ -194,6 +194,15 @@ CONFIG_EXAMPLE_CONNECT_IPV6_PREF_LOCAL_LINK=y
 # end of Example Connection Configuration
 
 #
+# Application Configuration
+#
+CONFIG_SSH_USER="root"
+CONFIG_SSH_PASSWORD="openDoor"
+CONFIG_SSH_HOST="192.168.0.15"
+CONFIG_SSH_PORT=22
+# end of Application Configuration
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEFAULT=y

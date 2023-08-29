@@ -4,7 +4,7 @@ from PyQt5.QtGui import QColor
 import re
 
 from file_helper import get_file_total_bytes
-from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker
+from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker,TcpButtonWorker
 
 from working_tab_base import WorkingTabBase
 from connect_tab import ConnectTab
@@ -15,7 +15,7 @@ class InfoGlobeControlPanelTab(WorkingTabBase):
     '''
         TX Data Tab Definition
     '''
-    def __init__(self, connect_tab : ConnectTab):
+    def __init__(self, connect_tab: ConnectTab):
         super().__init__()
 
         # Create the tab components
@@ -25,36 +25,48 @@ class InfoGlobeControlPanelTab(WorkingTabBase):
         tx_data_label.setStyleSheet("font-size: 45px;")
         tx_data_label.setAlignment(Qt.AlignCenter)
 
-        options_layout = QHBoxLayout()
-        self.checkbox_option1 = QCheckBox("Blinky Text")
-        self.checkbox_option2 = QCheckBox("Option 2")
-        options_layout.addWidget(self.checkbox_option1)
-        options_layout.addWidget(self.checkbox_option2)
+        # Create a horizontal layout for the text entry and checkbox
+        text_entry_checkbox_layout = QHBoxLayout()
 
-        self.text_entry_tx_data = QLineEdit()
+        self.command_entry = QLineEdit()
+        self.update_checkbox = QCheckBox("Update Command")
 
-        # Connect the "returnPressed" signal of the Tx data input field to the "send_button_click" function
-        self.text_entry_tx_data.returnPressed.connect(self.send_button_click)
+        # Add the text entry and checkbox to the horizontal layout
+        text_entry_checkbox_layout.addWidget(self.command_entry)
+        text_entry_checkbox_layout.addWidget(self.update_checkbox)
 
-        send_button = QPushButton('Send')
-        send_button.clicked.connect(self.send_button_click)
+        # Creating two columns of buttons
+        button_column1 = QVBoxLayout()
+        button_column2 = QVBoxLayout()
+        num_buttons = 6
+        for i in range(num_buttons):
+            button = QPushButton(f'Button {i+1}')
+            # Using a lambda function to pass custom input to the click function
+            button.clicked.connect(lambda checked, button_number=i+1: self.send_button_click(button_number))
 
-        send_bytes_button = QPushButton('Send Bytes')  # New "Send Bytes" button
-        send_bytes_button.clicked.connect(self.send_bytes_button_click)  # Connect to appropriate function
+            if (i % 2) == 0:
+                button_column1.addWidget(button)
+            else:
+                button_column2.addWidget(button)
+
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addLayout(button_column1)
+        buttons_layout.addLayout(button_column2)
 
         tx_data_layout.addWidget(tx_data_label)
-        tx_data_layout.addLayout(options_layout)
-        tx_data_layout.addWidget(self.text_entry_tx_data)
-        tx_data_layout.addWidget(send_button)
-        tx_data_layout.addWidget(send_bytes_button)  # Add the new button to the layout
+        tx_data_layout.addLayout(text_entry_checkbox_layout)  # Add the horizontal layout
+        tx_data_layout.addLayout(buttons_layout)  # Add the new buttons layout to the main layout
+
         self.setLayout(tx_data_layout)
         self.connect_tab = connect_tab
 
     # Callback function for the Send button click
-    def send_button_click(self):
-        
+    def send_button_click(self, button_number):
+        print(f'Button {button_number} clicked')
+        self.update_checkbox.setChecked(False)
+
         # Get user input 
-        input_text = self.text_entry_tx_data.text()  # Get text from the input field
+        input_text = self.command_entry.text()  # Get text from the input field
         print(f"Send button clicked! Text: {input_text}")  # Print the clicked button and input text
 
         # Now connect!
@@ -62,53 +74,21 @@ class InfoGlobeControlPanelTab(WorkingTabBase):
         port = self.connect_tab.meessage_port_entry.text()
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
-        if self.tcp_worker_thread is None:
-            blinky_enable = self.checkbox_option1.isChecked()
-            self.tcp_worker = TcpTextWorker(host, port, input_text, blinky_enable)
-            self.tcp_worker_thread = QThread()
-            self.tcp_worker.moveToThread(self.tcp_worker_thread)
-            self.tcp_worker.finished.connect(self.tcp_worker_finished)
-            # Connect the connect_success signal to a slot
-            self.tcp_worker_thread.started.connect(self.tcp_worker.run)
-            self.tcp_worker_thread.start()
-
-        # Clear the field
-        self.text_entry_tx_data.setText("")
-
-    def get_host_port(self):
-        host = self.connect_tab.host_entry.text()
-        port = self.connect_tab.meessage_port_entry.text()
-        return host, port
-
-    # Callback function for the Send bytes button click
-    def send_bytes_button_click(self):
-        
-        # Get user input
-        input_text = self.text_entry_tx_data.text()  # Get text from the input field
-        
-        # Remove non-hex characters using a regular expression
-        input_text_hex = re.sub(r'[^0-9a-fA-F]', '', input_text)
-
-        # Remove spaces
-        input_text_without_spaces = input_text_hex.replace(" ", "")
-
-        # Convert to hex
-        if len(input_text_without_spaces) % 2 == 1:
-            input_text_without_spaces = input_text_without_spaces[:-1] + "0" + input_text_without_spaces[-1]
-
-        bytes_result = bytes.fromhex(input_text_without_spaces)
-        print(bytes_result)
-        
-        print(f"Send bytes button clicked! Text: {input_text}")  # Print the clicked button and input text
-        print(f"Hex bytes: {bytes_result}")  # Print the formatted hexadecimal bytes
-        
-        # Now connect!
-        host, port = self.get_host_port()
-        print(f"Connect button clicked! Host: {host}, Port: {port}")
-        tcp_worker = TcpRawByteWorker(host, port, bytes_result)
-        
         # Make the worker
+        tcp_worker = TcpButtonWorker(host, port, button_number)
         self.make_worker_thread(tcp_worker, True)
-        
+
         # Clear the field
-        self.text_entry_tx_data.setText("")
+        self.command_entry.setText("")
+
+    def get_host(self):
+        host = self.connect_tab.host_entry.text()
+        return host
+
+    def get_message_port(self):
+        message_port = self.connect_tab.meessage_port_entry.text()
+        return message_port
+
+    def get_ota_port(self):
+        message_port = self.connect_tab.meessage_port_entry.text()
+        return message_port
