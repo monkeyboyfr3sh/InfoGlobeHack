@@ -18,6 +18,7 @@
 
 #include "tcp_server_task.h"
 #include "ota_server_task.h"
+#include "button_tcp_task.h"
 
 static const char * TAG = "FR_MKR";
 
@@ -40,6 +41,7 @@ void frame_maker_task(void *pvParameters)
 
     // Create OTA server thread
     xTaskCreate(ota_server_task, "ota_server_task", 4096, (void*)display_queue, 5, NULL);
+    xTaskCreate(button_tcp_task, "button_tcp_task", 4096, (void*)display_queue, 5, NULL);
     
     TickType_t ani_1_tick = xTaskGetTickCount();
     TickType_t ani_2_tick = xTaskGetTickCount();

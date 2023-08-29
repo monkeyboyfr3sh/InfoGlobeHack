@@ -47,7 +47,8 @@
 			"gpio.h": "c",
 			"nvs.h": "c",
 			"param.h": "c",
-			"*.inc": "c"
+			"*.inc": "c",
+			"ssh_task.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

@@ -4,7 +4,7 @@ from PyQt5.QtGui import QColor
 import re
 
 from file_helper import get_file_total_bytes
-from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker,TcpButtonWorker
+from tcp_worker import TcpConnectWorker,TcpTextWorker,TcpRawByteWorker,TcpOTAtWorker,TcpButtonWorker,TcpButtonConfigWorker
 
 from working_tab_base import WorkingTabBase
 from connect_tab import ConnectTab
@@ -63,6 +63,7 @@ class InfoGlobeControlPanelTab(WorkingTabBase):
     # Callback function for the Send button click
     def send_button_click(self, button_number):
         print(f'Button {button_number} clicked')
+        config_checked = self.update_checkbox.isChecked()
         self.update_checkbox.setChecked(False)
 
         # Get user input 
@@ -71,11 +72,15 @@ class InfoGlobeControlPanelTab(WorkingTabBase):
 
         # Now connect!
         host = self.connect_tab.host_entry.text()
-        port = self.connect_tab.meessage_port_entry.text()
+        port = 44444
         print(f"Connect button clicked! Host: {host}, Port: {port}")
 
         # Make the worker
-        tcp_worker = TcpButtonWorker(host, port, button_number)
+        if config_checked:
+            tcp_worker = TcpButtonConfigWorker(host, port, button_number, input_text)
+        else:
+            tcp_worker = TcpButtonWorker(host, port, button_number)
+        
         self.make_worker_thread(tcp_worker, True)
 
         # Clear the field

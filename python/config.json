@@ -1,1 +1,1 @@
-{"host": "192.168.0.97", "message_port": "55555", "ota_port": "22222"}
+{"host": "192.168.0.97", "message_port": "55555", "ota_port": "22222", "cmds_port": "44444"}

@@ -27,15 +27,21 @@ class ConnectTab(WorkingTabBase):
         self.ota_port_label.setStyleSheet("font-size: 30px;")
         self.ota_port_label.setAlignment(Qt.AlignCenter)
 
+        self.cmds_port_label = QLabel("Enter button port:")
+        self.cmds_port_label.setStyleSheet("font-size: 30px;")
+        self.cmds_port_label.setAlignment(Qt.AlignCenter)
+
         # Make Line entry
         self.host_entry = QLineEdit()
         self.meessage_port_entry = QLineEdit()
         self.ota_port_entry = QLineEdit()
+        self.cmds_port_entry = QLineEdit()
 
         # Enter key does connect action
         self.host_entry.returnPressed.connect(self.connect_message_button_click)
         self.meessage_port_entry.returnPressed.connect(self.connect_message_button_click)
         self.ota_port_entry.returnPressed.connect(self.connect_ota_button_click)
+        self.cmds_port_entry.returnPressed.connect(self.connect_cmds_button_click)
 
         # Make buttons
         self.message_connect_button = QPushButton('Connect')
@@ -43,6 +49,9 @@ class ConnectTab(WorkingTabBase):
 
         self.ota_connect_button = QPushButton('Connect')
         self.ota_connect_button.clicked.connect(self.connect_ota_button_click)
+
+        self.cmds_connect_button = QPushButton('Connect')
+        self.cmds_connect_button.clicked.connect(self.connect_cmds_button_click)
 
         # Make Save and Load buttons
         self.save_button = QPushButton('Save')
@@ -56,13 +65,23 @@ class ConnectTab(WorkingTabBase):
         connect_layout.addWidget(self.host_entry_label)
         connect_layout.addWidget(self.host_entry)
 
-        connect_layout.addWidget(self.message_port_label)
-        connect_layout.addWidget(self.meessage_port_entry)
-        connect_layout.addWidget(self.message_connect_button)
+        message_layout = QVBoxLayout()
+        message_layout.addWidget(self.message_port_label)
+        message_layout.addWidget(self.meessage_port_entry)
+        message_layout.addWidget(self.message_connect_button)
+        connect_layout.addLayout(message_layout)
 
-        connect_layout.addWidget(self.ota_port_label)
-        connect_layout.addWidget(self.ota_port_entry)
-        connect_layout.addWidget(self.ota_connect_button)
+        ota_layout = QVBoxLayout()
+        ota_layout.addWidget(self.ota_port_label)
+        ota_layout.addWidget(self.ota_port_entry)
+        ota_layout.addWidget(self.ota_connect_button)
+        connect_layout.addLayout(ota_layout)
+
+        cmds_layout = QVBoxLayout()
+        cmds_layout.addWidget(self.cmds_port_label)
+        cmds_layout.addWidget(self.cmds_port_entry)
+        cmds_layout.addWidget(self.cmds_connect_button)
+        connect_layout.addLayout(cmds_layout)
 
         # Add a horizontal separator (line) between save and load buttons
         separator_line = QFrame()
@@ -102,13 +121,28 @@ class ConnectTab(WorkingTabBase):
         # Make the worker
         self.make_worker_thread(tcp_worker, True)
 
+    def connect_cmds_button_click(self):
+        host = self.host_entry.text()
+        port = self.cmds_port_entry.text()
+        print(f"Connect button clicked! Host: {host}, Port: {port}")
+
+        tcp_worker = TcpConnectWorker(host, port)
+        tcp_worker.connect_status.connect(self.cmds_on_connect_status)
+
+        # Make the worker
+        self.make_worker_thread(tcp_worker, True)
+
     def show_save_dialog(self):
         file_dialog = QFileDialog()
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)
         file_dialog.setNameFilter("JSON files (*.json)")
         if file_dialog.exec_() == QFileDialog.Accepted:
             filename = file_dialog.selectedFiles()[0]
-            self.save_host_port(filename, self.host_entry.text(), self.meessage_port_entry.text(), self.ota_port_entry.text())
+            self.save_host_port(filename, 
+                                self.host_entry.text(),
+                                self.meessage_port_entry.text(),
+                                self.ota_port_entry.text(),
+                                self.cmds_port_entry.text())
 
     def show_load_dialog(self):
         file_dialog = QFileDialog()
@@ -125,15 +159,16 @@ class ConnectTab(WorkingTabBase):
                 self.host_entry.setText(data["host"])
                 self.meessage_port_entry.setText(data["message_port"])
                 self.ota_port_entry.setText(data["ota_port"])
+                self.cmds_port_entry.setText(data["cmds_port"])
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             # If there's any error reading the file or the required data, 
             # we can simply pass and continue. This ensures that the application 
             # doesn't crash if the file doesn't exist yet or if it's malformed.
             pass
 
-    def save_host_port(self, filename, host, message_port, ota_port):
+    def save_host_port(self, filename, host, message_port, ota_port, cmds_port):
         with open(filename, 'w') as file:
-            json.dump({"host": host, "message_port": message_port, "ota_port": ota_port}, file)
+            json.dump({"host": host, "message_port": message_port, "ota_port": ota_port, "cmds_port": cmds_port}, file)
 
     # Slot to be called when the connect_success signal is emitted
     @pyqtSlot(int)
@@ -156,6 +191,17 @@ class ConnectTab(WorkingTabBase):
         else:
             print(f"Connect error{connect_status}")
             self.set_connect_box_color('red', self.ota_connect_button)
+
+    # Slot to be called when the connect_success signal is emitted
+    @pyqtSlot(int)
+    def cmds_on_connect_status(self, connect_status):
+        if(connect_status>=0):
+            print("Connection successful!")  # You can add any logic you want here
+            self.set_connect_box_color('green', self.cmds_connect_button)
+
+        else:
+            print(f"Connect error{connect_status}")
+            self.set_connect_box_color('red', self.cmds_connect_button)
 
     def set_connect_box_color(self, status, button: QPushButton):
 

@@ -144,3 +144,18 @@ class TcpButtonWorker(TcpWorkerBase):
         # Successful connect
         tx_data = bytes([self.button])
         globe.send_bytes(tx_data)
+
+class TcpButtonConfigWorker(TcpWorkerBase):
+
+    def __init__(self, host, port, button, command):
+        super().__init__(host,port)
+        self.button = button
+        self.command = command
+
+    def perform_task(self, globe : InfoGlobeController):
+        
+        # Successful connect
+        string_cmd = f'{self.command}'
+        tx_data = bytes([self.button, 0x01])
+        tx_data += string_cmd.encode()
+        globe.send_bytes(tx_data)
