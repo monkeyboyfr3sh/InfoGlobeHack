@@ -88,7 +88,7 @@ int create_socket(struct sockaddr_in *sin)
 	//sin.sin_port = htons(22);
 	sin->sin_port = htons(CONFIG_SSH_PORT);
 	sin->sin_addr.s_addr = inet_addr(CONFIG_SSH_HOST);
-	ESP_LOGI(TAG, "sin.sin_addr.s_addr=%x", sin->sin_addr.s_addr);
+	ESP_LOGI(TAG, "sin.sin_addr.s_addr=%x", (int)sin->sin_addr.s_addr);
 	if (sin->sin_addr.s_addr == 0xffffffff) {
 		struct hostent *hp;
 		hp = gethostbyname(CONFIG_SSH_HOST);
@@ -99,7 +99,7 @@ int create_socket(struct sockaddr_in *sin)
 		struct ip4_addr *ip4_addr;
 		ip4_addr = (struct ip4_addr *)hp->h_addr;
 		sin->sin_addr.s_addr = ip4_addr->addr;
-		ESP_LOGI(TAG, "sin.sin_addr.s_addr=%x", sin->sin_addr.s_addr);
+		ESP_LOGI(TAG, "sin.sin_addr.s_addr=%x", (int)sin->sin_addr.s_addr);
 	}
 
 	ESP_LOGI(TAG,"Opening socket");

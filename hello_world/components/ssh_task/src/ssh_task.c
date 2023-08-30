@@ -193,7 +193,7 @@ void ssh_shell_session(void *pvParameters)
 	ESP_LOGI(TAG,"Now starting shell!");
 	while(1){
 
-		int len = uart_read_bytes(UART_NUM, (uint8_t*)rx_buff + index, 1, 20 / portTICK_RATE_MS);
+		int len = uart_read_bytes(UART_NUM, (uint8_t*)rx_buff + index, 1, pdMS_TO_TICKS(20) );
 		if (len > 0) {
 			uart_write_bytes(UART_NUM, (uint8_t*)rx_buff + index, 1);
 			if (rx_buff[index] == '\n' || rx_buff[index] == '\r') {
