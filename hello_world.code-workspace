@@ -48,7 +48,9 @@
 			"nvs.h": "c",
 			"param.h": "c",
 			"*.inc": "c",
-			"ssh_task.h": "c"
+			"ssh_task.h": "c",
+			"infoglobe_data_type.h": "c",
+			"infoglobe_byte.h": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

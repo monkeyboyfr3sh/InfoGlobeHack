@@ -28,6 +28,7 @@
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 
+#include "infoglobe_data_type.h"
 #include "infoglobe_animations.h"
 #include "message_type.h"
 #include "sntp_helper.h"
@@ -54,6 +55,60 @@ static bool is_our_netif(const char *prefix, esp_netif_t *netif)
     return strncmp(prefix, esp_netif_get_desc(netif), strlen(prefix) - 1) == 0;
 }
 
+static int infoglobe_packet_handler(uint8_t *rx_buffer, size_t len)
+{
+    infoglobe_packet_t packet_buffer;
+    infoglobe_packet_types_t packet_type = form_packet_struct(&packet_buffer, rx_buffer, len);
+    print_infoglobe_packet(packet_buffer);
+
+    switch (packet_type)
+    {
+    case control_packet:{
+        /* code */
+        break;
+    }
+    case button_packet:{
+     
+        // Get button index
+        int button_idx = rx_buffer[0]-1;
+        if(button_idx>=NUM_BUTTONS){
+            button_idx = 0;
+        }
+
+        // Look for config command
+        if( (len>2+NUM_OVERHEAD_BYTES) &&
+            (rx_buffer[PACKET_PAYLOAD_INDEX]==1) )
+        {
+            int cmd_idx = PACKET_PAYLOAD_INDEX+2;
+            char * cmd_buffer = (const char *)&rx_buffer[cmd_idx];
+            int buffer_len_remain = len-(cmd_idx);
+            // Assign button commands
+            int cmd_len = strnlen( cmd_buffer, buffer_len_remain) + 1;
+            if(cmd_len < COMMAND_MAX_LEN){
+                ESP_LOGI(TAG,"Setting command %d to: '%s'", button_idx, cmd_buffer);
+                memcpy(&button_command_lut[button_idx][0], cmd_buffer, cmd_len);
+            }
+
+            ESP_LOGW(TAG, "Invalid config data");
+        }
+
+        // Normal button press
+        else {
+            char * cmd = &button_command_lut[button_idx][0];
+            run_ssh_task_blocked(cmd);
+        }
+        break;
+    }
+
+    default:{
+        ESP_LOGW(TAG,"Unknown command type!");
+        break;
+    }
+    }
+
+    return 0;
+}
+
 static void do_retransmit(const int sock, QueueHandle_t display_queue)
 {
     int len;
@@ -69,29 +124,9 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
             ESP_LOGI(TAG, "Received %d bytes:", len);
             ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,len,ESP_LOG_INFO);
 
-            // Get button index
-            int button_idx = rx_buffer[0]-1;
-            if(button_idx>=NUM_BUTTONS){
-                button_idx = 0;
-            }
-
-            // Look for config command
-            if( (len>2) && (rx_buffer[1]==1) ){
-                // Assign button commands
-                int cmd_len = strnlen(&rx_buffer[2],sizeof(rx_buffer)-2)+1;
-                if(cmd_len < COMMAND_MAX_LEN){
-                    ESP_LOGI(TAG,"Setting command %d to: '%s'", button_idx, &rx_buffer[2]);
-                    memcpy(&button_command_lut[button_idx][0], &rx_buffer[2], cmd_len);
-                }
-                ESP_LOGW(TAG, "Invalid config data");
-            }
-
-            // Normal button press
-            else {
-                char * cmd = &button_command_lut[button_idx][0];
-                run_ssh_task_blocked(cmd);
-            }
-
+            // Put buffer throught he handler
+            int ret = infoglobe_packet_handler((uint8_t *)rx_buffer, len);
+            
             // Send an ACK
             char * ack_buff = "OK";
             int written = send(sock, ack_buff, strlen(ack_buff), 0);
