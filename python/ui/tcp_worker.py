@@ -9,6 +9,7 @@ from file_helper import get_file_total_bytes
 from tcp_client import InfoGlobeController
 
 class TcpWorkerBase(QObject):
+    failed_connect = pyqtSignal()  # Signal to indicate failed to connect
     finished = pyqtSignal()  # Signal to indicate that the worker has finished
     connect_status = pyqtSignal(int)  # Signal to indicate that the worker has finished
 
@@ -50,6 +51,7 @@ class TcpWorkerBase(QObject):
         # Could not connect to the globe
         if globe is None:
             print(f"Failed to connect to globe @ {self.host}:{self.port}")
+            self.failed_connect.emit()
 
         # Successful connect
         else:
