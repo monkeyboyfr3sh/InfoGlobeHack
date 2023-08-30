@@ -148,8 +148,7 @@ static int do_retransmit(const int sock, QueueHandle_t display_queue)
         len = recv(sock, (void *)&rx_buffer[data_read], (BUFFSIZE-data_read), 0);
         if (len < 0) {
             ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
-            free(rx_buffer);
-            return -3;
+            break;
             // task_fatal_error();
         } else if (len == 0) {
             ESP_LOGW(TAG, "Connection closed");
@@ -272,6 +271,11 @@ static int do_retransmit(const int sock, QueueHandle_t display_queue)
     } while (len > 0);
 
     ESP_LOGI(TAG, "Total Write binary data length: %d", binary_file_length);
+
+    if(len<0){
+        free(rx_buffer);
+        return -3;
+    }
 
     // End ota session
     err = esp_ota_end(update_handle);

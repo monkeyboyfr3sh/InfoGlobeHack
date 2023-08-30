@@ -70,18 +70,22 @@ static int infoglobe_packet_handler(uint8_t *rx_buffer, size_t len)
     case button_packet:{
      
         // Get button index
-        int button_idx = rx_buffer[0]-1;
+        int button_idx = rx_buffer[PACKET_PAYLOAD_INDEX]-1;
         if(button_idx>=NUM_BUTTONS){
             button_idx = 0;
         }
 
         // Look for config command
         if( (len>2+NUM_OVERHEAD_BYTES) &&
-            (rx_buffer[PACKET_PAYLOAD_INDEX]==1) )
-        {
+            (rx_buffer[PACKET_PAYLOAD_INDEX+1]==1) )
+        {   
+            // Get command index and remaining buffer size
             int cmd_idx = PACKET_PAYLOAD_INDEX+2;
-            char * cmd_buffer = (const char *)&rx_buffer[cmd_idx];
             int buffer_len_remain = len-(cmd_idx);
+
+            // Get pointer of the command start
+            char * cmd_buffer = (const char *)&rx_buffer[cmd_idx];
+
             // Assign button commands
             int cmd_len = strnlen( cmd_buffer, buffer_len_remain) + 1;
             if(cmd_len < COMMAND_MAX_LEN){

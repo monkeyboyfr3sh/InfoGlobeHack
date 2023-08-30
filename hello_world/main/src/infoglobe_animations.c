@@ -52,7 +52,7 @@ void run_boot_animation(QueueHandle_t display_queue, uint32_t animation_dur_ms)
         0x0C, strlen(boot_msg));
     vTaskDelay(pdMS_TO_TICKS(animation_dur_ms/2));
 
-    const char *fw_version = "Ver: 0.5";
+    const char *fw_version = "Ver: 0.6";
     string_with_blink_shift(display_queue,
         fw_version, strlen(fw_version),
         0x00, strlen(fw_version));
