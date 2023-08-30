@@ -17,6 +17,7 @@ class TcpWorkerBase(QObject):
         self.host = host
         self.port = port
         self.globe = None
+        self.worker_started = False
 
     def connect_to_globe(self) -> InfoGlobeController:
         try:
@@ -50,8 +51,11 @@ class TcpWorkerBase(QObject):
         if globe is None:
             print(f"Failed to connect to globe @ {self.host}:{self.port}")
 
-        # Succesful connect
+        # Successful connect
         else:
+            # Indicate that worker has started
+            self.worker_started = True
+
             # Perform task
             self.perform_task(globe)
         
@@ -95,15 +99,26 @@ class TcpRawByteWorker(TcpWorkerBase):
 
 class TcpOTAtWorker(TcpWorkerBase):
     progress_percent = pyqtSignal(float)
+    exit_status = pyqtSignal(int)
 
     def __init__(self, host, port, binary_file_path, chunk_size):
         super().__init__(host,port)
         self.binary_file_path = binary_file_path
-        self.binary_size = get_file_total_bytes(self.binary_file_path)
         self.chunk_size = chunk_size
 
     def perform_task(self, globe : InfoGlobeController):
         
+        if self.binary_file_path is None:
+            print("Empty path")
+            self.exit_status.emit(1)
+            return
+
+        # Load binary size
+        self.binary_size = get_file_total_bytes(self.binary_file_path)
+
+        # Set a receive timeout of 5 seconds
+        globe.s.settimeout(5)
+
         # Inside the run method after the connection is established
         try:
             total_tx_size = 0
@@ -120,18 +135,38 @@ class TcpOTAtWorker(TcpWorkerBase):
                     # Update percentage
                     self.progress_percent.emit(total_tx_size/self.binary_size)
 
-                    # TODO: Need to check for ACK/NACK
-                    data = globe.s.recv(1024)
-                    # if not data:
-                    #     print("got empty data, exiting")
-                    # else:
-                    #     print("Received: ",end='')
-                    #     print(data)
+                    try:
+                        response = globe.s.recv(1024)
+                        if "ACK" not in response.decode():
+                            print("Received from server:", response.decode())
+                            self.exit_status.emit(-2)
+                            return
+                                                    
+                    except socket.timeout:
+                        print("Receive operation timed out.")
+                        self.exit_status.emit(-2)
+                        return
+
+                # Look for final ACK/NAK
+                try:
+                    response = globe.s.recv(1024)
+                    print("Received from server:", response.decode())
+                except socket.timeout:
+                    print("Receive operation timed out.")
+                    self.exit_status.emit(-3)
+                    return
 
         except FileNotFoundError:
             print("Binary file not found.")
         except Exception as err:
             print("An error occurred while reading and sending data:", err)
+
+        # Didn't do all writes 
+        if ( total_tx_size!=self.binary_size ):
+            self.exit_status.emit(-1)
+
+        # Successful exit
+        self.exit_status.emit(0)
 
 class TcpButtonWorker(TcpWorkerBase):
 

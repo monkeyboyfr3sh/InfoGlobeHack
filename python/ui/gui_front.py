@@ -70,8 +70,8 @@ def set_dark_fusion_style(app: QApplication):
     app.setStyle("Fusion")
     
     # Load the QSS file
-    qss_file = QFile("./python/styles/yellow_material.qss")
-    # qss_file = QFile("./python/styles/blue_material.qss")
+    # qss_file = QFile("./python/styles/yellow_material.qss")
+    qss_file = QFile("./python/styles/blue_material.qss")
     qss_file.open(QFile.ReadOnly | QFile.Text)
     qss = qss_file.readAll()
     qss = bytes(qss).decode("utf-8")

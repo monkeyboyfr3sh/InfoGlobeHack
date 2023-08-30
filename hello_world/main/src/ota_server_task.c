@@ -44,6 +44,7 @@ static bool is_our_netif(const char *prefix, esp_netif_t *netif);
 static int lookup_ip(char *ip_addr_string_buff);
 static int setup_tcp_socket(int addr_family, int port);
 static bool diagnostic(void);
+static void system_reboot(QueueHandle_t display_queue);
 
 // Implementations
 static bool is_our_netif(const char *prefix, esp_netif_t *netif)
@@ -61,7 +62,7 @@ static void print_sha256 (const uint8_t *image_hash, const char *label)
     ESP_LOGI(TAG, "%s: %s", label, hash_print);
 }
 
-static void do_retransmit(const int sock, QueueHandle_t display_queue)
+static int do_retransmit(const int sock, QueueHandle_t display_queue)
 {
     int len;
     char * rx_buffer = malloc(sizeof(char)*BUFFSIZE);
@@ -112,8 +113,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     if (configured == NULL){
         free(rx_buffer);
-        return ;
-        // task_fatal_error();
+        return -1;
     }
     
     // if (configured != running) {
@@ -128,7 +128,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL){
         free(rx_buffer);
-        return ;
+        return -2;
         // task_fatal_error();
     }
     // ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
@@ -149,7 +149,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
         if (len < 0) {
             ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
             free(rx_buffer);
-            return ;
+            return -3;
             // task_fatal_error();
         } else if (len == 0) {
             ESP_LOGW(TAG, "Connection closed");
@@ -190,7 +190,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
                             ESP_LOGW(TAG, "Previously, there was an attempt to launch the firmware with %s version, but it failed.", invalid_app_info.version);
                             ESP_LOGW(TAG, "The firmware has been rolled back to the previous version.");
                             free(rx_buffer);
-                            return ;
+                            return -5;
                         }
                     }
 
@@ -208,7 +208,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
                         ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
                         esp_ota_abort(update_handle);
                         free(rx_buffer);
-                        return ;
+                        return -6;
                         // task_fatal_error();
                     }
                     ESP_LOGI(TAG, "esp_ota_begin succeeded");
@@ -238,7 +238,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
                 if (err != ESP_OK) {
                     esp_ota_abort(update_handle);
                     free(rx_buffer);
-                    return ;
+                    return -7;
                 }
 
                 // Update count, reset data read
@@ -266,7 +266,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
             }
             
             // Send an ACK
-            char * ack_buff = "OK";
+            char * ack_buff = "ACK";
             int written = send(sock, ack_buff, strlen(ack_buff), 0);
         }
     } while (len > 0);
@@ -282,7 +282,7 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
             ESP_LOGE(TAG, "esp_ota_end failed (%s)!", esp_err_to_name(err));
         }
         free(rx_buffer);
-        return ;
+        return -8;
         // task_fatal_error();
     }
 
@@ -291,22 +291,12 @@ static void do_retransmit(const int sock, QueueHandle_t display_queue)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
         free(rx_buffer);
-        return ;
+        return -9;
     }
-    ESP_LOGI(TAG, "Prepare to restart system!");
-    for(int i = 3;i>0;i--){
-        ESP_LOGI(TAG,"Restarting in %d...",i);
-        // Update Display
-        char reboot_msg[128] = {0};
-        snprintf(reboot_msg,sizeof(reboot_msg),"Reboot in %d", i);
-        string_with_blink_shift(display_queue,
-            reboot_msg, strlen(reboot_msg),
-            0, strlen(reboot_msg));
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    esp_restart();
+
+    // Successful exit
     free(rx_buffer);
-    return ;
+    return 0;
 }
 
 static int setup_tcp_socket(int addr_family, int port)
@@ -430,6 +420,22 @@ static bool diagnostic(void)
     return true;
 }
 
+static void system_reboot(QueueHandle_t display_queue)
+{
+    ESP_LOGI(TAG, "Prepare to restart system!");
+    for(int i = 3;i>0;i--){
+        ESP_LOGI(TAG,"Restarting in %d...",i);
+        // Update Display
+        char reboot_msg[128] = {0};
+        snprintf(reboot_msg,sizeof(reboot_msg),"Reboot in %d", i);
+        string_with_blink_shift(display_queue,
+            reboot_msg, strlen(reboot_msg),
+            0, strlen(reboot_msg));
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    esp_restart();
+}
+
 void ota_server_task(void *pvParameters)
 {
     // Grab queue
@@ -467,15 +473,46 @@ void ota_server_task(void *pvParameters)
         sock = listen_for_client(listen_sock,addr_str);
         
         // Host session
-        do_retransmit(sock, display_queue);
+        int ota_ret = do_retransmit(sock, display_queue);
+        
+        // Send an ACK
+        char * ack_buff = "ACK";
+        int written = send(sock, ack_buff, strlen(ack_buff), 0);
 
-        // Cleanup
-        shutdown(sock, 0);
-        close(sock);
+        // Error with ota
+        if(ota_ret){
+            ESP_LOGW(TAG,"OTA exits with: %d", ota_ret);
+        
+            // Send a NAK
+            char * nak_buff = "NAK";
+            int written = send(sock, nak_buff, strlen(nak_buff), 0);
+
+            // Cleanup
+            shutdown(sock, 0);
+            close(sock);
+        }
+
+        // Successful ota
+        else {
+            
+            // Send a ACK
+            char * ack_buff = "ACK";
+            int written = send(sock, ack_buff, strlen(ack_buff), 0);
+
+            // Cleanup
+            shutdown(sock, 0);
+            close(sock);
+
+            // Exits
+            break;
+        }
     }
 
     // Have a socket to cleanup
     if(need_to_cleanup){ close(listen_sock); }
+
+    // Reboot
+    system_reboot(display_queue);
 
     // Exit
     vTaskDelete(NULL);
