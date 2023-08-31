@@ -9,6 +9,7 @@ idf_component_register(SRCS
     "src/sntp_helper.c"
     "src/ota_server_task.c"
     "src/button_tcp_task.c"
+    "src/tcp_helpers.c"
                     INCLUDE_DIRS "" "inc")
 
 # set_source_files_properties(
