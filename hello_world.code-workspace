@@ -51,7 +51,10 @@
 			"ssh_task.h": "c",
 			"infoglobe_data_type.h": "c",
 			"infoglobe_byte.h": "c",
-			"tcp_helpers.h": "c"
+			"tcp_helpers.h": "c",
+			"bitset": "c",
+			"string_view": "c",
+			"utility": "c"
 		},
 		"editor.columnSelection": false,
 		"workbench.colorCustomizations": {

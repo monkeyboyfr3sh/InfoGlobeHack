@@ -55,11 +55,51 @@ static void print_sha256 (const uint8_t *image_hash, const char *label)
     ESP_LOGI(TAG, "%s: %s", label, hash_print);
 }
 
-static int do_retransmit(const int sock, QueueHandle_t display_queue)
+static int check_image_header(uint8_t *data_buffer)
 {
-    int len;
-    char * rx_buffer = malloc(sizeof(char)*BUFFSIZE);
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    esp_app_desc_t new_app_info;
+    
+    // check current version with downloading
+    memcpy(&new_app_info, 
+        &data_buffer[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)],
+        sizeof(esp_app_desc_t));
+    ESP_LOGI(TAG, "New firmware version: %s", new_app_info.version);
 
+    esp_app_desc_t running_app_info;
+    if (esp_ota_get_partition_description(running, &running_app_info) == ESP_OK) {
+        ESP_LOGI(TAG, "Running firmware version: %s", running_app_info.version);
+    }
+
+    const esp_partition_t* last_invalid_app = esp_ota_get_last_invalid_partition();
+    esp_app_desc_t invalid_app_info;
+    if (esp_ota_get_partition_description(last_invalid_app, &invalid_app_info) == ESP_OK) {
+        ESP_LOGI(TAG, "Last invalid firmware version: %s", invalid_app_info.version);
+    }
+
+    // check current version with last invalid partition
+    if (last_invalid_app != NULL) {
+        if (memcmp(invalid_app_info.version, new_app_info.version, sizeof(new_app_info.version)) == 0) {
+            ESP_LOGW(TAG, "New version is the same as invalid version.");
+            ESP_LOGW(TAG, "Previously, there was an attempt to launch the firmware with %s version, but it failed.", invalid_app_info.version);
+            ESP_LOGW(TAG, "The firmware has been rolled back to the previous version.");
+            return -1;
+        }
+    }
+
+// #ifndef CONFIG_EXAMPLE_SKIP_VERSION_CHECK
+//                     if (memcmp(new_app_info.version, running_app_info.version, sizeof(new_app_info.version)) == 0) {
+//                         ESP_LOGW(TAG, "Current running version is the same as a new. We will not continue the update.");
+//                         http_cleanup(client);
+//                         infinite_loop();
+//                     }
+// #endif
+
+    return 0;
+}
+
+static void print_ota_partitions(esp_partition_t *running, esp_partition_t *configured, esp_partition_t *update_partition)
+{
     uint8_t sha_256[HASH_LEN] = { 0 };
     esp_partition_t partition;
 
@@ -78,11 +118,10 @@ static int do_retransmit(const int sock, QueueHandle_t display_queue)
     print_sha256(sha_256, "SHA-256 for bootloader: ");
 
     // get sha256 digest for running partition
-    esp_partition_get_sha256(esp_ota_get_running_partition(), sha_256);
+    esp_partition_get_sha256(running, sha_256);
     print_sha256(sha_256, "SHA-256 for current firmware: ");
 
     ESP_LOGI(TAG,"Getting running partition");
-    const esp_partition_t *running = esp_ota_get_running_partition();
     esp_ota_img_states_t ota_state;
     if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK) {
         if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
@@ -98,177 +137,225 @@ static int do_retransmit(const int sock, QueueHandle_t display_queue)
         }
     }
 
-    esp_err_t err;
-    esp_ota_handle_t update_handle = 0 ;
-    const esp_partition_t *update_partition = NULL;
+    // Configured i snot running
+    if (configured != running) {
+        ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
+                 configured->address, running->address);
+        ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
+    }
 
+    // Onward
+    ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
+             running->type, running->subtype, running->address);
+
+    ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
+             update_partition->subtype, update_partition->address);
+
+}
+
+int get_ota_header(const int sock, uint8_t *rx_buffer, size_t buffer_size)
+{
+    if(rx_buffer == NULL){
+        return -1;
+    }
+
+    const size_t header_size = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t);
+    size_t rx_len = 0;
+    size_t header_len = 0;
+    while(1)
+    {
+        // Get data from the socket
+        rx_len += recv(sock, (void *)&rx_buffer[header_len], (buffer_size-header_len), 0);
+        
+        // Handle error
+        if (rx_len < 0) {
+            ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
+            return -1;
+        } else if (rx_len == 0) {
+            ESP_LOGW(TAG, "Connection closed");
+            return -2;
+        } 
+
+        // Update size
+        header_len += rx_len;
+
+        // Got enough yet?
+        if ( header_len > header_size ) {
+            break;
+        }
+
+        else {
+            ESP_LOGW(TAG,"RX %d bytes, min for header is %d bytes", rx_len, header_size );
+        }
+
+        // Send an ACK
+        char * ack_buff = "ACK";
+        int written = send(sock, ack_buff, strlen(ack_buff), 0);
+        written = send(sock, ack_buff, strlen(ack_buff), 0);
+    }
+
+    // Success!
+    return header_len;
+}
+
+int recv_ota(const int sock, uint8_t *rx_buffer, size_t buffer_size, QueueHandle_t display_queue, const esp_partition_t *update_handle)
+{
+    // Time when OTA really started
+    TickType_t ota_start_time = xTaskGetTickCount();
+    TickType_t ota_status_print_time = xTaskGetTickCount();
+
+    // Show update start on display
+    const char *ota_start_msg = "< Starting OTA >";
+    string_with_blink_shift(display_queue,
+        ota_start_msg, strlen(ota_start_msg),
+        strlen(ota_start_msg)+2, strlen(ota_start_msg)+2);
+
+
+    char * ack_buff = "ACK";
+    size_t ota_len = 0;
+    size_t rx_len = 0;
+    while(1)
+    {
+        // Get data from the socket
+        rx_len = recv(sock, rx_buffer, buffer_size, 0);
+        
+        // Handle error
+        if (rx_len < 0) {
+            ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
+            return -1;
+        } else if (rx_len == 0) {
+            ESP_LOGW(TAG, "Connection closed");
+            return -2;
+        } 
+
+        // Header has been checked, can use data
+        esp_err_t err = esp_ota_write( update_handle, (const void *)rx_buffer, rx_len);
+        if (err != ESP_OK) {
+            return -3;
+            break;
+        }
+
+        // Update counter
+        ota_len += rx_len;
+        // Send an ACK
+        int written = send(sock, ack_buff, strlen(ack_buff), 0);
+
+        // Update count, reset data read
+        ESP_LOGD(TAG, "Written image length %d", ota_len);
+
+        // After time, start showing percent progress
+        if( xTaskGetTickCount()-ota_start_time > pdMS_TO_TICKS(8000)) {
+
+            if( xTaskGetTickCount()-ota_status_print_time > pdMS_TO_TICKS(1000) )
+            {
+                ota_status_print_time = xTaskGetTickCount();
+                int runtime = (int)( ( pdTICKS_TO_MS( xTaskGetTickCount()-ota_start_time ) / 1000 ) );
+                // Update Display
+                char progress_msg[128] = {0};
+                snprintf(progress_msg,sizeof(progress_msg),"Updating... (%ds)", runtime);
+                string_with_blink_shift(display_queue,
+                    progress_msg, strlen(progress_msg),
+                    0, strlen(progress_msg)+4);
+            }
+
+        }   
+    }
+}
+
+
+static int do_retransmit(const int sock, QueueHandle_t display_queue)
+{
+    esp_err_t err;
+
+    // Get partitions
     ESP_LOGI(TAG,"Getting boot partition");
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    ESP_LOGI(TAG,"Getting configured partition");
     const esp_partition_t *configured = esp_ota_get_boot_partition();
-    if (configured == NULL){
-        free(rx_buffer);
+    ESP_LOGI(TAG,"Getting update partition");
+    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+    esp_ota_handle_t update_handle = NULL;
+
+    // Check for empty pointers
+    if ( (running == NULL) || (configured == NULL) || (update_partition == NULL) ){
         return -1;
     }
     
-    // if (configured != running) {
-    //     ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
-    //              configured->address, running->address);
-    //     ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
-    // }
-    // ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
-    //          running->type, running->subtype, running->address);
+    // Print running partition
+    print_ota_partitions(running,configured,update_partition);
 
-    ESP_LOGI(TAG,"Getting update partition");
-    update_partition = esp_ota_get_next_update_partition(NULL);
-    if (update_partition == NULL){
-        free(rx_buffer);
-        return -2;
-        // task_fatal_error();
-    }
-    // ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
-    //          update_partition->subtype, update_partition->address);
+    // Start the update process
+    int binary_file_length = 0;    
+    size_t len;
+    char * rx_buffer = malloc(sizeof(char)*BUFFSIZE);
+    int ret_status = 0;
 
-    int binary_file_length = 0;
-
-    bool image_header_was_checked = false;
-    const size_t header_size = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t);
-    int data_read = 0;
-    TickType_t ota_start_time = xTaskGetTickCount();
-    TickType_t ota_status_print_time = xTaskGetTickCount();
-    int display_percent = 0;
-
-    /*deal with all receive packet*/
-    do {
-        len = recv(sock, (void *)&rx_buffer[data_read], (BUFFSIZE-data_read), 0);
-        if (len < 0) {
-            ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
+    while (1)
+    {   
+        // Get header
+        ESP_LOGI(TAG,"Getting header");
+        int header_length = get_ota_header(sock, (uint8_t *)rx_buffer, BUFFSIZE);
+        if(header_length<=0){
+            ESP_LOGW(TAG,"Error getting header");
+            ret_status = -1;
             break;
-            // task_fatal_error();
-        } else if (len == 0) {
-            ESP_LOGW(TAG, "Connection closed");
-        } else {
-            // ESP_LOGI(TAG, "Received %d bytes:", len);
-            // ESP_LOG_BUFFER_HEX_LEVEL(TAG,rx_buffer,len,ESP_LOG_INFO);
-
-            // Read some data
-            data_read += len;
-
-            // Do we need to check header?
-            if (image_header_was_checked == false) {
-                
-                // Data read needs to be at least size of header
-                if ( data_read > header_size ) {
-                    
-                    esp_app_desc_t new_app_info;
-                    
-                    // check current version with downloading
-                    memcpy(&new_app_info, &rx_buffer[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)], sizeof(esp_app_desc_t));
-                    ESP_LOGI(TAG, "New firmware version: %s", new_app_info.version);
-
-                    esp_app_desc_t running_app_info;
-                    if (esp_ota_get_partition_description(running, &running_app_info) == ESP_OK) {
-                        ESP_LOGI(TAG, "Running firmware version: %s", running_app_info.version);
-                    }
-
-                    const esp_partition_t* last_invalid_app = esp_ota_get_last_invalid_partition();
-                    esp_app_desc_t invalid_app_info;
-                    if (esp_ota_get_partition_description(last_invalid_app, &invalid_app_info) == ESP_OK) {
-                        ESP_LOGI(TAG, "Last invalid firmware version: %s", invalid_app_info.version);
-                    }
-
-                    // check current version with last invalid partition
-                    if (last_invalid_app != NULL) {
-                        if (memcmp(invalid_app_info.version, new_app_info.version, sizeof(new_app_info.version)) == 0) {
-                            ESP_LOGW(TAG, "New version is the same as invalid version.");
-                            ESP_LOGW(TAG, "Previously, there was an attempt to launch the firmware with %s version, but it failed.", invalid_app_info.version);
-                            ESP_LOGW(TAG, "The firmware has been rolled back to the previous version.");
-                            free(rx_buffer);
-                            return -5;
-                        }
-                    }
-
-// #ifndef CONFIG_EXAMPLE_SKIP_VERSION_CHECK
-//                     if (memcmp(new_app_info.version, running_app_info.version, sizeof(new_app_info.version)) == 0) {
-//                         ESP_LOGW(TAG, "Current running version is the same as a new. We will not continue the update.");
-//                         http_cleanup(client);
-//                         infinite_loop();
-//                     }
-// #endif
-                    image_header_was_checked = true;
-
-                    err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
-                    if (err != ESP_OK) {
-                        ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
-                        esp_ota_abort(update_handle);
-                        free(rx_buffer);
-                        return -6;
-                        // task_fatal_error();
-                    }
-                    ESP_LOGI(TAG, "esp_ota_begin succeeded");
-
-                    // Time when OTA really started
-                    ota_start_time = xTaskGetTickCount();
-
-                    // Show update start on display
-                    const char *ota_start_msg = "< Starting OTA >";
-                    string_with_blink_shift(display_queue,
-                        ota_start_msg, strlen(ota_start_msg),
-                        strlen(ota_start_msg)+2, strlen(ota_start_msg)+2);
-                }
-                
-                else {
-                    ESP_LOGW(TAG,"RX %d bytes, min for header is %d bytes", data_read, header_size );
-                    // ESP_LOGE(TAG, "received package is not fit len");
-                    // esp_ota_abort(update_handle);
-                    // task_fatal_error();
-                }
-            }
-
-            // Header has been checked, can use data
-            else {
-
-                err = esp_ota_write( update_handle, (const void *)rx_buffer, data_read);
-                if (err != ESP_OK) {
-                    esp_ota_abort(update_handle);
-                    free(rx_buffer);
-                    return -7;
-                }
-
-                // Update count, reset data read
-                binary_file_length += data_read;
-                data_read = 0;
-                ESP_LOGD(TAG, "Written image length %d", binary_file_length);
-            
-
-                // After time, start showing percent progress
-                if( xTaskGetTickCount()-ota_start_time > pdMS_TO_TICKS(8000)) {
-
-                    if( xTaskGetTickCount()-ota_status_print_time > pdMS_TO_TICKS(1000) )
-                    {
-                        ota_status_print_time = xTaskGetTickCount();
-                        int runtime = (int)( ( pdTICKS_TO_MS( xTaskGetTickCount()-ota_start_time ) / 1000 ) );
-                        // Update Display
-                        char progress_msg[128] = {0};
-                        snprintf(progress_msg,sizeof(progress_msg),"Updating... (%ds)", runtime);
-                        string_with_blink_shift(display_queue,
-                            progress_msg, strlen(progress_msg),
-                            0, strlen(progress_msg)+4);
-                    }
-
-                }
-            }
-            
-            // Send an ACK
-            char * ack_buff = "ACK";
-            int written = send(sock, ack_buff, strlen(ack_buff), 0);
         }
-    } while (len > 0);
+
+        // Check the header
+        ESP_LOGI(TAG,"Checking header");
+        int image_header_status = check_image_header((uint8_t *)rx_buffer);
+        if(image_header_status){
+            ESP_LOGW(TAG,"Error with header");
+            ret_status = -2;
+            break;
+        }
+
+        // Start OTA
+        ESP_LOGI(TAG,"Starting OTA");
+        err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+            ret_status = -3;
+            break;
+        }
+        ESP_LOGI(TAG, "esp_ota_begin succeeded");
+
+        // Header has been checked, can use data
+        ESP_LOGI(TAG,"Writing Header...");
+        err = esp_ota_write( update_handle, (const void *)rx_buffer, header_length);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG,"Error writing the header!");
+            ret_status = -4;
+            break;
+        }
+
+        // Receive OTA
+        ESP_LOGI(TAG,"Receiving the rest of OTA");
+        int ota_len = recv_ota(sock, (uint8_t *)rx_buffer, BUFFSIZE, display_queue, update_handle);
+        if(ota_len<0){
+            ESP_LOGW(TAG,"Error Rceiving ota!");
+            ret_status = -5;
+            break;
+        }
+
+        // Can now exit
+        break;
+    }
+
+    // Need to free rx_buffer
+    free(rx_buffer);
 
     ESP_LOGI(TAG, "Total Write binary data length: %d", binary_file_length);
 
-    if(len<0){
-        free(rx_buffer);
-        return -3;
+    // Did we detect errror?
+    if( ret_status ){
+        // Check if we have handle to abort update from
+        if(update_handle){
+            esp_ota_abort(update_handle);
+        }
+        return -6;
     }
+
 
     // End ota session
     err = esp_ota_end(update_handle);
@@ -279,8 +366,7 @@ static int do_retransmit(const int sock, QueueHandle_t display_queue)
             ESP_LOGE(TAG, "esp_ota_end failed (%s)!", esp_err_to_name(err));
         }
         free(rx_buffer);
-        return -8;
-        // task_fatal_error();
+        return -7;
     }
 
     // Update boot partition
@@ -288,11 +374,9 @@ static int do_retransmit(const int sock, QueueHandle_t display_queue)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
         free(rx_buffer);
-        return -9;
+        return -8;
     }
 
-    // Successful exit
-    free(rx_buffer);
     return 0;
 }
 
