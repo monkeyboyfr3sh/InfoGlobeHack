@@ -1,0 +1,88 @@
+[
+    {
+        "label": "hashlib",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "hashlib",
+        "description": "hashlib",
+        "detail": "hashlib",
+        "documentation": {}
+    },
+    {
+        "label": "logging",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "logging",
+        "description": "logging",
+        "detail": "logging",
+        "documentation": {}
+    },
+    {
+        "label": "Callable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "pytest",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pytest",
+        "description": "pytest",
+        "detail": "pytest",
+        "documentation": {}
+    },
+    {
+        "label": "IdfDut",
+        "importPath": "pytest_embedded_idf.dut",
+        "description": "pytest_embedded_idf.dut",
+        "isExtraImport": true,
+        "detail": "pytest_embedded_idf.dut",
+        "documentation": {}
+    },
+    {
+        "label": "QemuApp",
+        "importPath": "pytest_embedded_qemu.app",
+        "description": "pytest_embedded_qemu.app",
+        "isExtraImport": true,
+        "detail": "pytest_embedded_qemu.app",
+        "documentation": {}
+    },
+    {
+        "label": "QemuDut",
+        "importPath": "pytest_embedded_qemu.dut",
+        "description": "pytest_embedded_qemu.dut",
+        "isExtraImport": true,
+        "detail": "pytest_embedded_qemu.dut",
+        "documentation": {}
+    },
+    {
+        "label": "test_hello_world",
+        "kind": 2,
+        "importPath": "pytest_hello_world",
+        "description": "pytest_hello_world",
+        "peekOfCode": "def test_hello_world(\n    dut: IdfDut, log_minimum_free_heap_size: Callable[..., None]\n) -> None:\n    dut.expect('Hello world!')\n    log_minimum_free_heap_size()\ndef verify_elf_sha256_embedding(app: QemuApp, sha256_reported: str) -> None:\n    sha256 = hashlib.sha256()\n    with open(app.elf_file, 'rb') as f:\n        sha256.update(f.read())\n    sha256_expected = sha256.hexdigest()",
+        "detail": "pytest_hello_world",
+        "documentation": {}
+    },
+    {
+        "label": "verify_elf_sha256_embedding",
+        "kind": 2,
+        "importPath": "pytest_hello_world",
+        "description": "pytest_hello_world",
+        "peekOfCode": "def verify_elf_sha256_embedding(app: QemuApp, sha256_reported: str) -> None:\n    sha256 = hashlib.sha256()\n    with open(app.elf_file, 'rb') as f:\n        sha256.update(f.read())\n    sha256_expected = sha256.hexdigest()\n    logging.info(f'ELF file SHA256: {sha256_expected}')\n    logging.info(f'ELF file SHA256 (reported by the app): {sha256_reported}')\n    # the app reports only the first several hex characters of the SHA256, check that they match\n    if not sha256_expected.startswith(sha256_reported):\n        raise ValueError('ELF file SHA256 mismatch')",
+        "detail": "pytest_hello_world",
+        "documentation": {}
+    },
+    {
+        "label": "test_hello_world_host",
+        "kind": 2,
+        "importPath": "pytest_hello_world",
+        "description": "pytest_hello_world",
+        "peekOfCode": "def test_hello_world_host(app: QemuApp, dut: QemuDut) -> None:\n    sha256_reported = (\n        dut.expect(r'ELF file SHA256:\\s+([a-f0-9]+)').group(1).decode('utf-8')\n    )\n    verify_elf_sha256_embedding(app, sha256_reported)\n    dut.expect('Hello world!')",
+        "detail": "pytest_hello_world",
+        "documentation": {}
+    }
+]

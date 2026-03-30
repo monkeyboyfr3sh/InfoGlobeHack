@@ -1,29 +1,15 @@
 {
-  "C_Cpp.intelliSenseEngine": "default",
-  "idf.portWin": "COM21",
-  "idf.adapterTargetName": "esp32s2",
-  "files.associations": {
-    "*.txt": "cmake",
-    "esp_log.h": "c",
-    "array": "c",
-    "deque": "c",
-    "format": "c",
-    "initializer_list": "c",
-    "list": "c",
-    "queue": "c",
-    "random": "c",
-    "regex": "c",
-    "type_traits": "c",
-    "vector": "c",
-    "xhash": "c",
-    "xstring": "c",
-    "xtree": "c",
-    "xutility": "c",
-    "future": "c",
-    "system_error": "c",
-    "*.ipp": "c"
-  },
   "idf.openOcdConfigs": [
-    "board/esp32s2-bridge.cfg"
-  ]
+    "board/esp32-wrover-kit-3.3v.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32"
+  },
+  "clangd.path": "C:\\Users\\david\\.espressif\\tools\\esp-clang\\16.0.1-fe4f10a809\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=c:\\Users\\david\\Documents\\code\\InfoGlobeHack\\hello_world\\build"
+  ],
+  "idf.currentSetup": "C:\\Users\\DavidDev\\esp\\v5.2.5\\esp-idf"
 }

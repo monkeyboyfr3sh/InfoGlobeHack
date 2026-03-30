@@ -1,0 +1,1179 @@
+[
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "QPushButton",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLineEdit",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QHBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLabel",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFileDialog",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFrame",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QTabWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QDesktopWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QPushButton",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLineEdit",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QHBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLabel",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QCheckBox",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFileDialog",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFrame",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QProgressBar",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QPushButton",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLineEdit",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QHBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLabel",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFileDialog",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QProgressBar",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QPushButton",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLineEdit",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QHBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QTabWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLabel",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QDesktopWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QCheckBox",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QPushButton",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLineEdit",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QHBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QLabel",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QCheckBox",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFileDialog",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QFrame",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QProgressBar",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QApplication",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QMainWindow",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QVBoxLayout",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QPushButton",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QProgressBar",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "QWidget",
+        "importPath": "PyQt5.QtWidgets",
+        "description": "PyQt5.QtWidgets",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtWidgets",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "pyqtSlot",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QThread",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QFile",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "pyqtSlot",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QThread",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "pyqtSlot",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QThread",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QObject",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "pyqtSignal",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "pyqtSlot",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QThread",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "pyqtSlot",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QThread",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QThread",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "Qt",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QTimer",
+        "importPath": "PyQt5.QtCore",
+        "description": "PyQt5.QtCore",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtCore",
+        "documentation": {}
+    },
+    {
+        "label": "QColor",
+        "importPath": "PyQt5.QtGui",
+        "description": "PyQt5.QtGui",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QIcon",
+        "importPath": "PyQt5.QtGui",
+        "description": "PyQt5.QtGui",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QPalette",
+        "importPath": "PyQt5.QtGui",
+        "description": "PyQt5.QtGui",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QColor",
+        "importPath": "PyQt5.QtGui",
+        "description": "PyQt5.QtGui",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QColor",
+        "importPath": "PyQt5.QtGui",
+        "description": "PyQt5.QtGui",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QIcon",
+        "importPath": "PyQt5.QtGui",
+        "description": "PyQt5.QtGui",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "QColor",
+        "importPath": "PyQt5.QtGui",
+        "description": "PyQt5.QtGui",
+        "isExtraImport": true,
+        "detail": "PyQt5.QtGui",
+        "documentation": {}
+    },
+    {
+        "label": "TcpConnectWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpConnectWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpTextWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpRawByteWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpOTAtWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpButtonWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpButtonConfigWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpWorkerBase",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpOTAtWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpConnectWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpTextWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpRawByteWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpOTAtWorker",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpWorkerBase",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpWorkerBase",
+        "importPath": "tcp_worker",
+        "description": "tcp_worker",
+        "isExtraImport": true,
+        "detail": "tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "WorkingTabBase",
+        "importPath": "working_tab_base",
+        "description": "working_tab_base",
+        "isExtraImport": true,
+        "detail": "working_tab_base",
+        "documentation": {}
+    },
+    {
+        "label": "WorkingTabBase",
+        "importPath": "working_tab_base",
+        "description": "working_tab_base",
+        "isExtraImport": true,
+        "detail": "working_tab_base",
+        "documentation": {}
+    },
+    {
+        "label": "WorkingTabBase",
+        "importPath": "working_tab_base",
+        "description": "working_tab_base",
+        "isExtraImport": true,
+        "detail": "working_tab_base",
+        "documentation": {}
+    },
+    {
+        "label": "WorkingTabBase",
+        "importPath": "working_tab_base",
+        "description": "working_tab_base",
+        "isExtraImport": true,
+        "detail": "working_tab_base",
+        "documentation": {}
+    },
+    {
+        "label": "sys",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sys",
+        "description": "sys",
+        "detail": "sys",
+        "documentation": {}
+    },
+    {
+        "label": "ConnectTab",
+        "importPath": "connect_tab",
+        "description": "connect_tab",
+        "isExtraImport": true,
+        "detail": "connect_tab",
+        "documentation": {}
+    },
+    {
+        "label": "ConnectTab",
+        "importPath": "connect_tab",
+        "description": "connect_tab",
+        "isExtraImport": true,
+        "detail": "connect_tab",
+        "documentation": {}
+    },
+    {
+        "label": "ConnectTab",
+        "importPath": "connect_tab",
+        "description": "connect_tab",
+        "isExtraImport": true,
+        "detail": "connect_tab",
+        "documentation": {}
+    },
+    {
+        "label": "ConnectTab",
+        "importPath": "connect_tab",
+        "description": "connect_tab",
+        "isExtraImport": true,
+        "detail": "connect_tab",
+        "documentation": {}
+    },
+    {
+        "label": "TXDataTab",
+        "importPath": "tx_data_tab",
+        "description": "tx_data_tab",
+        "isExtraImport": true,
+        "detail": "tx_data_tab",
+        "documentation": {}
+    },
+    {
+        "label": "OTATab",
+        "importPath": "ota_tab",
+        "description": "ota_tab",
+        "isExtraImport": true,
+        "detail": "ota_tab",
+        "documentation": {}
+    },
+    {
+        "label": "InfoGlobeControlPanelTab",
+        "importPath": "infoglobe_control_tab",
+        "description": "infoglobe_control_tab",
+        "isExtraImport": true,
+        "detail": "infoglobe_control_tab",
+        "documentation": {}
+    },
+    {
+        "label": "re",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "re",
+        "description": "re",
+        "detail": "re",
+        "documentation": {}
+    },
+    {
+        "label": "get_file_total_bytes",
+        "importPath": "file_helper",
+        "description": "file_helper",
+        "isExtraImport": true,
+        "detail": "file_helper",
+        "documentation": {}
+    },
+    {
+        "label": "get_file_total_bytes",
+        "importPath": "file_helper",
+        "description": "file_helper",
+        "isExtraImport": true,
+        "detail": "file_helper",
+        "documentation": {}
+    },
+    {
+        "label": "get_file_total_bytes",
+        "importPath": "file_helper",
+        "description": "file_helper",
+        "isExtraImport": true,
+        "detail": "file_helper",
+        "documentation": {}
+    },
+    {
+        "label": "get_file_total_bytes",
+        "importPath": "file_helper",
+        "description": "file_helper",
+        "isExtraImport": true,
+        "detail": "file_helper",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "socket",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "socket",
+        "description": "socket",
+        "detail": "socket",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "Any",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "InfoGlobeController",
+        "importPath": "tcp_client",
+        "description": "tcp_client",
+        "isExtraImport": true,
+        "detail": "tcp_client",
+        "documentation": {}
+    },
+    {
+        "label": "ConnectTab",
+        "kind": 6,
+        "importPath": "ui.connect_tab",
+        "description": "ui.connect_tab",
+        "peekOfCode": "class ConnectTab(WorkingTabBase):\n    '''\n        Connect Tab Definition\n    '''\n    def __init__(self):\n        super().__init__()\n        # Make labels\n        self.host_entry_label = QLabel(\"Enter host:\")\n        self.host_entry_label.setStyleSheet(\"font-size: 30px;\")\n        self.host_entry_label.setAlignment(Qt.AlignCenter)",
+        "detail": "ui.connect_tab",
+        "documentation": {}
+    },
+    {
+        "label": "get_file_total_bytes",
+        "kind": 2,
+        "importPath": "ui.file_helper",
+        "description": "ui.file_helper",
+        "peekOfCode": "def get_file_total_bytes( file_path ):\n    total_bytes = 0\n    with open(file_path, 'rb') as binary_file:\n        total_bytes = len(binary_file.read())\n    return total_bytes",
+        "detail": "ui.file_helper",
+        "documentation": {}
+    },
+    {
+        "label": "InfoGlobeCC",
+        "kind": 6,
+        "importPath": "ui.gui_front",
+        "description": "ui.gui_front",
+        "peekOfCode": "class InfoGlobeCC(QWidget):\n    def __init__(self):\n        super().__init__()\n        self.init_ui()  # Initialize the UI components\n    def construct_layout(self):\n        connect_tab = ConnectTab()  # Initialize the Connect tab\n        tx_data_tab = TXDataTab(connect_tab)    # Initialize the Tx Data tab\n        control_panel_tab = InfoGlobeControlPanelTab(connect_tab)\n        ota_tab = OTATab(connect_tab)    # Initialize the OTA tab\n        layout = QVBoxLayout(self)  # Main layout for the entire window",
+        "detail": "ui.gui_front",
+        "documentation": {}
+    },
+    {
+        "label": "set_dark_fusion_style",
+        "kind": 2,
+        "importPath": "ui.gui_front",
+        "description": "ui.gui_front",
+        "peekOfCode": "def set_dark_fusion_style(app: QApplication):\n    # TODO: I think i want to set all settings inside qss\n    app.setStyle(\"Fusion\")\n    # Load the QSS file\n    # qss_file = QFile(\"./python/styles/yellow_material.qss\")\n    qss_file = QFile(\"./python/styles/blue_material.qss\")\n    qss_file.open(QFile.ReadOnly | QFile.Text)\n    qss = qss_file.readAll()\n    qss = bytes(qss).decode(\"utf-8\")\n    app.setStyleSheet(qss)  # Apply the loaded QSS to the application",
+        "detail": "ui.gui_front",
+        "documentation": {}
+    },
+    {
+        "label": "InfoGlobeControlPanelTab",
+        "kind": 6,
+        "importPath": "ui.infoglobe_control_tab",
+        "description": "ui.infoglobe_control_tab",
+        "peekOfCode": "class InfoGlobeControlPanelTab(WorkingTabBase):\n    '''\n        TX Data Tab Definition\n    '''\n    def __init__(self, connect_tab: ConnectTab):\n        super().__init__()\n        # Create the tab components\n        tx_data_layout = QVBoxLayout(self)\n        tx_data_label = QLabel(\"InfoGlobe Control Panel\")\n        tx_data_label.setStyleSheet(\"font-size: 45px;\")",
+        "detail": "ui.infoglobe_control_tab",
+        "documentation": {}
+    },
+    {
+        "label": "OTATab",
+        "kind": 6,
+        "importPath": "ui.ota_tab",
+        "description": "ui.ota_tab",
+        "peekOfCode": "class OTATab(WorkingTabBase):\n    '''\n        OTA Tab Definition\n    '''\n    def __init__(self, connect_tab : ConnectTab):\n        super().__init__()\n        self.tcp_worker = None\n        ota_label = QLabel(\"Select OTA Binary:\")\n        ota_label.setAlignment(Qt.AlignCenter)\n        ota_label.setStyleSheet(\"font-size: 45px;\")",
+        "detail": "ui.ota_tab",
+        "documentation": {}
+    },
+    {
+        "label": "InfoGlobeController",
+        "kind": 6,
+        "importPath": "ui.tcp_client",
+        "description": "ui.tcp_client",
+        "peekOfCode": "class InfoGlobeController():\n    def __init__(self, host, port) -> None:\n        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n        self.s.connect((host, port))\n    def __call__(self, my_string) -> Any:\n        # self.scrolling_blank()\n        # tx_data = self.construct_infoglobe_message(my_string,0x00,0x12)\n        # for i in range(20):\n            # input(f\"Press 'enter' to trigger {i} animation\")\n            # tx_data = self.construct_infoglobe_message(my_string,i,0x04)",
+        "detail": "ui.tcp_client",
+        "documentation": {}
+    },
+    {
+        "label": "HOST",
+        "kind": 5,
+        "importPath": "ui.tcp_client",
+        "description": "ui.tcp_client",
+        "peekOfCode": "HOST = \"192.168.0.94\"  # The server's hostname or IP address\nPORT = 55555  # The port used by the server\nclass InfoGlobeController():\n    def __init__(self, host, port) -> None:\n        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n        self.s.connect((host, port))\n    def __call__(self, my_string) -> Any:\n        # self.scrolling_blank()\n        # tx_data = self.construct_infoglobe_message(my_string,0x00,0x12)\n        # for i in range(20):",
+        "detail": "ui.tcp_client",
+        "documentation": {}
+    },
+    {
+        "label": "PORT",
+        "kind": 5,
+        "importPath": "ui.tcp_client",
+        "description": "ui.tcp_client",
+        "peekOfCode": "PORT = 55555  # The port used by the server\nclass InfoGlobeController():\n    def __init__(self, host, port) -> None:\n        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n        self.s.connect((host, port))\n    def __call__(self, my_string) -> Any:\n        # self.scrolling_blank()\n        # tx_data = self.construct_infoglobe_message(my_string,0x00,0x12)\n        # for i in range(20):\n            # input(f\"Press 'enter' to trigger {i} animation\")",
+        "detail": "ui.tcp_client",
+        "documentation": {}
+    },
+    {
+        "label": "TcpWorkerBase",
+        "kind": 6,
+        "importPath": "ui.tcp_worker",
+        "description": "ui.tcp_worker",
+        "peekOfCode": "class TcpWorkerBase(QObject):\n    failed_connect = pyqtSignal()  # Signal to indicate failed to connect\n    finished = pyqtSignal()  # Signal to indicate that the worker has finished\n    connect_status = pyqtSignal(int)  # Signal to indicate that the worker has finished\n    def __init__(self, host, port):\n        super().__init__()\n        self.host = host\n        self.port = port\n        self.globe = None\n        self.worker_started = False",
+        "detail": "ui.tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpConnectWorker",
+        "kind": 6,
+        "importPath": "ui.tcp_worker",
+        "description": "ui.tcp_worker",
+        "peekOfCode": "class TcpConnectWorker(TcpWorkerBase):\n    pass\nclass TcpTextWorker(TcpWorkerBase):\n    def __init__(self, host, port, message, blinky_enable):\n        super().__init__(host,port)\n        self.message = message\n        self.blinky_enable = blinky_enable\n    def perform_task(self, globe : InfoGlobeController):\n        # Successful connect\n        msg = f\"{self.message}\"",
+        "detail": "ui.tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpTextWorker",
+        "kind": 6,
+        "importPath": "ui.tcp_worker",
+        "description": "ui.tcp_worker",
+        "peekOfCode": "class TcpTextWorker(TcpWorkerBase):\n    def __init__(self, host, port, message, blinky_enable):\n        super().__init__(host,port)\n        self.message = message\n        self.blinky_enable = blinky_enable\n    def perform_task(self, globe : InfoGlobeController):\n        # Successful connect\n        msg = f\"{self.message}\"\n        blink_idx = len(msg)+1 if self.blinky_enable else 0\n        shift_idx = len(msg)",
+        "detail": "ui.tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpRawByteWorker",
+        "kind": 6,
+        "importPath": "ui.tcp_worker",
+        "description": "ui.tcp_worker",
+        "peekOfCode": "class TcpRawByteWorker(TcpWorkerBase):\n    def __init__(self, host, port, byte_buffer):\n        super().__init__(host,port)\n        self.byte_buffer = byte_buffer\n    def perform_task(self, globe : InfoGlobeController):\n        # Successful connect\n        tx_data = bytes(self.byte_buffer)\n        globe.send_bytes(tx_data)\nclass TcpOTAtWorker(TcpWorkerBase):\n    progress_percent = pyqtSignal(float)",
+        "detail": "ui.tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpOTAtWorker",
+        "kind": 6,
+        "importPath": "ui.tcp_worker",
+        "description": "ui.tcp_worker",
+        "peekOfCode": "class TcpOTAtWorker(TcpWorkerBase):\n    progress_percent = pyqtSignal(float)\n    exit_status = pyqtSignal(int)\n    def __init__(self, host, port, binary_file_path, chunk_size):\n        super().__init__(host,port)\n        self.binary_file_path = binary_file_path\n        self.chunk_size = chunk_size\n    def perform_task(self, globe : InfoGlobeController):\n        if self.binary_file_path is None:\n            print(\"Empty path\")",
+        "detail": "ui.tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpButtonWorker",
+        "kind": 6,
+        "importPath": "ui.tcp_worker",
+        "description": "ui.tcp_worker",
+        "peekOfCode": "class TcpButtonWorker(TcpWorkerBase):\n    def __init__(self, host, port, button):\n        super().__init__(host,port)\n        self.button = button\n    def perform_task(self, globe : InfoGlobeController):\n        # Successful connect\n        tx_data = bytes([0x76])\n        tx_data += bytes([self.button])\n        globe.send_bytes(tx_data)\nclass TcpButtonConfigWorker(TcpWorkerBase):",
+        "detail": "ui.tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TcpButtonConfigWorker",
+        "kind": 6,
+        "importPath": "ui.tcp_worker",
+        "description": "ui.tcp_worker",
+        "peekOfCode": "class TcpButtonConfigWorker(TcpWorkerBase):\n    def __init__(self, host, port, button, command):\n        super().__init__(host,port)\n        self.button = button\n        self.command = command\n    def perform_task(self, globe : InfoGlobeController):\n        # Successful connect\n        string_cmd = f'{self.command}'\n        tx_data = bytes([0x76])\n        tx_data += bytes([self.button, 0x01])",
+        "detail": "ui.tcp_worker",
+        "documentation": {}
+    },
+    {
+        "label": "TXDataTab",
+        "kind": 6,
+        "importPath": "ui.tx_data_tab",
+        "description": "ui.tx_data_tab",
+        "peekOfCode": "class TXDataTab(WorkingTabBase):\n    '''\n        TX Data Tab Definition\n    '''\n    def __init__(self, connect_tab : ConnectTab):\n        super().__init__()\n        # Create the tab components\n        tx_data_layout = QVBoxLayout(self)\n        tx_data_label = QLabel(\"Enter Tx Data:\")\n        tx_data_label.setStyleSheet(\"font-size: 45px;\")",
+        "detail": "ui.tx_data_tab",
+        "documentation": {}
+    },
+    {
+        "label": "WorkingTabBase",
+        "kind": 6,
+        "importPath": "ui.working_tab_base",
+        "description": "ui.working_tab_base",
+        "peekOfCode": "class WorkingTabBase(QWidget):\n    def __init__(self):\n        super().__init__()\n        self.tcp_worker = None\n        self.tcp_worker_thread = None\n    def tcp_worker_finished(self):\n        print(\"TCP worker finished\")\n        if self.tcp_worker_thread is not None:\n            self.tcp_worker_thread.quit()\n            self.tcp_worker_thread.wait()",
+        "detail": "ui.working_tab_base",
+        "documentation": {}
+    },
+    {
+        "label": "ProgressBarWindow",
+        "kind": 6,
+        "importPath": "test_app",
+        "description": "test_app",
+        "peekOfCode": "class ProgressBarWindow(QMainWindow):\n    def __init__(self):\n        super().__init__()\n        self.initUI()\n    def initUI(self):\n        self.setWindowTitle('Progress Bar with Text')\n        self.setGeometry(100, 100, 400, 200)\n        self.central_widget = QWidget(self)\n        self.setCentralWidget(self.central_widget)\n        layout = QVBoxLayout()",
+        "detail": "test_app",
+        "documentation": {}
+    }
+]

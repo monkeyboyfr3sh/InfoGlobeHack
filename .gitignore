@@ -5,3 +5,5 @@ hello_world/trace/*
 build/*
 *.spec
 *.exe
+*managed_components*
+python/.venv*
