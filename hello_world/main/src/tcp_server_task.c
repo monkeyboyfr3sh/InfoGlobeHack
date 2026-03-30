@@ -95,7 +95,17 @@ void tcp_server_task(void *pvParameters)
      * examples/protocols/README.md for more information about this function.
      */
     // ESP_ERROR_CHECK(wifi_connect());
-    ESP_ERROR_CHECK(example_connect());
+    esp_err_t wifi_err;
+    do {
+        wifi_err = example_connect();
+        if (wifi_err != ESP_OK) {
+            ESP_LOGW(TAG, "Wi-Fi connect failed (%s), retrying...", esp_err_to_name(wifi_err));
+            size_t bw2 = snprintf(connect_msg, msg_max, "No WiFi...");
+            send_string_w_bytes_to_queue(display_queue, connect_msg, bw2, 0x00, 0x0);
+            vTaskDelay(pdMS_TO_TICKS(3000));
+            example_disconnect();
+        }
+    } while (wifi_err != ESP_OK);
 
     // Set display to the IP addresss
     char msg[msg_max];

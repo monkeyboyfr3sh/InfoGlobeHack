@@ -17,7 +17,7 @@
 #include "infoglobe_animations.h"
 #include "message_type.h"
 #include "sntp_helper.h"
-#include "ssh_task.h"
+// #include "ssh_task.h"
 #include "tcp_helpers.h"
 
 static const char * TAG = "BUTTON_TASK";
@@ -73,7 +73,7 @@ static int infoglobe_packet_handler(uint8_t *rx_buffer, size_t len)
         // Normal button press
         else {
             char * cmd = &button_command_lut[button_idx][0];
-            run_ssh_task_blocked(cmd);
+            // run_ssh_task_blocked(cmd);
         }
         break;
     }

@@ -108,15 +108,24 @@ void ir_tx_task(void *pvParameters)
                 // Free the allocated memory
                 free(received_buffer_struct.buffer);
             }
+        } else {
+            // Timer callback handles transmission; yield so IDLE can run
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 }
 
 static void timer_callback(void *param)
 {
+    if (tx_len <= 0) {
+        ledc_set_duty(LEDC_SPEED_MODE, LED_CHANNEL, 0);
+        ledc_update_duty(LEDC_SPEED_MODE, LED_CHANNEL);
+        return;
+    }
+
     uint8_t current_byte = message[tx_byte_index];
     bool bit = current_byte & (1 << (7-tx_bit_index));
-    printf("%d", bit);
+    // printf("%d", bit);
     if (bit) {
         ledc_set_duty(LEDC_SPEED_MODE, LED_CHANNEL, 0);
     } else {
@@ -126,7 +135,7 @@ static void timer_callback(void *param)
 
     tx_bit_index++;
     if (tx_bit_index >= 8) {
-        printf(" | 0x%x | '%c'\r\n",current_byte, current_byte);
+        // printf(" | 0x%x | '%c'\r\n",current_byte, current_byte);
         tx_bit_index = 0;
         tx_byte_index++;
         tx_len--;

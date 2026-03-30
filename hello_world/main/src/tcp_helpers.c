@@ -17,7 +17,7 @@
 #include "message_type.h"
 #include "sntp_helper.h"
 #include "infoglobe_animations.h"
-#include "ssh_task.h"
+// #include "ssh_task.h"
 
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -34,7 +34,7 @@
 #include "infoglobe_animations.h"
 #include "message_type.h"
 #include "sntp_helper.h"
-#include "ssh_task.h"
+// #include "ssh_task.h"
 
 static const char * TAG = "TCP_HELP";
 
