@@ -97,7 +97,7 @@ int lookup_ip(char *ip_addr_string_buff)
         netif = esp_netif_next(netif);
 
         // Check if the desc matches us
-        if (is_our_netif("example_connect", netif)) {
+        if (is_our_netif("example_netif_sta", netif)) {
             
             // Log the IP
             ESP_LOGI(TAG, "Connected to %s", esp_netif_get_desc(netif));

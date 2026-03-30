@@ -35,7 +35,13 @@ void tcp_server_task(void *pvParameters)
     send_string_w_bytes_to_queue(display_queue, connect_msg, bw, 0x00, 0x0);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    ESP_ERROR_CHECK(nvs_flash_init());
+    esp_err_t nvs_ret = nvs_flash_init();
+    if (nvs_ret == ESP_ERR_NVS_NO_FREE_PAGES || nvs_ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_LOGW(TAG, "NVS partition invalid, erasing...");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        nvs_ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(nvs_ret);
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 

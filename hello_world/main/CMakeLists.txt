@@ -21,7 +21,10 @@ idf_component_register(SRCS
         esp_http_server
         json
         app_update
+        spiffs
         infoglobe_datatype)
+
+spiffs_create_partition_image(spiffs data FLASH_IN_PROJECT)
 
 # set_source_files_properties(
 #     "main.c" 

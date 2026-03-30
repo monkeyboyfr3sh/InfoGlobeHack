@@ -20,6 +20,8 @@
 
 static const char * TAG = "FR_MKR";
 
+volatile bool g_time_on = true;
+
 void frame_maker_task(void *pvParameters)
 {
     // Grab queue
@@ -45,17 +47,16 @@ void frame_maker_task(void *pvParameters)
     bool prev_io_level = true;
     bool curr_io_level = true;
     gpio_set_direction(GPIO_NUM_0,GPIO_MODE_INPUT);
-    bool time_on = false;
-    
+
     while(1)
     {
 
-        // Detect falling edge
+        // Detect falling edge (physical button still works)
         curr_io_level = gpio_get_level(GPIO_NUM_0);
         if( (curr_io_level==0) && (prev_io_level==true) ){
-            time_on = !time_on;
-            
-            if(time_on){
+            g_time_on = !g_time_on;
+
+            if(g_time_on){
                 ESP_LOGI(TAG,"Time display is now enabled!");
             } else {
                 ESP_LOGI(TAG,"Time display is now disabled!");
@@ -63,7 +64,7 @@ void frame_maker_task(void *pvParameters)
         }
         prev_io_level = curr_io_level;
 
-        if( time_on ) {
+        if( g_time_on ) {
             // Always run time animation
             run_animation_time_1(display_queue);
         }

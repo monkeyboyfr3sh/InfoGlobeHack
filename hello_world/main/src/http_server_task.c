@@ -2,14 +2,17 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
+#include "esp_spiffs.h"
 #include "cJSON.h"
 
 #include "message_type.h"
 #include "infoglobe_animations.h"
+#include "frame_maker_task.h"
 
 static const char *TAG = "HTTP_SERVER";
 
@@ -20,119 +23,26 @@ static QueueHandle_t s_display_queue = NULL;
 static char s_button_cmds[NUM_BUTTONS][CMD_MAX_LEN];
 
 /* ------------------------------------------------------------------ */
-/*  Embedded HTML                                                       */
+/*  SPIFFS                                                              */
 /* ------------------------------------------------------------------ */
 
-static const char INDEX_HTML[] =
-"<!DOCTYPE html>"
-"<html lang='en'>"
-"<head>"
-"<meta charset='UTF-8'>"
-"<meta name='viewport' content='width=device-width,initial-scale=1'>"
-"<title>InfoGlobe</title>"
-"<style>"
-"*{box-sizing:border-box;margin:0;padding:0}"
-"body{font-family:sans-serif;background:#1a1a2e;color:#eee;padding:16px;max-width:520px;margin:0 auto}"
-"h1{text-align:center;color:#e94560;margin:16px 0}"
-".card{background:#16213e;border-radius:8px;padding:16px;margin-bottom:12px}"
-"h2{color:#e94560;font-size:1rem;margin-bottom:10px}"
-"input[type=text],input[type=file]{width:100%;padding:8px;background:#0f3460;color:#eee;border:1px solid #e94560;border-radius:4px;margin-bottom:8px}"
-"button{background:#e94560;color:#fff;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;margin:3px}"
-"button:hover{background:#c73652}"
-"label{font-size:.9rem;display:flex;align-items:center;gap:4px}"
-".row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}"
-".grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}"
-"#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:6px;display:none;font-weight:bold}"
-".ok{background:#155724;color:#d4edda}"
-".err{background:#721c24;color:#f8d7da}"
-"progress{width:100%;margin-top:8px;accent-color:#e94560}"
-"</style>"
-"</head>"
-"<body>"
-"<h1>InfoGlobe</h1>"
-"<div id='toast'></div>"
-
-"<div class='card'><h2>Send Text</h2>"
-"<input type='text' id='txt' placeholder='Message...'>"
-"<div class='row'>"
-"<label><input type='checkbox' id='blink'> Blink</label>"
-"<button onclick='sendText()'>Send Text</button>"
-"<button onclick='sendRaw()'>Send Raw Hex</button>"
-"</div></div>"
-
-"<div class='card'><h2>Buttons</h2>"
-"<div class='row' style='margin-bottom:8px'>"
-"<input type='text' id='cmd' placeholder='Configure button command...' style='flex:1;margin:0'>"
-"<label><input type='checkbox' id='cfg'> Configure</label>"
-"</div>"
-"<div class='grid' id='btns'></div>"
-"</div>"
-
-"<div class='card'><h2>OTA Firmware Update</h2>"
-"<input type='file' id='bin' accept='.bin'>"
-"<button onclick='doOTA()'>Flash Firmware</button>"
-"<progress id='prog' value='0' max='100' style='display:none'></progress>"
-"<p id='ota-msg' style='margin-top:8px;font-size:.9rem'></p>"
-"</div>"
-
-"<script>"
-"(function(){"
-"var g=document.getElementById('btns');"
-"for(var i=1;i<=6;i++){"
-"var b=document.createElement('button');"
-"b.textContent='Button '+i;"
-"b.onclick=(function(n){return function(){btnClick(n);};})(i);"
-"g.appendChild(b);"
-"}})();"
-
-"function toast(msg,ok){"
-"var t=document.getElementById('toast');"
-"t.textContent=msg;t.className=ok===false?'err':'ok';t.style.display='block';"
-"setTimeout(function(){t.style.display='none';},2500);}"
-
-"async function post(url,data){"
-"try{var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return r.ok;}"
-"catch(e){return false;}}"
-
-"function sendText(){"
-"var text=document.getElementById('txt').value;"
-"var blink=document.getElementById('blink').checked;"
-"if(!text){toast('Enter a message',false);return;}"
-"post('/text',{text:text,blink:blink}).then(function(ok){toast(ok?'Sent!':'Failed',ok);});}"
-
-"function sendRaw(){"
-"var hex=document.getElementById('txt').value.replace(/[^0-9a-fA-F]/g,'');"
-"if(!hex){toast('Enter hex bytes',false);return;}"
-"post('/raw',{hex:hex}).then(function(ok){toast(ok?'Sent!':'Failed',ok);});}"
-
-"function btnClick(n){"
-"var cfg=document.getElementById('cfg').checked;"
-"var cmd=document.getElementById('cmd').value;"
-"document.getElementById('cfg').checked=false;"
-"var body=cfg?{button:n,config:true,command:cmd}:{button:n};"
-"post('/button',body).then(function(ok){toast(ok?(cfg?'Button '+n+' configured':'Button '+n+' triggered'):'Failed',ok);});"
-"if(cfg)document.getElementById('cmd').value='';}"
-
-"function doOTA(){"
-"var f=document.getElementById('bin').files[0];"
-"if(!f){toast('No file selected',false);return;}"
-"var prog=document.getElementById('prog');"
-"var msg=document.getElementById('ota-msg');"
-"var reader=new FileReader();"
-"reader.onload=function(e){"
-"var buf=e.target.result;"
-"prog.style.display='block';prog.value=0;"
-"msg.textContent='Uploading '+f.name+'...';"
-"var xhr=new XMLHttpRequest();"
-"xhr.upload.onprogress=function(ev){if(ev.lengthComputable)prog.value=Math.round(ev.loaded/ev.total*100);};"
-"xhr.onload=function(){if(xhr.status===200){msg.textContent='Flash complete! Rebooting...';}else{msg.textContent='OTA failed: '+xhr.responseText;toast('OTA Failed',false);}};"
-"xhr.onerror=function(){msg.textContent='Connection error';toast('Error',false);};"
-"xhr.open('POST','/ota');"
-"xhr.setRequestHeader('Content-Type','application/octet-stream');"
-"xhr.send(buf);"
-"};reader.readAsArrayBuffer(f);}"
-"</script>"
-"</body></html>";
+static void init_spiffs(void)
+{
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = "spiffs",
+        .max_files = 5,
+        .format_if_mount_failed = true,
+    };
+    esp_err_t err = esp_vfs_spiffs_register(&conf);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "SPIFFS mount failed: %s", esp_err_to_name(err));
+    } else {
+        size_t total = 0, used = 0;
+        esp_spiffs_info("spiffs", &total, &used);
+        ESP_LOGI(TAG, "SPIFFS: %d/%d bytes used", used, total);
+    }
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                             */
@@ -157,8 +67,23 @@ static cJSON *recv_json(httpd_req_t *req)
 
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
+    FILE *f = fopen("/spiffs/index.html", "r");
+    if (!f) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "index.html not found on SPIFFS");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, INDEX_HTML, HTTPD_RESP_USE_STRLEN);
+    char buf[512];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+        if (httpd_resp_send_chunk(req, buf, n) != ESP_OK) {
+            fclose(f);
+            return ESP_FAIL;
+        }
+    }
+    fclose(f);
+    httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
 
@@ -312,12 +237,37 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
 
 /* ------------------------------------------------------------------ */
 /*  Server start                                                        */
+static esp_err_t mode_handler(httpd_req_t *req)
+{
+    if (req->method == HTTP_GET) {
+        char resp[32];
+        snprintf(resp, sizeof(resp), "{\"time_mode\":%s}", g_time_on ? "true" : "false");
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_sendstr(req, resp);
+        return ESP_OK;
+    }
+
+    cJSON *root = recv_json(req);
+    if (!root) { httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad JSON"); return ESP_FAIL; }
+
+    cJSON *time_mode = cJSON_GetObjectItem(root, "time_mode");
+    if (cJSON_IsBool(time_mode)) {
+        g_time_on = cJSON_IsTrue(time_mode);
+        ESP_LOGI(TAG, "Time mode set to: %s", g_time_on ? "on" : "off");
+    }
+
+    cJSON_Delete(root);
+    httpd_resp_sendstr(req, "OK");
+    return ESP_OK;
+}
+
 /* ------------------------------------------------------------------ */
 
 httpd_handle_t start_http_server(QueueHandle_t display_queue)
 {
     s_display_queue = display_queue;
     memset(s_button_cmds, 0, sizeof(s_button_cmds));
+    init_spiffs();
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers    = 8;
@@ -338,6 +288,8 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
         { .uri = "/raw",    .method = HTTP_POST, .handler = raw_post_handler   },
         { .uri = "/button", .method = HTTP_POST, .handler = button_post_handler},
         { .uri = "/ota",    .method = HTTP_POST, .handler = ota_post_handler   },
+        { .uri = "/mode",   .method = HTTP_GET,  .handler = mode_handler       },
+        { .uri = "/mode",   .method = HTTP_POST, .handler = mode_handler       },
     };
 
     for (int i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {

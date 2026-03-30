@@ -119,67 +119,47 @@ void run_hello_world(QueueHandle_t display_queue)
     }
 }
 
-// Define a global variable to store the last minute
 static int last_minute = -1;
-static int blank_second = -1;
-static TickType_t blank_tick = 0;
+static int last_second = -1;
+static TickType_t second_tick = 0;
+static bool colon_on = true;
 
 void run_animation_time_1(QueueHandle_t display_queue)
 {
-    const size_t msg_max = 32;
-    char msg[msg_max];
-    static bool blank_colon = false;
-    bool blank_draw = false;
-
-    // Zero memory
-    memset(msg, 0, msg_max);
-
-    // Get current time
     struct tm timeinfo;
     get_current_time(&timeinfo);
 
-    // Get the current minute
     int current_minute = timeinfo.tm_min;
-    // Get the current second
     int current_second = timeinfo.tm_sec;
+    bool redraw = false;
 
-    // Colon is currently not blanked
-    if( blank_colon==false ) {
-        if( (current_second % 3) == 0  && (current_second!=blank_second)) {
-            blank_second = current_second;
-            blank_tick = xTaskGetTickCount();
-            blank_colon = true;
-            blank_draw = true;
-        }
-    } 
-
-    // Colon is currently blanked
-    else {
-        if ( (xTaskGetTickCount() - blank_tick) >= pdMS_TO_TICKS(300) ) {
-            blank_colon = false;
-            blank_draw = true;
+    // Detect second boundary — turn colon on and start timing
+    if (current_second != last_second) {
+        last_second = current_second;
+        second_tick = xTaskGetTickCount();
+        if (!colon_on) {
+            colon_on = true;
+            redraw = true;
         }
     }
 
+    // At 500ms into the second, turn colon off
+    if (colon_on && (xTaskGetTickCount() - second_tick) >= pdMS_TO_TICKS(500)) {
+        colon_on = false;
+        redraw = true;
+    }
 
-    // Check if the minute has changed
-    if (    (current_minute != last_minute) ||
-            (blank_draw)
-    ) {
-        // Update last minute
+    // Redraw on minute change
+    if (current_minute != last_minute) {
         last_minute = current_minute;
+        redraw = true;
+    }
 
-        // Format time
-        char formatted_time[12]; // HH:MM:SS AM/PM format
-        format_time(formatted_time, &timeinfo, blank_colon);
-
-        // Print the time
+    if (redraw) {
+        char formatted_time[12];
+        format_time(formatted_time, &timeinfo, !colon_on);
         ESP_LOGI(TAG, "Current time: %s", formatted_time);
-
-        // Now animate!
-        string_with_blink_shift(display_queue,
-            formatted_time, 8,
-            0, 8);
+        string_with_blink_shift(display_queue, formatted_time, 8, 0, 8);
     }
 
     vTaskDelay(pdMS_TO_TICKS(10));
