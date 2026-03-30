@@ -3,76 +3,25 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/ledc.h"
-#include "esp_timer.h"
 #include <stdlib.h>
 #include <string.h>
 #include "esp_log.h"
 
-#include <sys/param.h>
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "protocol_examples_common.h"
-
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include <lwip/netdb.h>
 #include "string.h"
 
 #include "infoglobe_animations.h"
 #include "message_type.h"
 #include "sntp_helper.h"
 #include "tcp_helpers.h"
+#include "http_server_task.h"
 
 static const char * TAG = "TCP_TASK";
-
-static void do_retransmit(const int sock, QueueHandle_t display_queue)
-{
-    int len;
-    char rx_buffer[128];
-
-    do {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (len < 0) {
-            ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
-        } else if (len == 0) {
-            ESP_LOGW(TAG, "Connection closed");
-        } else {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
-
-            // Allocate buffer
-            uint8_t *queue_buffer = (uint8_t *)malloc(len);
-            if (queue_buffer == NULL) {
-                ESP_LOGE(TAG,"Failed to allocate memory for buffer\n");
-                return;
-            }
-
-            // Copy data
-            memcpy(queue_buffer, rx_buffer, len);
-
-            // Send the buffer to the console task
-            push_buffer_to_queue(display_queue, queue_buffer, len);
-
-            // send() can return less bytes than supplied length.
-            // Walk-around for robust implementation.
-            int to_write = len;
-            while (to_write > 0) {
-                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
-                if (written < 0) {
-                    ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-                    // Failed to retransmit, giving up
-                    return;
-                }
-                to_write -= written;
-            }
-        }
-    } while (len > 0);
-}
 
 void tcp_server_task(void *pvParameters)
 {
@@ -131,40 +80,10 @@ void tcp_server_task(void *pvParameters)
     // Init sntp
     init_sntp();
 
-    // Setup TCP socket
-    bool need_to_cleanup = false;
-    int listen_sock = setup_tcp_socket((int)AF_INET, CONFIG_INFOGLOBE_PORT);
-    if(listen_sock<0){
-        ESP_LOGW(TAG,"Failed to setup listen socket!");
+    // Start HTTP server — serves the web UI and handles all commands
+    start_http_server(display_queue);
 
-        // Socket was allocated!
-        if(listen_sock < -1 ){
-            need_to_cleanup = true;
-        }
-    }
-
-    // Wait and listen for a client
-    char addr_str[128];
-    int sock = -1;
-
-    while (listen_sock>0) {
-
-        // Listen
-        ESP_LOGI(TAG, "Socket listening");
-        sock = listen_for_client(listen_sock,addr_str);
-        
-        // Host session
-        do_retransmit(sock, display_queue);
-
-        // Cleanup
-        shutdown(sock, 0);
-        close(sock);
-    }
-
-    // Have a socket to cleanup
-    if(need_to_cleanup){ close(listen_sock); }
-
-    // Exit
+    // Exit — HTTP server runs in its own task
     vTaskDelete(NULL);
 }
 
