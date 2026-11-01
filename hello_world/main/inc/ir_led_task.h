@@ -7,7 +7,7 @@
 #define LED_PIN         CONFIG_INFOGLOBE_IR_LED_GPIO
 
 // Largest frame payload (bytes) and largest idle gap between frames
-#define MAX_MESSAGE_LEN 32
+#define MAX_MESSAGE_LEN 40   // header 2 + up to ~35 chars + trailer
 #define IR_MAX_GAP_MS   500
 
 typedef struct {

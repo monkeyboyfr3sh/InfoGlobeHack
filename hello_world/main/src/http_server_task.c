@@ -9,6 +9,7 @@
 #include "esp_ota_ops.h"
 #include "esp_spiffs.h"
 #include "cJSON.h"
+#include "nvs.h"
 
 #include "message_type.h"
 #include "infoglobe_animations.h"
@@ -306,6 +307,11 @@ static esp_err_t ir_handler(httpd_req_t *req)
                 ESP_LOGI(TAG, "IR test pattern started");
             } else if (!on && s_ir_test_on) {
                 s_ir_test_on = false;
+                // Wait for it to finish its last frame and restore the clock
+                // setting, so a following /mode request isn't overridden.
+                for (int i = 0; i < 50 && s_ir_test_task != NULL; i++) {
+                    vTaskDelay(pdMS_TO_TICKS(20));
+                }
                 ESP_LOGI(TAG, "IR test pattern stopped");
             }
         }
@@ -325,6 +331,89 @@ static esp_err_t ir_handler(httpd_req_t *req)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Protocol explorer notes: {"key": "note", ...} as an NVS blob        */
+/*  (NVS survives normal flashing; the SPIFFS image does not)           */
+/* ------------------------------------------------------------------ */
+
+#define NOTES_NS        "explorer"
+#define NOTES_KEY       "notes"
+#define NOTES_MAX_BYTES 6000
+
+static cJSON *notes_load(void)
+{
+    cJSON *obj = NULL;
+    nvs_handle_t h;
+    if (nvs_open(NOTES_NS, NVS_READONLY, &h) == ESP_OK) {
+        size_t n = 0;
+        if (nvs_get_blob(h, NOTES_KEY, NULL, &n) == ESP_OK && n > 0 && n <= NOTES_MAX_BYTES + 1) {
+            char *buf = malloc(n);
+            if (buf && nvs_get_blob(h, NOTES_KEY, buf, &n) == ESP_OK) {
+                buf[n - 1] = '\0';
+                obj = cJSON_Parse(buf);
+            }
+            free(buf);
+        }
+        nvs_close(h);
+    }
+    if (!cJSON_IsObject(obj)) {
+        cJSON_Delete(obj);
+        obj = cJSON_CreateObject();
+    }
+    return obj;
+}
+
+static bool notes_save(const cJSON *notes)
+{
+    char *out = cJSON_PrintUnformatted(notes);
+    bool ok = false;
+    if (out && strlen(out) <= NOTES_MAX_BYTES) {
+        nvs_handle_t h;
+        if (nvs_open(NOTES_NS, NVS_READWRITE, &h) == ESP_OK) {
+            ok = nvs_set_blob(h, NOTES_KEY, out, strlen(out) + 1) == ESP_OK &&
+                 nvs_commit(h) == ESP_OK;
+            nvs_close(h);
+        }
+    }
+    free(out);
+    return ok;
+}
+
+static esp_err_t notes_handler(httpd_req_t *req)
+{
+    cJSON *notes = notes_load();
+
+    if (req->method == HTTP_POST) {
+        cJSON *root = recv_json(req);
+        cJSON *key  = root ? cJSON_GetObjectItem(root, "key")  : NULL;
+        cJSON *note = root ? cJSON_GetObjectItem(root, "note") : NULL;
+        if (!cJSON_IsString(key) || !key->valuestring[0] || !cJSON_IsString(note)) {
+            cJSON_Delete(root);
+            cJSON_Delete(notes);
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Need {key, note}");
+            return ESP_FAIL;
+        }
+        cJSON_DeleteItemFromObject(notes, key->valuestring);
+        if (note->valuestring[0]) {               // empty note deletes the entry
+            cJSON_AddStringToObject(notes, key->valuestring, note->valuestring);
+        }
+        cJSON_Delete(root);
+
+        if (!notes_save(notes)) {
+            cJSON_Delete(notes);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Could not save notes");
+            return ESP_FAIL;
+        }
+    }
+
+    char *out = cJSON_PrintUnformatted(notes);
+    cJSON_Delete(notes);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, out ? out : "{}");
+    free(out);
+    return ESP_OK;
+}
+
+/* ------------------------------------------------------------------ */
 
 httpd_handle_t start_http_server(QueueHandle_t display_queue)
 {
@@ -333,7 +422,7 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     init_spiffs();
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers    = 12;
+    config.max_uri_handlers    = 16;
     config.stack_size          = 8192;
     config.recv_wait_timeout   = 60; // seconds — needed for OTA uploads
     config.send_wait_timeout   = 60;
@@ -355,6 +444,8 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
         { .uri = "/mode",   .method = HTTP_POST, .handler = mode_handler       },
         { .uri = "/ir",     .method = HTTP_GET,  .handler = ir_handler         },
         { .uri = "/ir",     .method = HTTP_POST, .handler = ir_handler         },
+        { .uri = "/notes",  .method = HTTP_GET,  .handler = notes_handler      },
+        { .uri = "/notes",  .method = HTTP_POST, .handler = notes_handler      },
     };
 
     for (int i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
