@@ -215,6 +215,43 @@
       .note .md { grid-column: 1 / 2; }
       .actionbar .keys { display: none; }
     }
+    /* Explorer: split layout */
+    .wrap.wide { max-width: 1320px; }
+    .xp-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 28px; align-items: start; padding-top: 20px; }
+    .xp-side { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 24px); }
+    .xp-side .field > span { display: block; font-weight: 600; margin-bottom: 6px; }
+    .xp-progress progress { width: 100%; height: 8px; margin-top: 4px; }
+    .xp-progress .hint { margin: 0; font-size: .85rem; }
+    .xp-list { overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; min-height: 120px; }
+    .xp-item {
+      display: block; width: 100%; text-align: left; font: inherit; color: var(--text); background: var(--surface);
+      border: 0; border-bottom: 1px solid var(--border); padding: 8px 12px; cursor: pointer;
+    }
+    .xp-item:last-child { border-bottom: 0; }
+    .xp-item:hover { background: var(--subtle); }
+    .xp-item.current { background: var(--subtle); box-shadow: inset 3px 0 0 var(--accent); }
+    .xp-item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+    .xp-item-top { display: flex; justify-content: space-between; gap: 8px; }
+    .xp-item-name { font-weight: 600; }
+    .xp-item:not(.done) .xp-item-name { color: var(--text-muted); font-weight: 400; }
+    .xp-item-mark { color: var(--accent-text); font-weight: 700; }
+    .xp-item-sum {
+      margin-top: 2px; font-size: .8125rem; color: var(--text-muted); line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .xp-main { min-width: 0; }
+    .xp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .xp-head h2 { font-size: 1.25rem; }
+    .xp-main > .hint { margin: 6px 0 16px; }
+    .xp-answer { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .xp-answer h3 { margin: 0 0 12px; font-size: 1rem; font-weight: 600; color: var(--text-strong); }
+    .xp-main .actionbar { margin-top: 20px; }
+    button.btn:disabled { opacity: .5; cursor: default; }
+    @media (max-width: 860px) {
+      .xp-layout { grid-template-columns: 1fr; gap: 16px; }
+      .xp-side { position: static; max-height: none; }
+      .xp-list { max-height: 260px; }
+    }
     #toast {
       position: fixed; left: 16px; bottom: 16px; z-index: 10; display: none; max-width: calc(100% - 32px);
       background: var(--toast-bg); color: var(--bg); padding: 12px 16px; border-radius: 4px;
@@ -319,85 +356,76 @@
 
   <!-- ============================ EXPLORER ============================ -->
   <section class="panel" id="tab-explorer" role="tabpanel" hidden>
+    <div class="xp-layout">
 
-    <!-- 1. Pick a test -->
-    <div class="card">
-      <div class="xp-pick">
-        <label class="field xp-type"><span>Test type</span>
+      <!-- Left: everything to test, with progress and each answer's summary -->
+      <aside class="xp-side">
+        <label class="field"><span>Test type</span>
           <select id="xp-family" onchange="xpFamily()"></select>
         </label>
-        <div class="field xp-num">
-          <span>Value</span>
-          <div class="stepper">
-            <button class="btn" type="button" onclick="xpStep(-1)" aria-label="Previous value">&#9664;</button>
-            <input type="number" id="xp-n" min="0" max="255" inputmode="numeric" onchange="xpSetN(this.value)" aria-label="Value">
-            <button class="btn" type="button" onclick="xpStep(1)" aria-label="Next value">&#9654;</button>
+        <div class="xp-progress">
+          <div class="split"><span class="hint" id="xp-progress"></span><span class="hint" id="xp-pct"></span></div>
+          <progress id="xp-bar" value="0" max="1"></progress>
+        </div>
+        <div class="xp-list" id="xp-list" role="listbox" aria-label="Tests"></div>
+      </aside>
+
+      <!-- Right: the form for the selected test -->
+      <div class="xp-main">
+        <div class="xp-head">
+          <div class="xp-title">
+            <h2 id="xp-title"></h2>
+            <span class="badge" id="xp-saved" hidden>Saved</span>
+          </div>
+          <div class="row">
+            <div class="stepper" title="Value (any 0-255)">
+              <button class="btn" type="button" onclick="xpStep(-1)" aria-label="Previous">&#9664;</button>
+              <input type="number" id="xp-n" min="0" max="255" inputmode="numeric" onchange="xpSetN(this.value)" aria-label="Value">
+              <button class="btn" type="button" onclick="xpStep(1)" aria-label="Next">&#9654;</button>
+            </div>
+            <button class="btn" type="button" onclick="xpNextUnanswered()">Next unanswered</button>
+            <button class="btn primary" type="button" onclick="xpSend()">Show on globe</button>
           </div>
         </div>
-        <div class="xp-go">
-          <button class="btn primary" type="button" onclick="xpSend()">Show on globe</button>
-          <button class="btn" type="button" onclick="xpNextUnanswered()">Next unanswered</button>
+        <p class="hint" id="xp-look"></p>
+
+        <div class="qgrid">
+          <div class="qlabel">Frame sent</div>
+          <div><div class="frame" id="xp-hex">&ndash;</div></div>
+        </div>
+        <div id="xp-custom" hidden>
+          <div class="qgrid" style="margin-top:12px">
+            <div class="qlabel">Command</div><div><input type="text" id="cx-cmd" class="mono" value="00" autocomplete="off" oninput="xpRender(true)"></div>
+            <div class="qlabel">Byte 2</div><div><input type="text" id="cx-b2" class="mono" value="00" autocomplete="off" oninput="xpRender(true)"></div>
+            <div class="qlabel">Text</div><div><input type="text" id="cx-text" value="HELLO {n}" autocomplete="off" oninput="xpRender(true)"></div>
+            <div class="qlabel">Trailer</div><div><input type="text" id="cx-trail" class="mono" value="{n}" autocomplete="off" oninput="xpRender(true)"></div>
+            <div></div><p class="hint" style="margin:0">Bytes are hex. <code>{n}</code> is the value (a byte in hex fields, two digits in text; <code>{x}</code> gives hex in text).</p>
+          </div>
+        </div>
+
+        <div class="xp-answer">
+          <h3>What did the globe do?</h3>
+          <p class="hint prefill" id="xp-prefill" hidden></p>
+          <div class="qgrid" id="xp-questions"></div>
+          <div class="qgrid" style="margin-top:14px">
+            <div class="qlabel">Notes</div>
+            <div>
+              <textarea id="xp-note" rows="4" placeholder="Optional. Anything the choices don't cover. Markdown works."></textarea>
+              <div class="md preview" id="xp-preview" hidden></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actionbar">
+          <button class="btn" type="button" onclick="xpStep(-1)">Back</button>
+          <button class="btn" type="button" onclick="xpStep(1)">Skip</button>
+          <button class="btn" type="button" id="xp-clear" onclick="xpClear()">Clear answer</button>
+          <span class="hint keys">Ctrl+S save &middot; Ctrl+Enter save &amp; next</span>
+          <div style="flex:1"></div>
+          <button class="btn" type="button" onclick="xpSave(true)">Save</button>
+          <button class="btn primary" type="button" onclick="xpSave(false)">Save &amp; next</button>
         </div>
       </div>
-      <div class="xp-progress">
-        <progress id="xp-bar" value="0" max="1"></progress>
-        <span class="hint" id="xp-progress"></span>
-      </div>
-    </div>
-
-    <!-- 2. What is being sent -->
-    <div class="card">
-      <div class="xp-title">
-        <h2 id="xp-title"></h2>
-        <span class="badge" id="xp-saved" hidden>Saved</span>
-      </div>
-      <p class="hint" id="xp-look"></p>
-      <div class="qgrid">
-        <div class="qlabel">Frame</div>
-        <div><div class="frame" id="xp-hex">&ndash;</div></div>
-      </div>
-      <div id="xp-custom" hidden>
-        <div class="qgrid" style="margin-top:12px">
-          <div class="qlabel">Command</div><div><input type="text" id="cx-cmd" class="mono" value="00" autocomplete="off" oninput="xpRender(true)"></div>
-          <div class="qlabel">Byte 2</div><div><input type="text" id="cx-b2" class="mono" value="00" autocomplete="off" oninput="xpRender(true)"></div>
-          <div class="qlabel">Text</div><div><input type="text" id="cx-text" value="HELLO {n}" autocomplete="off" oninput="xpRender(true)"></div>
-          <div class="qlabel">Trailer</div><div><input type="text" id="cx-trail" class="mono" value="{n}" autocomplete="off" oninput="xpRender(true)"></div>
-        </div>
-        <p class="hint" style="margin:8px 0 0">Bytes are hex. <code>{n}</code> is the value above (a byte in hex fields, two digits in text; <code>{x}</code> gives hex in text).</p>
-      </div>
-    </div>
-
-    <!-- 3. What did the globe do -->
-    <div class="card">
-      <h2>What did the globe do?</h2>
-      <p class="hint prefill" id="xp-prefill" hidden></p>
-      <div class="qgrid" id="xp-questions"></div>
-      <div class="qgrid" style="margin-top:12px">
-        <div class="qlabel">Notes</div>
-        <div>
-          <textarea id="xp-note" rows="3" placeholder="Optional. Anything the choices don't cover. Markdown works."></textarea>
-          <div class="md preview" id="xp-preview" hidden></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. Actions (stick to the bottom while scrolling) -->
-    <div class="actionbar">
-      <button class="btn" type="button" onclick="xpStep(-1)">Back</button>
-      <button class="btn" type="button" onclick="xpStep(1)">Skip</button>
-      <span class="hint keys">Ctrl+S save &middot; Ctrl+Enter save &amp; next</span>
-      <div style="flex:1"></div>
-      <button class="btn" type="button" onclick="xpSave(true)">Save</button>
-      <button class="btn primary" type="button" onclick="xpSave(false)">Save &amp; next</button>
-    </div>
-
-    <!-- 5. Shared notes -->
-    <div class="card">
-      <div class="split" style="margin-bottom:8px">
-        <h2 style="margin:0">All notes <span class="hint" id="xp-count"></span></h2>
-        <select id="xp-filter" onchange="xpRenderNotes()" style="width:auto"></select>
-      </div>
-      <div class="notes" id="xp-notes"></div>
     </div>
   </section>
 
@@ -454,6 +482,7 @@
       t.setAttribute('aria-selected', on);
       $('tab-' + t.dataset.tab).hidden = !on;
     });
+    document.querySelector('.wrap').classList.toggle('wide', name === 'explorer');
     try { localStorage.setItem('tab', name); } catch (e) {}
   }
   document.querySelectorAll('.tab').forEach(function (t) {
@@ -809,17 +838,9 @@
     $('xp-look').textContent = f.look(xp.n);
     $('xp-saved').hidden = exNotes[xpKey()] === undefined;
     $('xp-custom').hidden = !f.custom;
-    var done = f.list.filter(function (n) { return exNotes[f.id + ':' + n] !== undefined; }).length;
-    if (f.custom) {
-      done = Object.keys(exNotes).filter(function (k) { return k.indexOf('custom:') === 0; }).length;
-      $('xp-bar').hidden = true;
-      $('xp-progress').textContent = done + ' custom frames noted';
-    } else {
-      var pos = f.list.indexOf(xp.n);
-      $('xp-bar').hidden = false; $('xp-bar').max = f.list.length; $('xp-bar').value = done;
-      $('xp-progress').textContent = done + ' of ' + f.list.length + ' answered' +
-        (pos < 0 ? ' · ' + xp.n + ' is outside the suggested list' : ' · #' + (pos + 1) + ' in the list');
-    }
+    $('xp-clear').disabled = exNotes[xpKey()] === undefined;
+    if (!f.custom && f.list.indexOf(xp.n) < 0) $('xp-look').textContent += ' (Value ' + xp.n + ' is outside the suggested list.)';
+    xpRenderList();
   }
   // keepAnswers: true while editing a custom frame, so typing doesn't wipe the answer
   function xpRender(keepAnswers) {
@@ -905,67 +926,92 @@
       if (!r.ok) throw 0;
       exNotes = await r.json();
     } catch (e) { toast('Could not save', false); return; }
-    xpRenderNotes();
     if (stay || fam().custom) { toast('Saved', true); xpRender(true); $('xp-prefill').hidden = true; return; }
     var L = fam().list, i = L.indexOf(xp.n);
     if (i >= 0 && i === L.length - 1) { toast('Saved. That was the last one of this type.', true); xpRender(true); return; }
     xpStep(1);
+  }
+  function xpClear() {
+    var key = xpKey();
+    if (exNotes[key] === undefined) return;
+    if (confirm('Clear the saved answer for ' + fam().title(xp.n) + '?')) xpDelete(key);
   }
   async function xpDelete(key) {
     try {
       var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ key: key, note: '' }) });
       if (!r.ok) throw 0;
-      exNotes = await r.json(); xpRenderNotes(); xpRender(); toast('Deleted ' + key, true);
+      exNotes = await r.json(); xpRender(); toast('Answer cleared', true);
     } catch (e) { toast('Could not delete', false); }
   }
 
-  // ---- Shared notes list ----
-  function famLabel(k) { var f = fam(k.split(':')[0]); return f ? f.name : k.split(':')[0]; }
-  function xpRenderNotes() {
-    var filter = $('xp-filter').value;
-    var order = FAMILIES.map(function (f) { return f.id; });
-    var keys = Object.keys(exNotes).filter(function (k) { return !filter || k.indexOf(filter + ':') === 0; })
-      .sort(function (a, b) {
-        var pa = a.split(':'), pb = b.split(':'), fa = order.indexOf(pa[0]), fb = order.indexOf(pb[0]);
-        if (fa !== fb) return fa - fb;
-        return (parseInt(pa[1], 10) || 0) - (parseInt(pb[1], 10) || 0) || (pa[1] < pb[1] ? -1 : 1);
+  // ---- Side list: every test of the current type, with its saved summary ----
+  function noteSummary(v) {
+    var d = parseNote(v);
+    if (!d) return (v || '').split('\n')[0];
+    var s = fxSummary(d);
+    if (d.text) s += (s ? ' — ' : '') + d.text.split('\n')[0].replace(/^[-*#>\s]+/, '');
+    return s;
+  }
+  function xpRenderList() {
+    var f = fam(), box = $('xp-list'), items;
+    if (f.custom) {
+      items = Object.keys(exNotes).filter(function (k) { return k.indexOf('custom:') === 0; }).map(function (k) {
+        return { key: k, label: k.slice(7).replace(/(..)/g, '$1 ').trim(), custom: true };
       });
-    $('xp-count').textContent = '(' + Object.keys(exNotes).length + ')';
-    var box = $('xp-notes'); box.innerHTML = '';
-    if (!keys.length) { box.innerHTML = '<p class="hint">No notes yet.</p>'; return; }
-    keys.forEach(function (k) {
-      var row = document.createElement('div'); row.className = 'note';
-      var p = k.split(':'), f = fam(p[0]);
-      var kk = document.createElement('div'); kk.className = 'key';
-      kk.textContent = f && !f.custom ? f.title(+p[1]) : 'Custom ' + p.slice(1).join(':').replace(/(..)/g, '$1 ').trim();
-      var vv = document.createElement('div'); vv.className = 'md'; vv.innerHTML = noteHtml(exNotes[k]);
-      var del = document.createElement('button'); del.type = 'button'; del.className = 'btn icon del'; del.title = 'Delete note';
-      del.setAttribute('aria-label', 'Delete note for ' + kk.textContent); del.textContent = '×';
-      del.onclick = function (e) { e.stopPropagation(); if (confirm('Delete the note for ' + kk.textContent + '?')) xpDelete(k); };
+    } else {
+      items = f.list.map(function (n) { return { key: f.id + ':' + n, n: n, label: f.title(n) }; });
+      if (f.list.indexOf(xp.n) < 0) items.push({ key: f.id + ':' + xp.n, n: xp.n, label: f.title(xp.n) + ' (extra)' });
+    }
+    var done = items.filter(function (it) { return exNotes[it.key] !== undefined; }).length;
+    $('xp-bar').max = Math.max(1, items.length); $('xp-bar').value = done;
+    $('xp-progress').textContent = f.custom ? done + ' custom frames saved' : done + ' of ' + items.length + ' answered';
+    $('xp-pct').textContent = items.length && !f.custom ? Math.round(done * 100 / items.length) + '%' : '';
+    var cur = xpKey();
+    box.innerHTML = '';
+    if (!items.length) { box.innerHTML = '<p class="hint" style="padding:12px;margin:0">Saved custom frames will appear here.</p>'; return; }
+    items.forEach(function (it) {
+      var v = exNotes[it.key];
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'xp-item' + (v !== undefined ? ' done' : '') + (it.key === cur ? ' current' : '');
+      row.setAttribute('role', 'option'); row.setAttribute('aria-selected', it.key === cur);
+      var top = document.createElement('div'); top.className = 'xp-item-top';
+      var name = document.createElement('span'); name.className = 'xp-item-name' + (it.custom ? ' mono' : ''); name.textContent = it.label;
+      var mark = document.createElement('span'); mark.className = 'xp-item-mark'; mark.textContent = v !== undefined ? '✓' : '';
+      top.appendChild(name); top.appendChild(mark); row.appendChild(top);
+      if (v !== undefined) {
+        var sum = document.createElement('div'); sum.className = 'xp-item-sum'; sum.textContent = noteSummary(v);
+        row.title = noteSummary(v);
+        row.appendChild(sum);
+      }
       row.onclick = function () {
-        if (f && !f.custom) { xpGo(p[0], +p[1]); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        if (it.custom) {   // load the saved bytes back into the custom fields
+          $('cx-cmd').value = it.key.slice(7).replace(/(..)/g, '$1 ').trim();
+          $('cx-b2').value = ''; $('cx-text').value = ''; $('cx-trail').value = '';
+          xpRender(); xpSend();
+        } else {
+          xpGo(xp.fam, it.n);
+        }
       };
-      row.title = f && !f.custom ? 'Open and show on the globe' : '';
-      row.appendChild(kk); row.appendChild(vv); row.appendChild(del);
       box.appendChild(row);
     });
+    var c = box.querySelector('.current');
+    if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' });
   }
 
   // ---- Init ----
   (function () {
-    var sel = $('xp-family'), flt = $('xp-filter');
-    flt.innerHTML = '<option value="">All types</option>';
+    var sel = $('xp-family');
     FAMILIES.forEach(function (f) {
       var o = document.createElement('option'); o.value = f.id; o.textContent = f.name; sel.appendChild(o);
-      var o2 = o.cloneNode(true); flt.appendChild(o2);
     });
     try { var s = JSON.parse(localStorage.getItem('xp')); if (s && fam(s.fam)) xp = { fam: s.fam, n: s.n | 0 }; } catch (e) {}
     wireNoteBox('xp-note', 'xp-preview', function () { xpSave(false); });
     xpBuildQuestions();
     xpRender();
     fetch('/notes').then(function (r) { return r.json(); })
-      .then(function (d) { exNotes = d || {}; xpRenderNotes(); xpRender(); }).catch(function () {});
+      .then(function (d) { exNotes = d || {}; xpRender(); }).catch(function () {});
     document.addEventListener('keydown', function (e) {
       if (!(e.ctrlKey || e.metaKey) || $('tab-explorer').hidden) return;
       if (e.key === 's' || e.key === 'S') { e.preventDefault(); xpSave(true); }
