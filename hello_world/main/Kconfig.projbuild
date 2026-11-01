@@ -25,6 +25,17 @@ menu "InfoGlobe Configuration"
         help
             Keep-alive probe packet retry count.
 
+    config INFOGLOBE_TIMEZONE
+        string "Time zone (POSIX TZ rule)"
+        default "CST6CDT,M3.2.0,M11.1.0"
+        help
+            Local time zone including daylight-saving rules, so the clock
+            changes automatically. Default is US Central:
+            UTC-6, CDT from the 2nd Sunday of March to the 1st Sunday of
+            November. Examples: "EST5EDT,M3.2.0,M11.1.0" (US Eastern),
+            "MST7MDT,M3.2.0,M11.1.0" (US Mountain), "PST8PDT,M3.2.0,M11.1.0"
+            (US Pacific), "MST7" (Arizona, no DST).
+
     menu "Hardware (ESP32-Ethernet-Kit A V1.2)"
 
         config INFOGLOBE_IR_LED_GPIO
@@ -53,18 +64,50 @@ menu "InfoGlobe Configuration"
 
     endmenu
 
-endmenu
+    menu "Network"
 
-menu "Wifi Configuration"
+        config INFOGLOBE_WIFI_SSID
+            string "Wi-Fi SSID"
+            default "myssid"
+            help
+                Wi-Fi network to join. Wi-Fi always runs; when Ethernet is
+                enabled and has a link it is preferred and Wi-Fi is the fallback.
 
-    config EXAMPLE_IPV4
-        bool "IPV4"
-        default y
-        depends on LWIP_IPV4
+        config INFOGLOBE_WIFI_PASSWORD
+            string "Wi-Fi password"
+            default "mypassword"
+            help
+                Leave empty for an open network.
 
-    config EXAMPLE_IPV6
-        bool "IPV6"
-        default n
-        select EXAMPLE_CONNECT_IPV6
+        config INFOGLOBE_ETHERNET
+            bool "Enable Ethernet (internal EMAC + IP101 PHY)"
+            default y
+            help
+                Bring up the ESP32-Ethernet-Kit's wired port alongside Wi-Fi.
+                Uses GPIO0 (RMII clock in), 5, 18, 19, 21-23 and 25-27.
+
+        if INFOGLOBE_ETHERNET
+
+            config INFOGLOBE_ETH_MDC_GPIO
+                int "SMI MDC GPIO"
+                default 23
+
+            config INFOGLOBE_ETH_MDIO_GPIO
+                int "SMI MDIO GPIO"
+                default 18
+
+            config INFOGLOBE_ETH_PHY_RST_GPIO
+                int "PHY reset GPIO (-1 to disable)"
+                range -1 33
+                default 5
+
+            config INFOGLOBE_ETH_PHY_ADDR
+                int "PHY address"
+                range 0 31
+                default 1
+
+        endif
 
     endmenu
+
+endmenu

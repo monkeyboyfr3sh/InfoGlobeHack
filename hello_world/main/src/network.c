@@ -8,17 +8,14 @@
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
-#if CONFIG_EXAMPLE_CONNECT_ETHERNET
+#if CONFIG_INFOGLOBE_ETHERNET
 #include "esp_eth.h"
+#include "esp_eth_phy_ip101.h"   // managed component espressif/ip101
 #endif
 
 /*
- * Settings come from the protocol_examples_common menuconfig entries
- * ("Example Connection Configuration"): Wi-Fi SSID/password and, when
- * "connect using Ethernet interface" is enabled, the PHY model and pins.
- * We deliberately do not call example_connect(): it blocks forever waiting
- * for an Ethernet IP before starting Wi-Fi, so with no cable the globe would
- * never come online.
+ * Settings: menuconfig -> InfoGlobe Configuration -> Network.
+ * Ethernet and Wi-Fi start side by side; neither blocks the other.
  */
 
 static const char *TAG = "NETWORK";
@@ -34,7 +31,7 @@ static const char *TAG = "NETWORK";
 static EventGroupHandle_t s_net_events;
 static esp_netif_t *s_wifi_netif;
 static esp_timer_handle_t s_wifi_retry_timer;
-#if CONFIG_EXAMPLE_CONNECT_ETHERNET
+#if CONFIG_INFOGLOBE_ETHERNET
 static esp_netif_t *s_eth_netif;
 #endif
 
@@ -82,7 +79,7 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
 {
     switch (id) {
     case WIFI_EVENT_STA_START:
-        ESP_LOGI(TAG, "Wi-Fi connecting to \"%s\"...", CONFIG_EXAMPLE_WIFI_SSID);
+        ESP_LOGI(TAG, "Wi-Fi connecting to \"%s\"...", CONFIG_INFOGLOBE_WIFI_SSID);
         esp_wifi_connect();
         break;
     case WIFI_EVENT_STA_DISCONNECTED: {
@@ -116,9 +113,9 @@ static esp_err_t wifi_start(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_wifi_event, NULL));
 
     wifi_config_t wifi_cfg = { 0 };
-    strlcpy((char *)wifi_cfg.sta.ssid, CONFIG_EXAMPLE_WIFI_SSID, sizeof(wifi_cfg.sta.ssid));
-    strlcpy((char *)wifi_cfg.sta.password, CONFIG_EXAMPLE_WIFI_PASSWORD, sizeof(wifi_cfg.sta.password));
-    wifi_cfg.sta.threshold.authmode = strlen(CONFIG_EXAMPLE_WIFI_PASSWORD) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
+    strlcpy((char *)wifi_cfg.sta.ssid, CONFIG_INFOGLOBE_WIFI_SSID, sizeof(wifi_cfg.sta.ssid));
+    strlcpy((char *)wifi_cfg.sta.password, CONFIG_INFOGLOBE_WIFI_PASSWORD, sizeof(wifi_cfg.sta.password));
+    wifi_cfg.sta.threshold.authmode = strlen(CONFIG_INFOGLOBE_WIFI_PASSWORD) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
     wifi_cfg.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     wifi_cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
 
@@ -130,7 +127,7 @@ static esp_err_t wifi_start(void)
 
 /* ----------------------------------------------------------------- Ethernet */
 
-#if CONFIG_EXAMPLE_CONNECT_ETHERNET
+#if CONFIG_INFOGLOBE_ETHERNET
 static void on_eth_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     switch (id) {
@@ -150,9 +147,6 @@ static void on_eth_event(void *arg, esp_event_base_t base, int32_t id, void *dat
 
 static esp_err_t eth_start(void)
 {
-#if !CONFIG_EXAMPLE_USE_INTERNAL_ETHERNET
-#error "Only the ESP32 internal EMAC (ESP32-Ethernet-Kit) is supported"
-#endif
     esp_netif_inherent_config_t base_cfg = ESP_NETIF_INHERENT_DEFAULT_ETH();
     base_cfg.route_prio = ETH_ROUTE_PRIO;
     esp_netif_config_t netif_cfg = {
@@ -166,29 +160,19 @@ static esp_err_t eth_start(void)
 
     eth_mac_config_t mac_cfg = ETH_MAC_DEFAULT_CONFIG();
     eth_phy_config_t phy_cfg = ETH_PHY_DEFAULT_CONFIG();
-    phy_cfg.phy_addr = CONFIG_EXAMPLE_ETH_PHY_ADDR;
-    phy_cfg.reset_gpio_num = CONFIG_EXAMPLE_ETH_PHY_RST_GPIO;
+    phy_cfg.phy_addr = CONFIG_INFOGLOBE_ETH_PHY_ADDR;
+    phy_cfg.reset_gpio_num = CONFIG_INFOGLOBE_ETH_PHY_RST_GPIO;
 
     /* Default ESP32 RMII clock: external 50 MHz from the PHY into GPIO0,
      * which is how the Ethernet-Kit is wired. */
     eth_esp32_emac_config_t emac_cfg = ETH_ESP32_EMAC_DEFAULT_CONFIG();
-    emac_cfg.smi_gpio.mdc_num = CONFIG_EXAMPLE_ETH_MDC_GPIO;
-    emac_cfg.smi_gpio.mdio_num = CONFIG_EXAMPLE_ETH_MDIO_GPIO;
+    emac_cfg.clock_config.rmii.clock_mode = EMAC_CLK_EXT_IN;
+    emac_cfg.clock_config.rmii.clock_gpio = 0;
+    emac_cfg.smi_gpio.mdc_num = CONFIG_INFOGLOBE_ETH_MDC_GPIO;
+    emac_cfg.smi_gpio.mdio_num = CONFIG_INFOGLOBE_ETH_MDIO_GPIO;
 
     esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&emac_cfg, &mac_cfg);
-#if CONFIG_EXAMPLE_ETH_PHY_IP101
     esp_eth_phy_t *phy = esp_eth_phy_new_ip101(&phy_cfg);
-#elif CONFIG_EXAMPLE_ETH_PHY_RTL8201
-    esp_eth_phy_t *phy = esp_eth_phy_new_rtl8201(&phy_cfg);
-#elif CONFIG_EXAMPLE_ETH_PHY_LAN87XX
-    esp_eth_phy_t *phy = esp_eth_phy_new_lan87xx(&phy_cfg);
-#elif CONFIG_EXAMPLE_ETH_PHY_DP83848
-    esp_eth_phy_t *phy = esp_eth_phy_new_dp83848(&phy_cfg);
-#elif CONFIG_EXAMPLE_ETH_PHY_KSZ80XX
-    esp_eth_phy_t *phy = esp_eth_phy_new_ksz80xx(&phy_cfg);
-#else
-    esp_eth_phy_t *phy = esp_eth_phy_new_generic(&phy_cfg);
-#endif
 
     esp_err_t err = ESP_ERR_NO_MEM;
     esp_eth_handle_t eth = NULL;
@@ -208,7 +192,7 @@ static esp_err_t eth_start(void)
     ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, on_eth_event, NULL));
     return esp_eth_start(eth);
 }
-#endif /* CONFIG_EXAMPLE_CONNECT_ETHERNET */
+#endif /* CONFIG_INFOGLOBE_ETHERNET */
 
 /* ------------------------------------------------------------------- Public */
 
@@ -220,7 +204,7 @@ esp_err_t network_start(void)
     }
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event, NULL));
 
-#if CONFIG_EXAMPLE_CONNECT_ETHERNET
+#if CONFIG_INFOGLOBE_ETHERNET
     esp_err_t eth_err = eth_start();
     if (eth_err != ESP_OK) {
         ESP_LOGE(TAG, "Ethernet init failed (%s); continuing with Wi-Fi only",
@@ -255,7 +239,7 @@ static portMUX_TYPE s_shown_lock = portMUX_INITIALIZER_UNLOCKED;
 static const char *preferred_ip(char *buf, size_t len)
 {
     EventBits_t bits = s_net_events ? xEventGroupGetBits(s_net_events) : 0;
-#if CONFIG_EXAMPLE_CONNECT_ETHERNET
+#if CONFIG_INFOGLOBE_ETHERNET
     if ((bits & ETH_GOT_IP_BIT) && netif_ip_string(s_eth_netif, buf, len)) {
         return "Ethernet";
     }

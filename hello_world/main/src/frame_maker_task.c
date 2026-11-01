@@ -23,7 +23,7 @@
 #define IP_SHOW_MS          20000
 #define IP_POLL_MS          1000
 
-#if CONFIG_EXAMPLE_CONNECT_ETHERNET && (CONFIG_INFOGLOBE_BUTTON_GPIO == 0)
+#if CONFIG_INFOGLOBE_ETHERNET && (CONFIG_INFOGLOBE_BUTTON_GPIO == 0)
 #error "GPIO0 is the Ethernet RMII clock input; pick another button GPIO in menuconfig (e.g. 32)"
 #endif
 
@@ -50,8 +50,8 @@ void frame_maker_task(void *pvParameters)
 
     // OTA and button commands are now handled by the HTTP server
     
-    TickType_t ani_1_tick = xTaskGetTickCount();
-    TickType_t ani_2_tick = xTaskGetTickCount();
+    // TickType_t ani_1_tick = xTaskGetTickCount();   // for the disabled animations below
+    // TickType_t ani_2_tick = xTaskGetTickCount();
 
     bool prev_io_level = true;
     bool curr_io_level = true;

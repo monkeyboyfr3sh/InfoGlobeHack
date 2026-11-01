@@ -1,6 +1,8 @@
 #include "sntp_helper.h"
 #include <time.h>
-#include <sntp.h>
+#include <stdlib.h>
+#include "sdkconfig.h"
+#include "esp_sntp.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
@@ -11,6 +13,8 @@ EventGroupHandle_t timeSyncEventGroup = NULL; // Event group handle
 void init_time_sync(void)
 {
     timeSyncEventGroup = xEventGroupCreate();
+    // Local time incl. daylight-saving rules (menuconfig: InfoGlobe -> Time zone)
+    set_time_zone(CONFIG_INFOGLOBE_TIMEZONE);
 }
 
 void init_sntp(void) {
@@ -20,9 +24,9 @@ void init_sntp(void) {
         init_time_sync();
     }
 
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
-    sntp_init();
+    esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_init();
 
     // Wait for status to change
     while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET) {
@@ -51,8 +55,8 @@ void get_current_time(struct tm *timeinfo)
 {
     time_t now;
     time(&now);
-    int central_time_offset = -5 * 3600; // Central Time (UTC-6) offset in seconds
-    now += central_time_offset; // Apply time offset
+    // TZ is set in init_time_sync(); localtime applies the offset and DST.
+    // (Previously a fixed -5 h offset, which was only right during CDT.)
     localtime_r(&now, timeinfo);
 }
 

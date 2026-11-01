@@ -9,8 +9,6 @@
 #include "ir_led_task.h"
 #include "frame_maker_task.h"
 
-static const char * TAG = "MAIN";
-
 void app_main(void)
 {
     // Init buffer queue

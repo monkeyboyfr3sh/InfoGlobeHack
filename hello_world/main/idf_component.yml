@@ -1,0 +1,7 @@
+## Managed dependencies (fetched by the IDF Component Manager on first build)
+dependencies:
+  idf: ">=6.1"
+  # cJSON was removed from ESP-IDF in v6.0; API is unchanged.
+  espressif/cjson: "^1.7.19"
+  # Ethernet PHY drivers moved out of ESP-IDF in v6.0 (ESP32-Ethernet-Kit uses an IP101).
+  espressif/ip101: "^1.1.0"

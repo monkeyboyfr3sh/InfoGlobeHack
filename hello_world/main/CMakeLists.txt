@@ -11,17 +11,16 @@ idf_component_register(SRCS
     "src/network.c"
     INCLUDE_DIRS "" "inc"
     REQUIRES
-        driver
+        esp_driver_rmt
+        esp_driver_gpio
         esp_wifi
         esp_eth
         esp_timer
         esp_netif
         esp_event
         nvs_flash
-        protocol_examples_common
         lwip
         esp_http_server
-        json
         app_update
         spiffs
         infoglobe_datatype)
