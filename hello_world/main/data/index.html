@@ -672,6 +672,7 @@
   // ---------------- Explorer (one workspace: pick a test, show it, answer it) ----------------
   function txt(s) { return Array.prototype.map.call(s, function (c) { return c.charCodeAt(0) & 255; }); }
   function pad2(n) { return ('0' + n).slice(-2); }
+  function num(n) { return n < 100 ? pad2(n) : String(n); }   // 2 digits, or 3 when needed
   function hex2(v) { return ('0' + (v & 255).toString(16)).slice(-2).toUpperCase(); }
   function range(a, b) { var r = []; for (var i = a; i <= b; i++) r.push(i); return r; }
   var BLANK_FRAME = [0x05, 0x00].concat(txt('--------'), [0x00, 0x00, 0x08]);   // neutral "before" frame
@@ -692,15 +693,32 @@
     return b;
   }
 
-  var FX_KNOWN = { 38: 'Said to be "static display". ', 39: 'Said to be "flashing display". ' };
+  // Findings: effects 38-127 just blank the display; bit 7 is ignored (128 behaves like 0).
+  var FX_KNOWN = { 129: 'Top-bit check: should look exactly like FX 1. ', 140: 'Top-bit check: should look exactly like FX 12. ' };
+  var LEN_TEXT = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   var CMD_KNOWN = { 0: 'Known: text with transition 0. ', 4: 'Known: shows text right away and scrolls it. ',
                     5: 'Known: the clock format. ', 6: 'Known: turns scrolling on/off (try it twice). ' };
   var FAMILIES = [
     { id: 'fx', name: 'Transition effects', structured: true,
-      list: range(0, 63).concat([64, 100, 128, 255]),
+      list: range(0, 37).concat([129, 140]),
       title: function (n) { return 'Transition effect ' + n; },
-      look: function (n) { return (FX_KNOWN[n] || '') + 'Watch how "FX ' + pad2(n) + '" replaces the dashes.'; },
-      bytes: function (n) { return [0x00, 0x00].concat(txt('FX ' + pad2(n)), [n & 255]); } },
+      look: function (n) { return (FX_KNOWN[n] || '') + 'Watch how "FX ' + num(n) + '" replaces the dashes.'; },
+      bytes: function (n) { return [0x00, 0x00].concat(txt('FX ' + num(n)), [n & 255]); } },
+    { id: 'chars', name: 'Character set', list: range(4, 31).map(function (i) { return i * 8; }),
+      title: function (n) { return 'Characters ' + hex2(n) + '\u2013' + hex2(n + 7); },
+      look: function (n) { return 'Eight byte values in a row (' + hex2(n) + ' to ' + hex2(n + 7) + '). Write what each position shows, ' +
+                                  'left to right; mention anything that is not a normal letter, digit or symbol.'; },
+      bytes: function (n) { var b = []; for (var i = 0; i < 8; i++) b.push((n + i) & 255);
+                            return [0x05, 0x00].concat(b, [0x00, 0x00, 0x08]); } },
+    { id: 'len', name: 'Text length', list: [1, 4, 8, 12, 16, 20, 24, 30, 35],
+      title: function (n) { return 'Text length ' + n; },
+      look: function (n) { return 'Sends "' + LEN_TEXT.slice(0, n) + '" with effect 0. Does it all fit? Does it scroll, ' +
+                                  'get cut off (which character is last?), or wrap?'; },
+      bytes: function (n) { return [0x00, 0x00].concat(txt(LEN_TEXT.slice(0, Math.min(35, n))), [0x00]); } },
+    { id: 'fxb2', name: 'Second byte (effect frames)', list: range(0, 15),
+      title: function (n) { return 'Effect frame, second byte = ' + n; },
+      look: function (n) { return 'Effect 0 with byte 2 = ' + n + ' (normally 0). Any change in speed, repeats, position, or nothing?'; },
+      bytes: function (n) { return [0x00, n & 255].concat(txt('E2 ' + pad2(n)), [0x00]); } },
     { id: 'blink', name: 'Blink byte (0x05 format)', list: range(0, 12),
       title: function (n) { return 'Blink byte = ' + n; },
       look: function (n) { return 'Does any part of "BLINK ' + pad2(n) + '" flash? Which letters?'; },
@@ -730,7 +748,8 @@
   // Questions. Each field is a single choice ('choice') or an on/off switch ('check').
   // Sub-properties (show) only appear when their parent choice makes them relevant.
   var SPEEDS = [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']];
-  var MOVING_ENTRY = { spin: 1, both: 1, fade: 1, rows: 1, drop: 1 };
+  var MOVING_ENTRY = { spin: 1, both: 1, fade: 1, rows: 1, drop: 1, vslide: 1 };
+  var VDIRS = [['up', 'Moving up (from the bottom)'], ['down', 'Moving down (from the top)']];
   var AFTER_FIELDS = [
     { id: 'afterSpin', label: 'Afterwards', type: 'check', text: 'Spins', group: 'after' },
     { id: 'afterBlink', type: 'check', text: 'Blinks', group: 'after' },
@@ -741,7 +760,9 @@
   var FX_FIELDS = [
     { id: 'entry', label: 'New text arrives', opts: [
       ['spin', 'Spins in'], ['both', 'From a spot, both ways'], ['fade', 'Fades in'], ['rows', 'Builds up in rows'],
-      ['drop', 'Drops in'], ['instant', 'Appears instantly'], ['other', 'Other'] ] },
+      ['vslide', 'Slides in vertically'], ['drop', 'Drops in'], ['instant', 'Appears instantly'],
+      ['none', 'Nothing / goes blank'], ['other', 'Other'] ] },
+    { id: 'entryVDir', label: 'Moving', sub: true, show: function (s) { return s.entry === 'vslide'; }, opts: VDIRS },
     { id: 'entryStyle', label: 'Style', sub: true, show: function (s) { return s.entry === 'spin' || s.entry === 'both'; },
       opts: [['banner', 'Banner: text slides in'], ['wipe', 'Wiper: reveals text in place']] },
     { id: 'entryPasses', label: 'Passes', sub: true,
@@ -755,7 +776,9 @@
     { id: 'entrySpeed', label: 'Speed', sub: true, show: function (s) { return !!MOVING_ENTRY[s.entry]; }, opts: SPEEDS },
     { id: 'old', label: 'Old text', opts: [
       ['overwrite', 'Overwritten letter by letter'], ['pushed', 'Pushed out'], ['blank', 'Blanked first'],
-      ['fade', 'Fades out first'], ['other', 'Other'] ] }
+      ['fade', 'Fades out first'], ['vslide', 'Slides out vertically'], ['other', 'Other'] ] },
+    { id: 'oldVDir', label: 'Moving', sub: true, show: function (s) { return s.old === 'vslide'; },
+      opts: [['up', 'Moving up'], ['down', 'Moving down']] }
   ].concat(AFTER_FIELDS);
   var RESULT_FIELDS = [
     { id: 'result', label: 'Result', opts: [
@@ -764,7 +787,7 @@
   ].concat(AFTER_FIELDS);
   var ALL_FIELDS = FX_FIELDS.concat(RESULT_FIELDS);
   // Answer fields carried over when pre-filling a new effect from the previous one
-  var PREFILL_IDS = ['entry', 'entryStyle', 'entryPasses', 'entryDir', 'rows', 'entrySpeed', 'old', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
+  var PREFILL_IDS = ['entry', 'entryStyle', 'entryPasses', 'entryDir', 'entryVDir', 'rows', 'entrySpeed', 'old', 'oldVDir', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
 
   var exNotes = {};
   var xp = { fam: 'fx', n: 0 };
@@ -812,10 +835,11 @@
         q.push(d.entryPasses === '2-even' ? 'two passes: even then odd' : 'two passes: odd then even');
       if (d.entry === 'spin' && d.entryDir) q.push(low(optLabel('entryDir', d.entryDir)));
       if (d.entry === 'rows' && d.rows) q.push(low(optLabel('rows', d.rows)));
+      if (d.entry === 'vslide' && d.entryVDir) q.push('moving ' + d.entryVDir);
       if (d.entrySpeed) q.push(low(d.entrySpeed));
       p.push(e + (q.length ? ' (' + q.join(', ') + ')' : ''));
     }
-    if (d.old) p.push('old text: ' + low(optLabel('old', d.old)));
+    if (d.old) p.push('old text: ' + low(optLabel('old', d.old)) + (d.old === 'vslide' && d.oldVDir ? ' (moving ' + d.oldVDir + ')' : ''));
     var a = [];
     if (d.afterSpin) {
       var sq = [d.afterDir ? low(optLabel('afterDir', d.afterDir)) : '', d.afterSpeed || ''].filter(Boolean);
