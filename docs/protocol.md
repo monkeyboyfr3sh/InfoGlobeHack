@@ -3,7 +3,7 @@
 Findings from testing the globe with the firmware's Protocol Explorer (web UI → Explorer tab).
 Raw observations are kept on the globe (`GET /notes`); this page is the cleaned-up summary.
 
-Status: **work in progress** (last updated 2026-11-01).
+Status: **all 38 transition effects mapped and confirmed** (2026-11-01). Machine-readable catalogue: [`effects.json`](effects.json).
 
 ## Link layer
 
@@ -55,33 +55,32 @@ Unless noted, after the transition the text spins right → left at normal speed
 | 12 | Wiper reveals text in place, left → right, fast, one pass | Overwritten | |
 | 13 | Wiper, right → left, fast, one pass | Overwritten | |
 | 14 | Wiper, right → left, fast, two passes (even characters, then odd) | Overwritten | |
-| 15 | Letter by letter in place: even positions →, then odd positions ← (slow) | Overwritten | *proposed* |
+| 15 | Letter by letter in place: even positions →, then odd positions ← (slow) | Overwritten | |
 | 16 | Slides in vertically, moving up | Slides out vertically, moving down | "elevator" |
 | 17 | Slides in vertically, moving down | Slides out vertically, moving up | |
 | 18 | Slides in vertically, moving down | Slides out vertically, moving down | |
 | 19 | Slides in vertically, moving up | Slides out vertically, moving up | observation was ambiguous; re-check |
 | 20 | Wiper, left → right, fast, one pass | Overwritten | looks like FX 12 |
 | 21 | Wiper, right → left, fast, one pass | Overwritten | looks like FX 13 |
-| 22 | Letter by letter in place, two passes (slow) | Letter by letter, every other first | confirmed; second video suggests even → then odd →, both passes left to right |
-| 23 | Letter by letter in place: even →, then odd ← (slow) | Letter by letter: even →, then odd ←; blank between | two-pass swap; *proposed* |
-| 24 | Slides in vertically, up, **upside down then flips upright** | Slides out vertically, down | "bounce up"; *proposed* |
-| 25 | Slides in vertically, down, upside down then flips upright | Slides out vertically, up | mirror of 24; *proposed* |
-| 26 | Drop & replace, left → right | Each old letter drops out, left → right | *proposed* |
-| 27 | Drop & replace, right → left | Drops out, right → left | *proposed* |
-| 28 | Drop & replace, even positions →, then odd → | same order | *proposed* |
-| 29 | Drop & replace in a fixed scrambled order 2, 4, 7, 6, 5, 8, 3, 1 | same order | *proposed* |
-| 30 | Pluck & replace (old letter lifts up), left → right | Plucked up, left → right | *proposed* |
-| 31 | Pluck & replace, right → left | Plucked up, right → left | *proposed* |
-| 32 | Pluck & replace, even →, then odd → | same order | *proposed* |
-| 33 | Pluck & replace, same scrambled order as 29 | same order | *proposed* |
-| 34 | Column by column, irregular order (slower) | Each letter shrinks to its centre | like 35; *proposed* |
-| 35 | Column by column, all letters at once, left → right within each letter | Each letter shrinks to its centre (fast) | *proposed* |
-| 36 | Pixel dissolve (slow) | Pixel dissolve (slow) | finer and slower than 35; *proposed* |
+| 22 | Letter by letter in place, two passes (slow) | Letter by letter, every other first | second video suggests even → then odd →, both passes left to right |
+| 23 | Letter by letter in place: even →, then odd ← (slow) | Letter by letter: even →, then odd ←; blank between | two-pass swap |
+| 24 | Slides in vertically, up, **upside down then flips upright** | Slides out vertically, down | "bounce up" |
+| 25 | Slides in vertically, down, upside down then flips upright | Slides out vertically, up | mirror of 24 |
+| 26 | Drop & replace, left → right | Each old letter drops out, left → right | |
+| 27 | Drop & replace, right → left | Drops out, right → left | |
+| 28 | Drop & replace, even positions →, then odd → | same order | |
+| 29 | Drop & replace in a fixed scrambled order 2, 4, 7, 6, 5, 8, 3, 1 | same order | |
+| 30 | Pluck & replace (old letter lifts up), left → right | Plucked up, left → right | |
+| 31 | Pluck & replace, right → left | Plucked up, right → left | |
+| 32 | Pluck & replace, even →, then odd → | same order | |
+| 33 | Pluck & replace, same scrambled order as 29 | same order | |
+| 34 | Column by column, irregular order (slower) | Each letter shrinks to its centre | like 35 |
+| 35 | Column by column, all letters at once, left → right within each letter | Each letter shrinks to its centre (fast) | |
+| 36 | Pixel dissolve (slow) | Pixel dissolve (slow) | finer and slower than 35 |
 | 37 | Wiper reveals text in place, left → right, one pass | Wiped away, right → left | "window shade": closes on the old text, opens on the new |
 
 ## Open questions / next tests
 
-- Review the camera proposals for 15 and 23–36 (all 38 effects are now described).
 - Pattern worth noting: 26–29 (drop) and 30–33 (pluck) each come as left→right, right→left, even-then-odd (both left→right), and a fixed scramble 2,4,7,6,5,8,3,1. FX 15/22/23 are in-place two-pass variants.
 - Character set: which byte values `0x20`–`0xFF` render, and any special glyphs above `0x7F`.
 - Text length: how many characters fit around the globe; scroll, cut off or wrap.
