@@ -62,12 +62,15 @@ Unless noted, after the transition the text spins right → left at normal speed
 | 19 | Slides in vertically, moving up | Slides out vertically, moving up | observation was ambiguous; re-check |
 | 20 | Wiper, left → right, fast, one pass | Overwritten | looks like FX 12 |
 | 21 | Wiper, right → left, fast, one pass | Overwritten | looks like FX 13 |
-| 22–36 | *not tested yet* | | |
+| 22 | Letter by letter, random order (slow) | Letter by letter, every other then the rest | *proposed from video, to confirm* |
+| 23–34 | *not tested yet* | | |
+| 35 | Column by column (random), normal speed | Each letter shrinks to its centre, column by column | *proposed from video, to confirm* |
+| 36 | Pixel dissolve, slow | Pixel dissolve, slow | like 35 but finer and slower; *proposed from video* |
 | 37 | Wiper reveals text in place, left → right, one pass | Wiped away, right → left | "window shade": closes on the old text, opens on the new |
 
 ## Open questions / next tests
 
-- Effects 15 and 22–36.
+- Effects 15 and 23–34; confirm the camera proposals for 22, 35 and 36.
 - Character set: which byte values `0x20`–`0xFF` render, and any special glyphs above `0x7F`.
 - Text length: how many characters fit around the globe; scroll, cut off or wrap.
 - Byte 2 of effect frames (always `00` so far).
