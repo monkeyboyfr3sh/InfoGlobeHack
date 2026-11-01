@@ -791,16 +791,22 @@
   var MOTIONS = {
     slide: 'Slides sideways', wipe: 'Wiper', vslide: 'Slides vertically', rows: 'Row by row', fade: 'Fades',
     letters: 'Letter by letter', columns: 'Column by column', pixels: 'Pixel dissolve',
+    pluck: 'Plucked (letters lift up)',
     instant: 'Instant', overwrite: 'Overwritten by new text', drop: 'Drops', none: 'Nothing', other: 'Other'
   };
-  var MOVING = { slide: 1, wipe: 1, vslide: 1, rows: 1, fade: 1, drop: 1, letters: 1, columns: 1, pixels: 1 };
+  var MOVING = { slide: 1, wipe: 1, vslide: 1, rows: 1, fade: 1, drop: 1, letters: 1, columns: 1, pixels: 1, pluck: 1 };
+  var PER_LETTER = { letters: 1, drop: 1, pluck: 1 };   // motions that go one letter at a time
+  var FLIPS = [['upright', 'Upright'], ['flip', 'Upside down, then flips upright']];
   var LETTER_ORDERS = [['lr', 'Left \u2192 right'], ['rl', 'Right \u2192 left'], ['random', 'Random order'],
+                       ['even-odd', 'Every other \u2192, then the rest \u2192'],
+                       ['even-odd-zig', 'Every other \u2192, then the rest \u2190'],
                        ['alternate', 'Every other, then the rest'], ['other', 'Other']];
   var COLUMN_PATTERNS = [['random', 'Random'], ['lr', 'Left \u2192 right'], ['rl', 'Right \u2192 left'],
-                         ['char-center', 'Each letter from its centre'], ['other', 'Other']];
+                         ['char-center', 'Each letter from its centre'],
+                         ['char-lr', 'Each letter left \u2192 right (all at once)'], ['other', 'Other']];
   function phaseFields(ph, isExit) {
     var T = ph + 'Type', types = ['slide', 'wipe', 'vslide', 'rows', 'letters', 'columns', 'pixels', 'fade', 'instant']
-      .concat(isExit ? ['overwrite'] : [], ['drop', 'none', 'other'])
+      .concat(isExit ? ['overwrite'] : [], ['drop', 'pluck', 'none', 'other'])
       .map(function (k) { return [k, k === 'instant' ? (isExit ? 'Blanks instantly' : 'Appears instantly') : MOTIONS[k]]; });
     return [
       { id: T, panel: ph, label: 'Motion', opts: types },
@@ -808,10 +814,12 @@
         show: function (s) { return s[T] === 'slide' || s[T] === 'wipe'; } },
       { id: ph + 'VDir', panel: ph, label: 'Direction', sub: true, opts: VDIRS,
         show: function (s) { return s[T] === 'vslide'; } },
+      { id: ph + 'Flip', panel: ph, label: 'Flip', sub: true, opts: FLIPS,
+        show: function (s) { return s[T] === 'vslide'; } },
       { id: ph + 'Passes', panel: ph, label: 'Passes', sub: true, opts: PASSES,
         show: function (s) { return s[T] === 'wipe'; } },
       { id: ph + 'Order', panel: ph, label: 'Order', sub: true, opts: LETTER_ORDERS,
-        show: function (s) { return s[T] === 'letters'; } },
+        show: function (s) { return !!PER_LETTER[s[T]]; } },
       { id: ph + 'ColPattern', panel: ph, label: 'Pattern', sub: true, opts: COLUMN_PATTERNS,
         show: function (s) { return s[T] === 'columns'; } },
       { id: ph + 'Pattern', panel: ph, label: 'Pattern', sub: true, opts: ROW_PATTERNS,
@@ -911,10 +919,11 @@
     var s = low(optLabel(ph + 'Type', t)), q = [];
     if ((t === 'slide' || t === 'wipe') && d[ph + 'Dir']) q.push(low(optLabel(ph + 'Dir', d[ph + 'Dir'])));
     if (t === 'vslide' && d[ph + 'VDir']) q.push(d[ph + 'VDir']);
+    if (t === 'vslide' && d[ph + 'Flip'] === 'flip') q.push('upside down, then flips');
     if (t === 'wipe' && d[ph + 'Passes'] && d[ph + 'Passes'] !== '1')
       q.push(d[ph + 'Passes'] === '2-even' ? 'two passes, even then odd' : 'two passes, odd then even');
     if (t === 'rows' && d[ph + 'Pattern']) q.push(low(optLabel(ph + 'Pattern', d[ph + 'Pattern'])));
-    if (t === 'letters' && d[ph + 'Order']) q.push(low(optLabel(ph + 'Order', d[ph + 'Order'])));
+    if (PER_LETTER[t] && d[ph + 'Order']) q.push(low(optLabel(ph + 'Order', d[ph + 'Order'])));
     if (t === 'columns' && d[ph + 'ColPattern']) q.push(low(optLabel(ph + 'ColPattern', d[ph + 'ColPattern'])));
     if (d[ph + 'Speed'] && d[ph + 'Speed'] !== 'normal') q.push(d[ph + 'Speed']);
     return s + (q.length ? ' (' + q.join(', ') + ')' : '');
