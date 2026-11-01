@@ -41,13 +41,15 @@ menu "InfoGlobe Configuration"
         config INFOGLOBE_BUTTON_GPIO
             int "Time-display toggle button GPIO"
             range 0 39
-            default 0
+            default 32
             help
-                Active-low button that toggles the clock display.
-                Default GPIO0 is the kit's BOOT button. GPIO0 becomes the
-                Ethernet RMII clock input once Ethernet is enabled, so move
-                the button to GPIO32 or GPIO33 (GPIO Header 1) at that point.
-                GPIO34-39 have no internal pull-up and need an external one.
+                Active-low button (wire it between the pin and GND) that
+                toggles the clock display. Default GPIO32 is on the kit's
+                GPIO Header 1 and has an internal pull-up, so leaving it
+                unconnected is harmless. GPIO0 (the BOOT button) can only be
+                used with Ethernet disabled: it is the Ethernet RMII clock
+                input. GPIO34-39 have no internal pull-up and need an
+                external one.
 
     endmenu
 

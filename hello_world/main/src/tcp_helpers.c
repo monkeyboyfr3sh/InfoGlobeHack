@@ -19,11 +19,10 @@
 #include "infoglobe_animations.h"
 // #include "ssh_task.h"
 
-#include "esp_wifi.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
-#include "protocol_examples_common.h"
+#include "network.h"
 
 #include "lwip/err.h"
 #include "lwip/sockets.h"
@@ -85,32 +84,16 @@ int setup_tcp_socket(int addr_family, int port)
     return listen_sock;
 }
 
+// Preferred IPv4 (Ethernet first, then Wi-Fi). Buffer must hold 16 chars.
+// Returns 1 if an address was written, 0 if no interface has one.
 int lookup_ip(char *ip_addr_string_buff)
 {
-    // loop vars
-    esp_netif_t *netif = NULL;
-    esp_netif_ip_info_t ip;
-    int ip_count = 0;
-
-    // Iterate through all interfaces
-    for (int i = 0; i < esp_netif_get_nr_of_ifs(); ++i) {
-        netif = esp_netif_next(netif);
-
-        // Check if the desc matches us
-        if (is_our_netif("example_netif_sta", netif)) {
-            
-            // Log the IP
-            ESP_LOGI(TAG, "Connected to %s", esp_netif_get_desc(netif));
-            ESP_ERROR_CHECK(esp_netif_get_ip_info(netif, &ip));
-            sprintf(ip_addr_string_buff,IPSTR, IP2STR(&ip.ip));
-            ESP_LOGI(TAG, "- IPv4 address: %s",ip_addr_string_buff);
-            
-            // Got another!
-            ip_count += 1;
-        }
+    const char *iface = network_get_ip_string(ip_addr_string_buff, 16);
+    if (iface == NULL) {
+        return 0;
     }
-
-    return ip_count;
+    ESP_LOGI(TAG, "Connected via %s, IPv4 address: %s", iface, ip_addr_string_buff);
+    return 1;
 }
 
 int listen_for_client(int listen_sock, char * addr_str)

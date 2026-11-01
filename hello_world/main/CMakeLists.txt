@@ -1,6 +1,5 @@
 idf_component_register(SRCS
     "main.c"
-    "src/wifi_connect.c"
     "src/tcp_server_task.c"
     "src/ir_led_task.c"
     "src/message_type.c"
@@ -9,10 +8,13 @@ idf_component_register(SRCS
     "src/sntp_helper.c"
     "src/tcp_helpers.c"
     "src/http_server_task.c"
+    "src/network.c"
     INCLUDE_DIRS "" "inc"
     REQUIRES
         driver
         esp_wifi
+        esp_eth
+        esp_timer
         esp_netif
         esp_event
         nvs_flash

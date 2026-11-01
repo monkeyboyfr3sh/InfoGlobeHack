@@ -18,6 +18,10 @@
 
 #include "tcp_server_task.h"
 
+#if CONFIG_EXAMPLE_CONNECT_ETHERNET && (CONFIG_INFOGLOBE_BUTTON_GPIO == 0)
+#error "GPIO0 is the Ethernet RMII clock input; pick another button GPIO in menuconfig (e.g. 32)"
+#endif
+
 static const char * TAG = "FR_MKR";
 
 volatile bool g_time_on = true;

@@ -8,13 +8,12 @@
 #include "esp_log.h"
 
 #include "esp_system.h"
-#include "esp_wifi.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
-#include "protocol_examples_common.h"
-#include "example_common_private.h"
 #include "string.h"
+
+#include "network.h"
 
 #include "infoglobe_animations.h"
 #include "message_type.h"
@@ -46,26 +45,14 @@ void tcp_server_task(void *pvParameters)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    // ESP_ERROR_CHECK(wifi_connect());
-    esp_err_t wifi_err;
-    do {
-        wifi_err = example_connect();
-        if (wifi_err != ESP_OK) {
-            ESP_LOGW(TAG, "Wi-Fi connect failed (%s), retrying...", esp_err_to_name(wifi_err));
-            size_t bw2 = snprintf(connect_msg, msg_max, "No WiFi...");
-            send_string_w_bytes_to_queue(display_queue, connect_msg, bw2, 0x00, 0x0);
-            vTaskDelay(pdMS_TO_TICKS(3000));
-            /* A failed example_connect() has already unregistered its event
-             * handlers and never registered its shutdown hook, so
-             * example_disconnect() would abort on ESP_ERR_NOT_FOUND. Just stop
-             * Wi-Fi and destroy the netif so the next attempt starts clean. */
-            example_wifi_stop();
-        }
-    } while (wifi_err != ESP_OK);
+    /* Ethernet and Wi-Fi come up side by side and keep retrying on their own;
+     * continue as soon as either one has an IP. */
+    ESP_ERROR_CHECK(network_start());
+    while (!network_wait_for_ip(pdMS_TO_TICKS(15000))) {
+        ESP_LOGW(TAG, "No network yet (check cable / Wi-Fi), still trying...");
+        size_t bw2 = snprintf(connect_msg, msg_max, "No network...");
+        send_string_w_bytes_to_queue(display_queue, connect_msg, bw2, 0x00, 0x0);
+    }
 
     // Set display to the IP addresss
     char msg[msg_max];
