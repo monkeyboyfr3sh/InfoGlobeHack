@@ -776,7 +776,9 @@
     { id: 'entrySpeed', label: 'Speed', sub: true, show: function (s) { return !!MOVING_ENTRY[s.entry]; }, opts: SPEEDS },
     { id: 'old', label: 'Old text', opts: [
       ['overwrite', 'Overwritten letter by letter'], ['pushed', 'Pushed out'], ['blank', 'Blanked first'],
-      ['fade', 'Fades out first'], ['vslide', 'Slides out vertically'], ['other', 'Other'] ] },
+      ['fade', 'Fades out first'], ['wipe', 'Wiped away'], ['vslide', 'Slides out vertically'], ['other', 'Other'] ] },
+    { id: 'oldDir', label: 'Direction', sub: true, show: function (s) { return s.old === 'wipe'; },
+      opts: [['rl', 'Right → left'], ['lr', 'Left → right']] },
     { id: 'oldVDir', label: 'Moving', sub: true, show: function (s) { return s.old === 'vslide'; },
       opts: [['up', 'Moving up'], ['down', 'Moving down']] }
   ].concat(AFTER_FIELDS);
@@ -787,7 +789,7 @@
   ].concat(AFTER_FIELDS);
   var ALL_FIELDS = FX_FIELDS.concat(RESULT_FIELDS);
   // Answer fields carried over when pre-filling a new effect from the previous one
-  var PREFILL_IDS = ['entry', 'entryStyle', 'entryPasses', 'entryDir', 'entryVDir', 'rows', 'entrySpeed', 'old', 'oldVDir', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
+  var PREFILL_IDS = ['entry', 'entryStyle', 'entryPasses', 'entryDir', 'entryVDir', 'rows', 'entrySpeed', 'old', 'oldDir', 'oldVDir', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
 
   var exNotes = {};
   var xp = { fam: 'fx', n: 0 };
@@ -839,7 +841,8 @@
       if (d.entrySpeed) q.push(low(d.entrySpeed));
       p.push(e + (q.length ? ' (' + q.join(', ') + ')' : ''));
     }
-    if (d.old) p.push('old text: ' + low(optLabel('old', d.old)) + (d.old === 'vslide' && d.oldVDir ? ' (moving ' + d.oldVDir + ')' : ''));
+    if (d.old) p.push('old text: ' + low(optLabel('old', d.old)) + (d.old === 'vslide' && d.oldVDir ? ' (moving ' + d.oldVDir + ')' : '') +
+      (d.old === 'wipe' && d.oldDir ? ' (' + low(optLabel('oldDir', d.oldDir)) + ')' : ''));
     var a = [];
     if (d.afterSpin) {
       var sq = [d.afterDir ? low(optLabel('afterDir', d.afterDir)) : '', d.afterSpeed || ''].filter(Boolean);
