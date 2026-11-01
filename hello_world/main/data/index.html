@@ -97,6 +97,8 @@
     }
     button.btn:hover { background: var(--subtle); box-shadow: inset 0 0 0 1px var(--input-border); }
     button.btn:active { background: var(--muted-bg); }
+    button.btn.icon { width: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+    button.btn.icon:hover { color: var(--text); }
     button.btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-active); }
     button.btn.primary:hover { background: var(--accent-hover); }
     button.btn.primary:active { background: var(--accent-active); }
@@ -160,7 +162,7 @@
 <div class="wrap">
   <header>
     <h1>InfoGlobe</h1>
-    <div class="head-right"><div id="status">Connecting&hellip;</div><button class="btn" id="theme-btn" onclick="toggleTheme()" aria-label="Switch light or dark theme">Dark</button></div>
+    <div class="head-right"><div id="status">Connecting&hellip;</div><button class="btn icon" id="theme-btn" onclick="toggleTheme()" aria-label="Switch to dark mode" title="Switch to dark mode"></button></div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -338,7 +340,18 @@
     if (t) return t;
     return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
-  function renderThemeBtn() { $('theme-btn').textContent = currentTheme() === 'dark' ? 'Light mode' : 'Dark mode'; }
+  var ICON_SUN = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">' +
+    '<circle cx="8" cy="8" r="3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/></svg>';
+  var ICON_MOON = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">' +
+    '<path d="M13.5 9.6A5.75 5.75 0 0 1 6.4 2.5a5.75 5.75 0 1 0 7.1 7.1z"/></svg>';
+  function renderThemeBtn() {
+    // Show where a click takes you: moon in light mode, sun in dark mode
+    var dark = currentTheme() === 'dark';
+    var b = $('theme-btn'), label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+    b.innerHTML = dark ? ICON_SUN : ICON_MOON;
+    b.setAttribute('aria-label', label);
+    b.title = label;
+  }
   function toggleTheme() {
     var next = currentTheme() === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
