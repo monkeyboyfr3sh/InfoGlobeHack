@@ -25,8 +25,8 @@ static const char * TAG = "ANIMATIONS";
 
 void string_with_blink_shift(QueueHandle_t display_queue, const char * str_buff, size_t str_len, uint8_t blink_idx, uint8_t shift_idx)
 {
-    ESP_LOGI(TAG,"string length: %d",str_len);
-    ESP_LOG_BUFFER_HEX_LEVEL(TAG,str_buff,str_len,ESP_LOG_INFO);
+    ESP_LOGD(TAG,"string length: %d",str_len);
+    ESP_LOG_BUFFER_HEX_LEVEL(TAG,str_buff,str_len,ESP_LOG_DEBUG);
 
     char msg[str_len+5];
     memset(msg,0,sizeof(msg));
@@ -158,7 +158,7 @@ void run_animation_time_1(QueueHandle_t display_queue)
     if (redraw) {
         char formatted_time[12];
         format_time(formatted_time, &timeinfo, !colon_on);
-        ESP_LOGI(TAG, "Current time: %s", formatted_time);
+        ESP_LOGD(TAG, "Current time: %s", formatted_time);
         string_with_blink_shift(display_queue, formatted_time, 8, 0, 8);
     }
 

@@ -13,6 +13,7 @@
 #include "message_type.h"
 #include "infoglobe_animations.h"
 #include "frame_maker_task.h"
+#include "ir_led_task.h"
 
 static const char *TAG = "HTTP_SERVER";
 
@@ -262,6 +263,68 @@ static esp_err_t mode_handler(httpd_req_t *req)
 }
 
 /* ------------------------------------------------------------------ */
+/*  IR link: gap tuning, stats and a max-rate test pattern              */
+/* ------------------------------------------------------------------ */
+
+static volatile bool s_ir_test_on = false;
+static TaskHandle_t s_ir_test_task = NULL;
+
+/* Sends "TEST nnn" frames as fast as the link accepts them (the display
+ * queue blocks), pausing the clock while it runs. Skipped or garbled
+ * numbers on the globe mean the gap is too short. */
+static void ir_test_task(void *arg)
+{
+    bool prev_time_on = g_time_on;
+    g_time_on = false;
+    unsigned n = 0;
+    char txt[9];
+    while (s_ir_test_on) {
+        snprintf(txt, sizeof(txt), "TEST %03u", n);
+        n = (n + 1) % 1000;
+        string_with_blink_shift(s_display_queue, txt, 8, 0, 8);
+    }
+    g_time_on = prev_time_on;
+    s_ir_test_task = NULL;
+    vTaskDelete(NULL);
+}
+
+static esp_err_t ir_handler(httpd_req_t *req)
+{
+    if (req->method == HTTP_POST) {
+        cJSON *root = recv_json(req);
+        if (!root) { httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad JSON"); return ESP_FAIL; }
+        cJSON *gap = cJSON_GetObjectItem(root, "gap_ms");
+        if (cJSON_IsNumber(gap) && gap->valuedouble >= 0) {
+            ir_set_frame_gap_ms((uint32_t)gap->valuedouble);
+        }
+        cJSON *test = cJSON_GetObjectItem(root, "test");
+        if (cJSON_IsBool(test)) {
+            bool on = cJSON_IsTrue(test);
+            if (on && s_ir_test_task == NULL) {
+                s_ir_test_on = true;
+                xTaskCreate(ir_test_task, "ir_test", 3072, NULL, 4, &s_ir_test_task);
+                ESP_LOGI(TAG, "IR test pattern started");
+            } else if (!on && s_ir_test_on) {
+                s_ir_test_on = false;
+                ESP_LOGI(TAG, "IR test pattern stopped");
+            }
+        }
+        cJSON_Delete(root);
+    }
+
+    ir_stats_t st;
+    ir_get_stats(&st);
+    char resp[160];
+    snprintf(resp, sizeof(resp),
+             "{\"gap_ms\":%u,\"fps\":%.1f,\"busy_pct\":%.0f,\"frames\":%u,\"test\":%s}",
+             (unsigned)st.gap_ms, st.fps, st.busy_pct, (unsigned)st.frames,
+             s_ir_test_on ? "true" : "false");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, resp);
+    return ESP_OK;
+}
+
+/* ------------------------------------------------------------------ */
 
 httpd_handle_t start_http_server(QueueHandle_t display_queue)
 {
@@ -270,7 +333,7 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     init_spiffs();
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers    = 8;
+    config.max_uri_handlers    = 12;
     config.stack_size          = 8192;
     config.recv_wait_timeout   = 60; // seconds — needed for OTA uploads
     config.send_wait_timeout   = 60;
@@ -290,6 +353,8 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
         { .uri = "/ota",    .method = HTTP_POST, .handler = ota_post_handler   },
         { .uri = "/mode",   .method = HTTP_GET,  .handler = mode_handler       },
         { .uri = "/mode",   .method = HTTP_POST, .handler = mode_handler       },
+        { .uri = "/ir",     .method = HTTP_GET,  .handler = ir_handler         },
+        { .uri = "/ir",     .method = HTTP_POST, .handler = ir_handler         },
     };
 
     for (int i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {

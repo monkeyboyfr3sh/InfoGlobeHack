@@ -12,7 +12,7 @@
 void app_main(void)
 {
     // Init buffer queue
-    QueueHandle_t display_queue = xQueueCreate(10, sizeof(msg_buffer_t));
+    QueueHandle_t display_queue = xQueueCreate(2, sizeof(msg_buffer_t));  // short: keeps display latency low
     if (display_queue == NULL) {
         printf("Failed to create queue\n");
         return;

@@ -49,6 +49,17 @@ menu "InfoGlobe Configuration"
                 GPIO16/17 (PSRAM), GPIO0/5/18/19/21-23/25-27 (Ethernet)
                 and GPIO34-39 (input only).
 
+        config INFOGLOBE_IR_FRAME_GAP_MS
+            int "IR idle gap after each frame (ms)"
+            range 0 500
+            default 10
+            help
+                LED-off time appended to every frame so the globe can find the
+                start of the next one (the protocol has no start/stop bits).
+                This plus the 1 ms/bit payload is the only limit on update
+                rate. Adjustable at runtime from the web UI (IR Link) or
+                POST /ir {"gap_ms": N} to find the smallest reliable value.
+
         config INFOGLOBE_BUTTON_GPIO
             int "Time-display toggle button GPIO"
             range 0 39

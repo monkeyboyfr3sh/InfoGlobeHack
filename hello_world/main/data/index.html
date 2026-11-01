@@ -66,6 +66,24 @@
   </div>
 
   <div class="card">
+    <h2>IR Link</h2>
+    <div class="row" style="margin-bottom:8px">
+      <label>Gap after each frame
+        <input type="number" id="gap" min="0" max="500" style="width:70px;padding:6px;background:#0f3460;color:#eee;border:1px solid #e94560;border-radius:4px"> ms
+      </label>
+      <button onclick="setGap()">Set</button>
+    </div>
+    <div class="toggle-row" style="margin-bottom:8px">
+      <span style="font-size:.9rem">Max-rate test pattern (TEST 000-999)</span>
+      <label class="switch">
+        <input type="checkbox" id="ir-test" onchange="setIrTest(this.checked)">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <p id="ir-stats" style="font-size:.9rem;opacity:.85">&nbsp;</p>
+  </div>
+
+  <div class="card">
     <h2>OTA Firmware Update</h2>
     <input type="file" id="bin" accept=".bin">
     <button onclick="doOTA()">Flash Firmware</button>
@@ -136,6 +154,36 @@
       t.checked = d.time_mode;
       document.getElementById('mode-label').textContent = d.time_mode ? 'Time' : 'Message';
     }).catch(function() {});
+
+    // IR link: stats refresh, gap tuning, test pattern
+    var gapLoaded = false;
+    function showIr(d) {
+      document.getElementById('ir-stats').textContent =
+        d.fps.toFixed(1) + ' frames/s · link ' + Math.round(d.busy_pct) + '% busy · ' +
+        d.frames + ' frames sent';
+      document.getElementById('ir-test').checked = d.test;
+      if (!gapLoaded) { document.getElementById('gap').value = d.gap_ms; gapLoaded = true; }
+    }
+    function pollIr() {
+      fetch('/ir').then(function(r) { return r.json(); }).then(showIr).catch(function() {});
+    }
+    async function postIr(body) {
+      try {
+        var r = await fetch('/ir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (r.ok) { showIr(await r.json()); return true; }
+      } catch (e) {}
+      return false;
+    }
+    function setGap() {
+      var v = parseInt(document.getElementById('gap').value, 10);
+      if (isNaN(v) || v < 0 || v > 500) { toast('Gap must be 0-500 ms', false); return; }
+      postIr({ gap_ms: v }).then(function(ok) { toast(ok ? 'Gap set to ' + v + ' ms' : 'Failed', ok); });
+    }
+    function setIrTest(on) {
+      postIr({ test: on }).then(function(ok) { toast(ok ? (on ? 'Test pattern running' : 'Test pattern stopped') : 'Failed', ok); });
+    }
+    pollIr();
+    setInterval(pollIr, 2000);
 
     function doOTA() {
       var f = document.getElementById('bin').files[0];
