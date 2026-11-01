@@ -1,7 +1,9 @@
 #pragma once
 
+#include "sdkconfig.h"
+
 // PWM Driver
-#define LED_PIN         GPIO_NUM_4
+#define LED_PIN         CONFIG_INFOGLOBE_IR_LED_GPIO
 #define LED_CHANNEL     LEDC_CHANNEL_0
 #define LEDC_TIMER      LEDC_TIMER_0
 #define LEDC_SPEED_MODE LEDC_LOW_SPEED_MODE

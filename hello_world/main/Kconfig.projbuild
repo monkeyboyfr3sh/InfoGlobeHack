@@ -25,6 +25,32 @@ menu "InfoGlobe Configuration"
         help
             Keep-alive probe packet retry count.
 
+    menu "Hardware (ESP32-Ethernet-Kit A V1.2)"
+
+        config INFOGLOBE_IR_LED_GPIO
+            int "IR LED GPIO"
+            range 0 33
+            default 4
+            help
+                GPIO driving the 38 kHz IR LED aimed at the globe.
+                Default GPIO4 is on the kit's GPIO Header 2 and is free.
+                Avoid GPIO12-15 (JTAG when the DIP switches are ON),
+                GPIO16/17 (PSRAM), GPIO0/5/18/19/21-23/25-27 (Ethernet)
+                and GPIO34-39 (input only).
+
+        config INFOGLOBE_BUTTON_GPIO
+            int "Time-display toggle button GPIO"
+            range 0 39
+            default 0
+            help
+                Active-low button that toggles the clock display.
+                Default GPIO0 is the kit's BOOT button. GPIO0 becomes the
+                Ethernet RMII clock input once Ethernet is enabled, so move
+                the button to GPIO32 or GPIO33 (GPIO Header 1) at that point.
+                GPIO34-39 have no internal pull-up and need an external one.
+
+    endmenu
+
 endmenu
 
 menu "Wifi Configuration"

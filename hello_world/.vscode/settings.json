@@ -1,6 +1,6 @@
 {
   "idf.openOcdConfigs": [
-    "board/esp32-wrover-kit-3.3v.cfg"
+    "board/esp32-ethernet-kit-3.3v.cfg"
   ],
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"
@@ -15,5 +15,8 @@
   "idf.espIdfPathWin": "C:\\Espressif\\frameworks\\esp-idf-v5.5.4",
   "idf.toolsPathWin": "C:\\Espressif",
   "idf.pythonBinPathWin": "C:\\Espressif\\python_env\\idf5.5_py3.13_env\\Scripts\\python.exe",
-  "idf.gitPathWin": "C:\\Program Files\\Git\\cmd\\git.exe"
+  "idf.gitPathWin": "C:\\Program Files\\Git\\cmd\\git.exe",
+  "idf.portWin": "COM6",
+  "idf.flashType": "UART",
+  "idf.flashBaudRate": "921600"
 }

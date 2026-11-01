@@ -46,13 +46,20 @@ void frame_maker_task(void *pvParameters)
 
     bool prev_io_level = true;
     bool curr_io_level = true;
-    gpio_set_direction(GPIO_NUM_0,GPIO_MODE_INPUT);
+    const gpio_config_t button_conf = {
+        .pin_bit_mask = 1ULL << CONFIG_INFOGLOBE_BUTTON_GPIO,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,   // no-op on GPIO34-39 (input only)
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&button_conf));
 
     while(1)
     {
 
         // Detect falling edge (physical button still works)
-        curr_io_level = gpio_get_level(GPIO_NUM_0);
+        curr_io_level = gpio_get_level(CONFIG_INFOGLOBE_BUTTON_GPIO);
         if( (curr_io_level==0) && (prev_io_level==true) ){
             g_time_on = !g_time_on;
 
