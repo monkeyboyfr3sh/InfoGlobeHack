@@ -254,9 +254,47 @@
 
   <!-- ============================ EXPLORER ============================ -->
   <section class="panel" id="tab-explorer" role="tabpanel" hidden>
+    <div class="card stack" id="guided">
+      <div class="split">
+        <div>
+          <h2>Guided test</h2>
+          <p class="hint" style="margin:0">The page sends a test to the globe. Watch it, say what happened, press Enter. That's it.</p>
+        </div>
+        <button class="btn primary" id="g-start" onclick="gStart()">Start</button>
+      </div>
+
+      <div id="g-body" hidden>
+        <div class="split" style="margin-bottom:8px">
+          <span class="hint" style="margin:0" id="g-progress"></span>
+          <progress id="g-bar" value="0" max="1" style="width:40%"></progress>
+        </div>
+        <div class="frame" style="font-family:var(--font);font-size:1rem">
+          <div style="font-weight:600;color:var(--text-strong)" id="g-title"></div>
+          <div class="hint" style="margin:4px 0 0" id="g-look"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" onclick="gQuick('Nothing happened')">Nothing happened</button>
+          <button class="btn" onclick="gQuick('Same as previous')">Same as previous</button>
+          <button class="btn" onclick="gQuick('Screen went blank')">Went blank</button>
+          <button class="btn" onclick="gQuick('Garbled / weird characters')">Garbled</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="g-note" placeholder="Or describe it in a few words, then Enter" autocomplete="off" style="flex:1 1 240px">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" onclick="gMove(-1)">Back</button>
+          <button class="btn" onclick="gShow(true)">Show again</button>
+          <button class="btn" onclick="gMove(1)">Skip</button>
+          <div style="flex:1"></div>
+          <button class="btn primary" onclick="gSave()">Save &amp; next</button>
+        </div>
+        <p class="hint" style="margin:10px 0 0">Sent: <code id="g-hex"></code></p>
+      </div>
+    </div>
+
     <div class="card stack">
       <div>
-        <h2>Protocol explorer</h2>
+        <h2>Manual explorer</h2>
         <p class="hint" style="margin:0">
           Frame = <code>[command] [byte 2] [text] [trailer]</code>. <code>{n}</code> is the value under test
           (decimal in text, <code>{x}</code> for hex; a byte in the other fields). Sending switches the display to Message mode.
@@ -493,6 +531,119 @@
   }
   pollIr();
   setInterval(pollIr, 2000);
+
+  // ---------------- Guided test ----------------
+  // Each test: key (note id), title, what to look for, frame bytes.
+  function txt(s) { return Array.prototype.map.call(s, function (c) { return c.charCodeAt(0) & 255; }); }
+  function pad2(n) { return ('0' + n).slice(-2); }
+  var BLANK_FRAME = [0x05, 0x00].concat(txt('--------'), [0x00, 0x00, 0x08]);   // neutral "before" state
+  var G_TESTS = (function () {
+    var t = [], i;
+    var fxOrder = [];
+    for (i = 0; i <= 63; i++) fxOrder.push(i);
+    [64, 100, 128, 255].forEach(function (v) { fxOrder.push(v); });
+    var fxKnown = { 38: 'Said to be "static display"', 39: 'Said to be "flashing display"' };
+    fxOrder.forEach(function (n) {
+      t.push({ key: 'fx:' + n, title: 'Transition effect ' + n,
+        look: (fxKnown[n] ? fxKnown[n] + '. ' : '') + 'How does "FX ' + pad2(n) + '" replace the dashes? (direction, letters dropping, fading, etc.)',
+        bytes: [0x00, 0x00].concat(txt('FX ' + pad2(n)), [n & 255]) });
+    });
+    for (i = 0; i <= 12; i++) {
+      t.push({ key: 'blink:' + i, title: 'Blink setting ' + i + ' (clock-style message)',
+        look: 'Does any part of "BLINK ' + pad2(i) + '" flash? Which letters?',
+        bytes: [0x05, 0x00].concat(txt('BLINK ' + pad2(i)), [0x00, i, 0x08]) });
+    }
+    for (i = 0; i <= 16; i++) {
+      t.push({ key: 'shift:' + i, title: 'Shift setting ' + i + ' (clock-style message)',
+        look: 'Where does "SHIFT ' + pad2(i) + '" sit or move compared to the last one?',
+        bytes: [0x05, 0x00].concat(txt('SHIFT ' + pad2(i)), [0x00, 0x00, i]) });
+    }
+    var cmds = [0x00, 0x04, 0x05, 0x06, 0x06, 0x01, 0x02, 0x03];
+    for (i = 0x07; i <= 0x1F; i++) cmds.push(i);
+    cmds.push(0x80, 0x81, 0xFF);
+    var cmdKnown = { 0: 'Known: text with transition 0', 4: 'Known: shows text right away and scrolls it',
+                     5: 'Known: your clock format', 6: 'Known: turns scrolling on/off (this test runs twice)' };
+    var seen6 = false;
+    cmds.forEach(function (c) {
+      var hx = ('0' + c.toString(16)).slice(-2).toUpperCase();
+      var key = 'cmd:' + c;
+      if (c === 6) { key = seen6 ? 'cmd:6b' : 'cmd:6'; seen6 = true; }
+      t.push({ key: key, title: 'Command byte ' + hx + (c === 6 && key === 'cmd:6b' ? ' (second time)' : ''),
+        look: (cmdKnown[c] ? cmdKnown[c] + '. ' : '') + 'What happens to "CMD ' + hx + '"? Anything at all?',
+        bytes: [c, 0x00].concat(txt('CMD ' + hx), [0x00]) });
+    });
+    [0x01, 0x02, 0x03, 0x04].concat([7, 8, 9, 10, 11, 12, 13, 14, 15]).forEach(function (c) {
+      var hx = ('0' + c.toString(16)).slice(-2).toUpperCase();
+      t.push({ key: 'alone:' + c, title: 'Command byte ' + hx + ' on its own (no text)',
+        look: 'Only the command is sent. Does the display change, clear, or do anything?',
+        bytes: [c] });
+    });
+    for (i = 0; i <= 15; i++) {
+      t.push({ key: 'b2:' + i, title: 'Second byte = ' + i + ' (clock-style message)',
+        look: 'Is "B2 ' + pad2(i) + '" any different (speed, brightness, position, nothing)?',
+        bytes: [0x05, i].concat(txt('B2 ' + pad2(i)), [0x00, 0x00, 0x08]) });
+    }
+    return t;
+  })();
+  var gIdx = 0, gSendSeq = 0;
+
+  function gFirstUnanswered() {
+    for (var i = 0; i < G_TESTS.length; i++) if (!exNotes[G_TESTS[i].key]) return i;
+    return G_TESTS.length - 1;
+  }
+  async function gPrepare() {
+    if (!exPrepared) {
+      await post('/ir', { test: false });
+      await post('/mode', { time_mode: false });
+      showMode(false);
+      exPrepared = true;
+    }
+  }
+  function rawHex(b) { return b.map(hex2).join(''); }
+  async function gShow(send) {
+    var t = G_TESTS[gIdx];
+    $('g-progress').textContent = 'Test ' + (gIdx + 1) + ' of ' + G_TESTS.length + ' · ' +
+      Object.keys(exNotes).filter(function (k) { return G_TESTS.some(function (x) { return x.key === k; }); }).length + ' answered';
+    $('g-bar').max = G_TESTS.length; $('g-bar').value = gIdx + 1;
+    $('g-title').textContent = t.title;
+    $('g-look').textContent = t.look;
+    $('g-hex').textContent = t.bytes.map(hex2).join(' ');
+    $('g-note').value = exNotes[t.key] || '';
+    $('g-note').focus();
+    if (!send) return;
+    var seq = ++gSendSeq;
+    await gPrepare();
+    await post('/raw', { hex: rawHex(BLANK_FRAME) });          // neutral state first...
+    await new Promise(function (r) { setTimeout(r, 1500); });
+    if (seq !== gSendSeq) return;                                 // user moved on meanwhile
+    var ok = await post('/raw', { hex: rawHex(t.bytes) });      // ...then the test frame
+    if (!ok) toast('Send failed', false);
+  }
+  function gStart() {
+    $('g-body').hidden = false;
+    $('g-start').textContent = 'Resume';
+    gIdx = gFirstUnanswered();
+    gShow(true);
+  }
+  function gMove(d) {
+    gIdx = Math.max(0, Math.min(G_TESTS.length - 1, gIdx + d));
+    gShow(true);
+  }
+  async function gSave(note) {
+    var t = G_TESTS[gIdx];
+    note = (note !== undefined ? note : $('g-note').value).trim();
+    if (!note) { toast('Pick an answer or type what you saw', false); return; }
+    try {
+      var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ key: t.key, note: note }) });
+      if (!r.ok) throw 0;
+      exNotes = await r.json(); exRenderNotes();
+    } catch (e) { toast('Could not save', false); return; }
+    if (gIdx >= G_TESTS.length - 1) { toast('All tests done, thank you!', true); gShow(false); return; }
+    gMove(1);
+  }
+  function gQuick(text) { $('g-note').value = text; gSave(text); }
+  $('g-note').addEventListener('keydown', function (e) { if (e.key === 'Enter') gSave(); });
 
   // ---------------- Protocol explorer ----------------
   var EX_PRESETS = {
