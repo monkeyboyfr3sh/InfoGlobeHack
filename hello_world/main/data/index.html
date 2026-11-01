@@ -5,383 +5,562 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>InfoGlobe</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 16px; max-width: 520px; margin: 0 auto; }
-    h1 { text-align: center; color: #e94560; margin: 16px 0; }
-    .card { background: #16213e; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
-    h2 { color: #e94560; font-size: 1rem; margin-bottom: 10px; }
-    input[type="text"], input[type="file"] { width: 100%; padding: 8px; background: #0f3460; color: #eee; border: 1px solid #e94560; border-radius: 4px; margin-bottom: 8px; }
-    button { background: #e94560; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; margin: 3px; }
-    button:hover { background: #c73652; }
-    label { font-size: .9rem; display: flex; align-items: center; gap: 4px; }
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 6px; display: none; font-weight: bold; }
-    .ok { background: #155724; color: #d4edda; }
-    .err { background: #721c24; color: #f8d7da; }
-    progress { width: 100%; margin-top: 8px; accent-color: #e94560; }
-    input.ex { padding: 6px; background: #0f3460; color: #eee; border: 1px solid #e94560; border-radius: 4px; width: 90px; }
-    code { background: #0f3460; padding: 1px 4px; border-radius: 3px; word-break: break-all; }
-    .note-row { padding: 3px 0; border-bottom: 1px solid #0f3460; cursor: pointer; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-    .switch { position: relative; display: inline-block; width: 48px; height: 26px; }
+    :root {
+      --bg: #111418; --panel: #1b2027; --panel-2: #232a33; --line: #323b46;
+      --text: #eef1f5; --muted: #a9b3bf; --accent: #ff6b4a; --accent-ink: #ffffff;
+      --ok: #2fb67c; --err: #e5484d; --focus: #6aa9ff;
+      --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f3f5f8; --panel: #ffffff; --panel-2: #eef1f5; --line: #d5dbe3;
+        --text: #16191d; --muted: #5a6573; --accent: #e0492a;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .wrap { max-width: 680px; margin: 0 auto; padding: 16px; }
+
+    header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 0 14px; }
+    header h1 { margin: 0; font-size: 1.6rem; letter-spacing: .02em; }
+    header h1 span { color: var(--accent); }
+    #status { color: var(--muted); font-size: .9rem; }
+    #status b { color: var(--text); font-weight: 600; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+    .tab {
+      appearance: none; background: none; border: 0; border-bottom: 3px solid transparent;
+      color: var(--muted); font: inherit; font-weight: 600; padding: 10px 14px; cursor: pointer; white-space: nowrap;
+    }
+    .tab:hover { color: var(--text); }
+    .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+    .panel[hidden] { display: none; }
+
+    /* Cards */
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+    .card h2 { margin: 0 0 4px; font-size: 1.05rem; }
+    .hint { margin: 0 0 14px; color: var(--muted); font-size: .9rem; }
+    .stack > * + * { margin-top: 12px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row > .grow { flex: 1 1 200px; }
+    .split { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+    /* Form controls */
+    label.field { display: block; }
+    label.field > span { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+    input[type=text], input[type=number], select {
+      width: 100%; font: inherit; color: var(--text); background: var(--panel-2);
+      border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; min-height: 42px;
+    }
+    input[type=number] { width: 96px; }
+    input.mono, code, .mono { font-family: var(--mono); }
+    input:focus-visible, select:focus-visible, button:focus-visible, .tab:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--focus); outline-offset: 2px;
+    }
+    input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+    label.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+    button.btn {
+      font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 16px; min-height: 42px; cursor: pointer;
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    }
+    button.btn:hover { border-color: var(--muted); }
+    button.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+    button.btn.primary:hover { filter: brightness(1.08); }
+    button.btn:disabled { opacity: .5; cursor: default; }
+
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 480px) { .grid3 { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; } }
+
+    /* Segmented toggle (Clock / Message) */
+    .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+    .seg button { font: inherit; font-weight: 600; border: 0; background: none; color: var(--muted); padding: 7px 16px; border-radius: 8px; cursor: pointer; }
+    .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+    /* Switch */
+    .switch { position: relative; width: 50px; height: 28px; flex: none; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; inset: 0; background: #0f3460; border-radius: 26px; transition: .3s; }
-    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background: #eee; border-radius: 50%; transition: .3s; }
-    input:checked + .slider { background: #e94560; }
-    input:checked + .slider:before { transform: translateX(22px); }
+    .slider { position: absolute; inset: 0; background: var(--line); border-radius: 28px; transition: .2s; cursor: pointer; }
+    .slider::before { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider::before { transform: translateX(22px); }
+    .switch input:focus-visible + .slider { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .stat { background: var(--panel-2); border-radius: 10px; padding: 12px; }
+    .stat .v { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat .k { color: var(--muted); font-size: .8rem; }
+
+    code { background: var(--panel-2); padding: 2px 6px; border-radius: 5px; font-size: .9em; word-break: break-all; }
+    .frame { font-family: var(--mono); background: var(--panel-2); border-radius: 8px; padding: 10px 12px; min-height: 42px; word-break: break-all; font-size: .92rem; }
+
+    details { border-top: 1px solid var(--line); padding-top: 12px; }
+    summary { cursor: pointer; font-weight: 600; }
+    .notes { margin-top: 10px; max-height: 300px; overflow: auto; }
+    .note { display: grid; grid-template-columns: 90px 1fr; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: 6px; }
+    .note:hover { background: var(--panel-2); }
+    .note .key { font-family: var(--mono); color: var(--muted); }
+
+    progress { width: 100%; height: 10px; accent-color: var(--accent); }
+
+    #toast {
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 10;
+      padding: 10px 18px; border-radius: 10px; font-weight: 600; color: #fff; display: none;
+      box-shadow: 0 6px 24px rgba(0,0,0,.3); max-width: calc(100% - 32px);
+    }
+    #toast.ok { background: var(--ok); } #toast.err { background: var(--err); }
   </style>
 </head>
 <body>
-  <h1>InfoGlobe</h1>
-  <div id="toast"></div>
+<div class="wrap">
+  <header>
+    <h1>Info<span>Globe</span></h1>
+    <div id="status">Connecting&hellip;</div>
+  </header>
 
-  <div class="card">
-    <div class="toggle-row">
-      <h2 style="margin:0">Display Mode</h2>
-      <div style="display:flex;align-items:center;gap:10px;font-size:.9rem">
-        <span id="mode-label">Time</span>
-        <label class="switch">
-          <input type="checkbox" id="time-toggle" checked onchange="setMode(this.checked)">
-          <span class="slider"></span>
-        </label>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="control">Control</button>
+    <button class="tab" role="tab" data-tab="ir">IR Link</button>
+    <button class="tab" role="tab" data-tab="explorer">Explorer</button>
+    <button class="tab" role="tab" data-tab="firmware">Firmware</button>
+  </nav>
+
+  <!-- ============================ CONTROL ============================ -->
+  <section class="panel" id="tab-control" role="tabpanel">
+    <div class="card">
+      <div class="split">
+        <div>
+          <h2>Display</h2>
+          <p class="hint" style="margin:0">Show the clock, or hold the last message you sent.</p>
+        </div>
+        <div class="seg" role="group" aria-label="Display mode">
+          <button id="mode-clock" onclick="setMode(true)">Clock</button>
+          <button id="mode-msg" onclick="setMode(false)">Message</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="card">
-    <h2>Send Text</h2>
-    <input type="text" id="txt" placeholder="Message...">
-    <div class="row">
-      <label><input type="checkbox" id="blink"> Blink</label>
-      <button onclick="sendText()">Send Text</button>
-      <button onclick="sendRaw()">Send Raw Hex</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Buttons</h2>
-    <div class="row" style="margin-bottom:8px">
-      <input type="text" id="cmd" placeholder="Configure button command..." style="flex:1;margin:0">
-      <label><input type="checkbox" id="cfg"> Configure</label>
-    </div>
-    <div class="grid" id="btns"></div>
-  </div>
-
-  <div class="card">
-    <h2>IR Link</h2>
-    <div class="row" style="margin-bottom:8px">
-      <label>Gap after each frame
-        <input type="number" id="gap" min="0" max="500" style="width:70px;padding:6px;background:#0f3460;color:#eee;border:1px solid #e94560;border-radius:4px"> ms
+    <div class="card stack">
+      <div>
+        <h2>Send a message</h2>
+        <p class="hint" style="margin:0">Switches the display to Message mode.</p>
+      </div>
+      <label class="field"><span>Text</span>
+        <input type="text" id="txt" placeholder="Hello world" maxlength="35" autocomplete="off">
       </label>
-      <button onclick="setGap()">Set</button>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="blink"> Blink</label>
+        <div style="flex:1"></div>
+        <button class="btn" onclick="sendRaw()" title="Treat the text as hex bytes">Send as hex</button>
+        <button class="btn primary" onclick="sendText()">Send</button>
+      </div>
     </div>
-    <div class="toggle-row" style="margin-bottom:8px">
-      <span style="font-size:.9rem">Max-rate test pattern (TEST 000-999)</span>
-      <label class="switch">
-        <input type="checkbox" id="ir-test" onchange="setIrTest(this.checked)">
-        <span class="slider"></span>
-      </label>
-    </div>
-    <p id="ir-stats" style="font-size:.9rem;opacity:.85">&nbsp;</p>
-  </div>
 
-  <div class="card" id="explorer">
-    <h2>Protocol Explorer</h2>
-    <p style="font-size:.85rem;opacity:.8;margin-bottom:8px">
-      Frame = [command][byte 2][text][trailer]. <code>{n}</code> is the number under test
-      (decimal in text, <code>{x}</code> = hex); in the trailer <code>{n}</code> is sent as a byte.
-      Sending turns the clock off.
-    </p>
-    <div class="row" style="margin-bottom:6px">
-      <label>Preset
-        <select id="ex-preset" onchange="exPreset()" style="padding:6px;background:#0f3460;color:#eee;border:1px solid #e94560;border-radius:4px">
-          <option value="fx">Transition effects (cmd 00)</option>
-          <option value="cmd">Command sweep (cmd = n)</option>
+    <div class="card stack">
+      <div>
+        <h2>Quick buttons</h2>
+        <p class="hint" style="margin:0">Each button sends its saved text. To change one, type the text, tick <b>Assign</b>, then press the button.</p>
+      </div>
+      <div class="row">
+        <input type="text" id="cmd" class="grow" placeholder="Text to assign" autocomplete="off" style="flex:1 1 200px">
+        <label class="check"><input type="checkbox" id="cfg"> Assign</label>
+      </div>
+      <div class="grid3" id="btns"></div>
+    </div>
+  </section>
+
+  <!-- ============================ IR LINK ============================ -->
+  <section class="panel" id="tab-ir" role="tabpanel" hidden>
+    <div class="card stack">
+      <div>
+        <h2>Link status</h2>
+        <p class="hint" style="margin:0">1&nbsp;ms per bit, 38.5&nbsp;kHz carrier. Updates every 2&nbsp;seconds.</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="st-fps">&ndash;</div><div class="k">frames / second</div></div>
+        <div class="stat"><div class="v" id="st-busy">&ndash;</div><div class="k">link busy</div></div>
+        <div class="stat"><div class="v" id="st-frames">&ndash;</div><div class="k">frames sent</div></div>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <div>
+        <h2>Gap between frames</h2>
+        <p class="hint" style="margin:0">Idle time the globe needs to find the start of the next frame. Smaller means faster updates.</p>
+      </div>
+      <div class="row">
+        <input type="number" id="gap" min="0" max="500" inputmode="numeric"> <span>ms</span>
+        <button class="btn primary" onclick="setGap()">Apply</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="split">
+        <div>
+          <h2>Max-rate test pattern</h2>
+          <p class="hint" style="margin:0">Counts <code>TEST 000</code>&ndash;<code>999</code> as fast as the link allows. Skipped or garbled numbers mean the gap is too small.</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="ir-test" onchange="setIrTest(this.checked)" aria-label="Test pattern"><span class="slider"></span></label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ EXPLORER ============================ -->
+  <section class="panel" id="tab-explorer" role="tabpanel" hidden>
+    <div class="card stack">
+      <div>
+        <h2>Protocol explorer</h2>
+        <p class="hint" style="margin:0">
+          Frame = <code>[command] [byte 2] [text] [trailer]</code>. <code>{n}</code> is the value under test
+          (decimal in text, <code>{x}</code> for hex; a byte in the other fields). Sending switches the display to Message mode.
+        </p>
+      </div>
+
+      <label class="field"><span>Preset</span>
+        <select id="ex-preset" onchange="exPreset()">
+          <option value="fx">Transition effects &mdash; 00 00 + text + effect</option>
+          <option value="cmd">Command sweep &mdash; command byte = n</option>
           <option value="blink">0x05 blink byte</option>
           <option value="shift">0x05 shift byte</option>
           <option value="custom">Custom</option>
         </select>
       </label>
+
+      <div class="grid2">
+        <label class="field"><span>Command (hex)</span><input type="text" id="ex-cmd" class="mono" autocomplete="off"></label>
+        <label class="field"><span>Byte 2 (hex)</span><input type="text" id="ex-b2" class="mono" autocomplete="off"></label>
+        <label class="field" style="grid-column:1/-1"><span>Text</span><input type="text" id="ex-text" autocomplete="off"></label>
+        <label class="field" style="grid-column:1/-1"><span>Trailer (hex bytes)</span><input type="text" id="ex-trail" class="mono" autocomplete="off"></label>
+      </div>
+
+      <div class="row">
+        <button class="btn" onclick="exStep(-1)" aria-label="Previous">&#9664; Prev</button>
+        <input type="number" id="ex-n" min="0" max="255" value="0" inputmode="numeric" aria-label="Value n" style="width:84px">
+        <button class="btn" onclick="exStep(1)" aria-label="Next">Next &#9654;</button>
+        <button class="btn primary" onclick="exSend()">Send</button>
+      </div>
+
+      <div class="row">
+        <label class="check"><input type="checkbox" id="ex-auto" onchange="exAuto()"> Auto-step every</label>
+        <input type="number" id="ex-secs" min="1" max="60" value="5" inputmode="numeric" style="width:76px"> <span>seconds</span>
+      </div>
+
+      <div>
+        <div class="hint" style="margin-bottom:4px">Last frame sent</div>
+        <div class="frame" id="ex-hex">&ndash;</div>
+      </div>
     </div>
-    <div class="grid" style="margin-bottom:6px">
-      <label>Command <input class="ex" id="ex-cmd"></label>
-      <label>Byte 2 <input class="ex" id="ex-b2"></label>
-      <label style="grid-column:span 2">Text <input class="ex" id="ex-text" style="flex:1"></label>
-      <label style="grid-column:span 2">Trailer (hex) <input class="ex" id="ex-trail" style="flex:1"></label>
+
+    <div class="card stack">
+      <div>
+        <h2>Notes</h2>
+        <p class="hint" style="margin:0">Saved on the globe for <code id="ex-key">fx:0</code>. Leave empty and save to delete.</p>
+      </div>
+      <div class="row">
+        <input type="text" id="ex-note" placeholder="What did the globe do?" autocomplete="off" style="flex:1 1 220px">
+        <button class="btn primary" onclick="exSaveNote()">Save note</button>
+      </div>
+      <details open>
+        <summary>All notes (<span id="ex-count">0</span>)</summary>
+        <div class="notes" id="ex-notes"></div>
+      </details>
     </div>
-    <div class="row" style="margin-bottom:6px">
-      <button onclick="exStep(-1)">&#9664; Prev</button>
-      <label>n <input type="number" id="ex-n" min="0" max="255" value="0" style="width:64px" class="ex"></label>
-      <button onclick="exStep(1)">Next &#9654;</button>
-      <button onclick="exSend()">Send / Repeat</button>
+  </section>
+
+  <!-- ============================ FIRMWARE ============================ -->
+  <section class="panel" id="tab-firmware" role="tabpanel" hidden>
+    <div class="card stack">
+      <div>
+        <h2>Firmware update</h2>
+        <p class="hint" style="margin:0">Upload <code>hello_world.bin</code> from the build folder. The globe reboots when it finishes.</p>
+      </div>
+      <input type="file" id="bin" accept=".bin">
+      <div class="row"><button class="btn primary" onclick="doOTA()">Upload and flash</button></div>
+      <progress id="prog" value="0" max="100" hidden></progress>
+      <p id="ota-msg" class="hint" style="margin:0"></p>
     </div>
-    <div class="row" style="margin-bottom:6px">
-      <label><input type="checkbox" id="ex-auto" onchange="exAuto()"> Auto-step every</label>
-      <input type="number" id="ex-secs" min="1" max="60" value="5" style="width:52px" class="ex"> s
-    </div>
-    <p style="font-size:.85rem;margin-bottom:6px">Sent: <code id="ex-hex">-</code></p>
-    <div class="row" style="margin-bottom:6px">
-      <input type="text" id="ex-note" placeholder="What did the globe do? (empty = delete note)" style="flex:1;margin:0">
-      <button onclick="exSaveNote()">Save note</button>
-    </div>
-    <details>
-      <summary style="cursor:pointer;font-size:.9rem">Saved notes (<span id="ex-count">0</span>)</summary>
-      <div id="ex-notes" style="font-size:.85rem;margin-top:6px;max-height:240px;overflow:auto"></div>
-    </details>
-  </div>
+  </section>
+</div>
 
-  <div class="card">
-    <h2>OTA Firmware Update</h2>
-    <input type="file" id="bin" accept=".bin">
-    <button onclick="doOTA()">Flash Firmware</button>
-    <progress id="prog" value="0" max="100" style="display:none"></progress>
-    <p id="ota-msg" style="margin-top:8px;font-size:.9rem"></p>
-  </div>
+<div id="toast" role="status" aria-live="polite"></div>
 
-  <script>
-    (function() {
-      var g = document.getElementById('btns');
-      for (var i = 1; i <= 6; i++) {
-        var b = document.createElement('button');
-        b.textContent = 'Button ' + i;
-        b.onclick = (function(n) { return function() { btnClick(n); }; })(i);
-        g.appendChild(b);
-      }
-    })();
+<script>
+  function $(id) { return document.getElementById(id); }
 
-    function toast(msg, ok) {
-      var t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = ok === false ? 'err' : 'ok';
-      t.style.display = 'block';
-      setTimeout(function() { t.style.display = 'none'; }, 2500);
+  // ---------------- Tabs ----------------
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach(function (t) {
+      var on = t.dataset.tab === name;
+      t.setAttribute('aria-selected', on);
+      $('tab-' + t.dataset.tab).hidden = !on;
+    });
+    try { localStorage.setItem('tab', name); } catch (e) {}
+  }
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.onclick = function () { showTab(t.dataset.tab); };
+  });
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('tab'); } catch (e) {}
+    showTab(saved && $('tab-' + saved) ? saved : 'control');
+  })();
+
+  // ---------------- Helpers ----------------
+  var toastTimer = null;
+  function toast(msg, ok) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = ok === false ? 'err' : 'ok';
+    t.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.style.display = 'none'; }, 2500);
+  }
+  async function post(url, data) {
+    try {
+      var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+
+  // ---------------- Status line ----------------
+  var state = { timeOn: null, fps: null, test: false };
+  function renderStatus() {
+    var parts = [];
+    if (state.timeOn !== null) parts.push('Showing <b>' + (state.timeOn ? 'clock' : 'message') + '</b>');
+    if (state.fps !== null) parts.push('IR <b>' + state.fps.toFixed(1) + '</b> fps' + (state.test ? ' (test running)' : ''));
+    $('status').innerHTML = parts.length ? parts.join(' &middot; ') : 'Connecting&hellip;';
+  }
+
+  // ---------------- Display mode ----------------
+  function showMode(timeOn) {
+    state.timeOn = timeOn;
+    $('mode-clock').setAttribute('aria-pressed', timeOn);
+    $('mode-msg').setAttribute('aria-pressed', !timeOn);
+    renderStatus();
+  }
+  function setMode(timeOn) {
+    showMode(timeOn);
+    post('/mode', { time_mode: timeOn }).then(function (ok) {
+      toast(ok ? (timeOn ? 'Showing clock' : 'Showing message') : 'Failed', ok);
+    });
+  }
+  fetch('/mode').then(function (r) { return r.json(); })
+    .then(function (d) { showMode(d.time_mode); }).catch(function () {});
+
+  // ---------------- Send text ----------------
+  async function toMessageMode() {
+    if (state.timeOn !== false) { await post('/mode', { time_mode: false }); showMode(false); }
+  }
+  async function sendText() {
+    var text = $('txt').value;
+    if (!text) { toast('Type a message first', false); return; }
+    await toMessageMode();
+    var ok = await post('/text', { text: text, blink: $('blink').checked });
+    toast(ok ? 'Sent' : 'Failed', ok);
+  }
+  async function sendRaw() {
+    var hex = $('txt').value.replace(/[^0-9a-fA-F]/g, '');
+    if (!hex || hex.length % 2) { toast('Enter an even number of hex digits', false); return; }
+    await toMessageMode();
+    var ok = await post('/raw', { hex: hex });
+    toast(ok ? 'Sent' : 'Failed', ok);
+  }
+  $('txt').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendText(); });
+
+  // ---------------- Quick buttons ----------------
+  (function () {
+    var g = $('btns');
+    for (var i = 1; i <= 6; i++) {
+      var b = document.createElement('button');
+      b.className = 'btn';
+      b.textContent = 'Button ' + i;
+      b.onclick = (function (n) { return function () { btnClick(n); }; })(i);
+      g.appendChild(b);
     }
+  })();
+  async function btnClick(n) {
+    var cfg = $('cfg').checked, cmd = $('cmd').value;
+    $('cfg').checked = false;
+    if (!cfg) await toMessageMode();
+    var ok = await post('/button', cfg ? { button: n, config: true, command: cmd } : { button: n });
+    toast(ok ? (cfg ? 'Button ' + n + ' set to "' + cmd + '"' : 'Button ' + n + ' sent') : 'Failed', ok);
+    if (cfg) $('cmd').value = '';
+  }
 
-    async function post(url, data) {
-      try {
-        var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        return r.ok;
-      } catch(e) { return false; }
-    }
+  // ---------------- IR link ----------------
+  var gapLoaded = false;
+  function showIr(d) {
+    $('st-fps').textContent = d.fps.toFixed(1);
+    $('st-busy').textContent = Math.round(d.busy_pct) + '%';
+    $('st-frames').textContent = d.frames.toLocaleString();
+    $('ir-test').checked = d.test;
+    if (!gapLoaded) { $('gap').value = d.gap_ms; gapLoaded = true; }
+    state.fps = d.fps; state.test = d.test; renderStatus();
+  }
+  function pollIr() {
+    fetch('/ir').then(function (r) { return r.json(); }).then(showIr).catch(function () {});
+  }
+  async function postIr(body) {
+    try {
+      var r = await fetch('/ir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (r.ok) { showIr(await r.json()); return true; }
+    } catch (e) {}
+    return false;
+  }
+  function setGap() {
+    var v = parseInt($('gap').value, 10);
+    if (isNaN(v) || v < 0 || v > 500) { toast('Gap must be 0 to 500 ms', false); return; }
+    postIr({ gap_ms: v }).then(function (ok) { toast(ok ? 'Gap set to ' + v + ' ms' : 'Failed', ok); });
+  }
+  function setIrTest(on) {
+    postIr({ test: on }).then(function (ok) {
+      toast(ok ? (on ? 'Test pattern running' : 'Test pattern stopped') : 'Failed', ok);
+      fetch('/mode').then(function (r) { return r.json(); }).then(function (d) { showMode(d.time_mode); }).catch(function () {});
+    });
+  }
+  pollIr();
+  setInterval(pollIr, 2000);
 
-    function sendText() {
-      var text = document.getElementById('txt').value;
-      var blink = document.getElementById('blink').checked;
-      if (!text) { toast('Enter a message', false); return; }
-      post('/text', { text: text, blink: blink }).then(function(ok) { toast(ok ? 'Sent!' : 'Failed', ok); });
-    }
+  // ---------------- Protocol explorer ----------------
+  var EX_PRESETS = {
+    fx:     { cmd: '00',  b2: '00', text: 'FX {n}',    trail: '{n}' },
+    cmd:    { cmd: '{n}', b2: '00', text: 'CMD {x}',   trail: '00' },
+    blink:  { cmd: '05',  b2: '00', text: 'BLINK {n}', trail: '00 {n} 08' },
+    shift:  { cmd: '05',  b2: '00', text: 'SHIFT {n}', trail: '00 00 {n}' },
+    custom: null
+  };
+  var exNotes = {}, exTimer = null, exPrepared = false;
 
-    function sendRaw() {
-      var hex = document.getElementById('txt').value.replace(/[^0-9a-fA-F]/g, '');
-      if (!hex) { toast('Enter hex bytes', false); return; }
-      post('/raw', { hex: hex }).then(function(ok) { toast(ok ? 'Sent!' : 'Failed', ok); });
-    }
+  function hex2(v) { return ('0' + (v & 255).toString(16)).slice(-2).toUpperCase(); }
+  function exN() { var n = parseInt($('ex-n').value, 10); return isNaN(n) ? 0 : Math.max(0, Math.min(255, n)); }
+  function exKey() { return $('ex-preset').value + ':' + exN(); }
 
-    function btnClick(n) {
-      var cfg = document.getElementById('cfg').checked;
-      var cmd = document.getElementById('cmd').value;
-      document.getElementById('cfg').checked = false;
-      var body = cfg ? { button: n, config: true, command: cmd } : { button: n };
-      post('/button', body).then(function(ok) {
-        toast(ok ? (cfg ? 'Button ' + n + ' configured' : 'Button ' + n + ' triggered') : 'Failed', ok);
-      });
-      if (cfg) document.getElementById('cmd').value = '';
+  function exPreset() {
+    var p = EX_PRESETS[$('ex-preset').value];
+    if (p) { $('ex-cmd').value = p.cmd; $('ex-b2').value = p.b2; $('ex-text').value = p.text; $('ex-trail').value = p.trail; }
+    exShowNote();
+  }
+  function exBytesField(s, n) {
+    var out = [];
+    s.replace(/\{n\}/g, ' ' + hex2(n) + ' ').replace(/\{x\}/g, ' ' + hex2(n) + ' ')
+     .split(/[\s,]+/).forEach(function (t) {
+       if (!t) return;
+       var v = parseInt(t, 16);
+       if (!/^[0-9a-fA-F]{1,2}$/.test(t) || isNaN(v)) throw new Error('Not a hex byte: ' + t);
+       out.push(v);
+     });
+    return out;
+  }
+  function exFrame() {
+    var n = exN();
+    var text = $('ex-text').value.replace(/\{n\}/g, ('0' + n).slice(-2)).replace(/\{x\}/g, hex2(n));
+    var bytes = exBytesField($('ex-cmd').value, n).concat(exBytesField($('ex-b2').value, n));
+    for (var i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 255);
+    bytes = bytes.concat(exBytesField($('ex-trail').value, n));
+    if (bytes.length > 40) throw new Error('Frame is ' + bytes.length + ' bytes (max 40)');
+    return bytes;
+  }
+  async function exSend() {
+    var bytes;
+    try { bytes = exFrame(); } catch (e) { toast(e.message, false); return; }
+    if (!exPrepared) {   // keep the test pattern / clock from overwriting test frames
+      await post('/ir', { test: false });          // stopping it restores the clock...
+      await post('/mode', { time_mode: false });   // ...so switch the clock off after
+      showMode(false);
+      exPrepared = true;
     }
-
-    function setMode(timeOn) {
-      document.getElementById('mode-label').textContent = timeOn ? 'Time' : 'Message';
-      post('/mode', { time_mode: timeOn }).then(function(ok) {
-        toast(ok ? (timeOn ? 'Showing time' : 'Showing message') : 'Failed', ok);
-      });
-    }
-
-    // Sync toggle with device state on load
-    fetch('/mode').then(function(r) { return r.json(); }).then(function(d) {
-      var t = document.getElementById('time-toggle');
-      t.checked = d.time_mode;
-      document.getElementById('mode-label').textContent = d.time_mode ? 'Time' : 'Message';
-    }).catch(function() {});
-
-    // IR link: stats refresh, gap tuning, test pattern
-    var gapLoaded = false;
-    function showIr(d) {
-      document.getElementById('ir-stats').textContent =
-        d.fps.toFixed(1) + ' frames/s · link ' + Math.round(d.busy_pct) + '% busy · ' +
-        d.frames + ' frames sent';
-      document.getElementById('ir-test').checked = d.test;
-      if (!gapLoaded) { document.getElementById('gap').value = d.gap_ms; gapLoaded = true; }
-    }
-    function pollIr() {
-      fetch('/ir').then(function(r) { return r.json(); }).then(showIr).catch(function() {});
-    }
-    async function postIr(body) {
-      try {
-        var r = await fetch('/ir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (r.ok) { showIr(await r.json()); return true; }
-      } catch (e) {}
-      return false;
-    }
-    function setGap() {
-      var v = parseInt(document.getElementById('gap').value, 10);
-      if (isNaN(v) || v < 0 || v > 500) { toast('Gap must be 0-500 ms', false); return; }
-      postIr({ gap_ms: v }).then(function(ok) { toast(ok ? 'Gap set to ' + v + ' ms' : 'Failed', ok); });
-    }
-    function setIrTest(on) {
-      postIr({ test: on }).then(function(ok) { toast(ok ? (on ? 'Test pattern running' : 'Test pattern stopped') : 'Failed', ok); });
-    }
-    pollIr();
-    setInterval(pollIr, 2000);
-
-    // ---------------- Protocol explorer ----------------
-    var EX_PRESETS = {
-      fx:     { cmd: '00',  b2: '00', text: 'FX {n}',   trail: '{n}',      max: 255 },
-      cmd:    { cmd: '{n}', b2: '00', text: 'CMD {x}',  trail: '00',       max: 255 },
-      blink:  { cmd: '05',  b2: '00', text: 'BLINK {n}', trail: '00 {n} 08', max: 255 },
-      shift:  { cmd: '05',  b2: '00', text: 'SHIFT {n}', trail: '00 00 {n}', max: 255 },
-      custom: null
-    };
-    var exNotes = {};
-    var exTimer = null;
-    var exClockOff = false;
-
-    function $(id) { return document.getElementById(id); }
-    function hex2(v) { return ('0' + (v & 255).toString(16)).slice(-2).toUpperCase(); }
-    function exN() { var n = parseInt($('ex-n').value, 10); return isNaN(n) ? 0 : Math.max(0, Math.min(255, n)); }
-    function exKey() { return $('ex-preset').value + ':' + exN(); }
-
-    function exPreset() {
-      var p = EX_PRESETS[$('ex-preset').value];
-      if (p) { $('ex-cmd').value = p.cmd; $('ex-b2').value = p.b2; $('ex-text').value = p.text; $('ex-trail').value = p.trail; }
-      exShowNote();
-    }
-
-    // Field -> bytes. "{n}" becomes n; hex tokens otherwise.
-    function exBytesField(s, n) {
-      var out = [];
-      s.replace(/\{n\}/g, ' ' + hex2(n) + ' ').replace(/\{x\}/g, ' ' + hex2(n) + ' ')
-       .split(/[\s,]+/).forEach(function(t) {
-         if (!t) return;
-         var v = parseInt(t, 16);
-         if (isNaN(v) || v < 0 || v > 255) throw new Error('Bad hex byte: ' + t);
-         out.push(v);
-       });
-      return out;
-    }
-    function exFrame() {
-      var n = exN();
-      var text = $('ex-text').value.replace(/\{n\}/g, ('0' + n).slice(-2)).replace(/\{x\}/g, hex2(n));
-      var bytes = exBytesField($('ex-cmd').value, n).concat(exBytesField($('ex-b2').value, n));
-      for (var i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 255);
-      bytes = bytes.concat(exBytesField($('ex-trail').value, n));
-      if (bytes.length > 40) throw new Error('Frame is ' + bytes.length + ' bytes (max 40)');
-      return bytes;
-    }
-
-    async function exSend() {
-      var bytes;
-      try { bytes = exFrame(); } catch (e) { toast(e.message, false); return; }
-      if (!exClockOff) {   // keep the clock / test pattern from overwriting the frame
-        await post('/ir', { test: false });       // (stopping it restores the clock...)
-        await post('/mode', { time_mode: false }); // ...so turn the clock off after
-        $('time-toggle').checked = false; $('mode-label').textContent = 'Message';
-        exClockOff = true;
-      }
-      var hex = bytes.map(hex2).join('');
-      $('ex-hex').textContent = bytes.map(hex2).join(' ');
-      var ok = await post('/raw', { hex: hex });
-      if (!ok) toast('Send failed', false);
-      exShowNote();
-    }
-
-    function exStep(d) {
-      var p = EX_PRESETS[$('ex-preset').value];
-      var max = p ? p.max : 255;
-      var n = exN() + d;
-      if (n < 0) n = max; if (n > max) n = 0;
-      $('ex-n').value = n;
+    $('ex-hex').textContent = bytes.map(hex2).join(' ');
+    var ok = await post('/raw', { hex: bytes.map(hex2).join('') });
+    if (!ok) toast('Send failed', false);
+    exShowNote();
+  }
+  function exStep(d) {
+    var n = exN() + d;
+    if (n < 0) n = 255;
+    if (n > 255) n = 0;
+    $('ex-n').value = n;
+    exSend();
+  }
+  function exAuto() {
+    if (exTimer) { clearInterval(exTimer); exTimer = null; }
+    if ($('ex-auto').checked) {
+      var s = Math.max(1, parseInt($('ex-secs').value, 10) || 5);
       exSend();
+      exTimer = setInterval(function () { exStep(1); }, s * 1000);
     }
-
-    function exAuto() {
-      if (exTimer) { clearInterval(exTimer); exTimer = null; }
-      if ($('ex-auto').checked) {
-        var s = Math.max(1, parseInt($('ex-secs').value, 10) || 5);
-        exSend();
-        exTimer = setInterval(function() { exStep(1); }, s * 1000);
-      }
-    }
-
-    function exShowNote() { $('ex-note').value = exNotes[exKey()] || ''; }
-
-    function exRenderNotes() {
-      var keys = Object.keys(exNotes).sort(function(a, b) {
-        var pa = a.split(':'), pb = b.split(':');
-        return pa[0] === pb[0] ? (+pa[1]) - (+pb[1]) : (pa[0] < pb[0] ? -1 : 1);
-      });
-      $('ex-count').textContent = keys.length;
-      var box = $('ex-notes'); box.innerHTML = '';
-      keys.forEach(function(k) {
-        var d = document.createElement('div');
-        d.className = 'note-row';
-        d.textContent = k + ' — ' + exNotes[k];
-        d.onclick = function() {
-          var p = k.split(':'); $('ex-preset').value = p[0]; exPreset(); $('ex-n').value = p[1]; exShowNote();
-        };
-        box.appendChild(d);
-      });
-    }
-
-    function exLoadNotes() {
-      fetch('/notes').then(function(r) { return r.json(); })
-        .then(function(d) { exNotes = d || {}; exRenderNotes(); exShowNote(); }).catch(function() {});
-    }
-
-    async function exSaveNote() {
-      var key = exKey(), note = $('ex-note').value.trim();
-      try {
-        var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ key: key, note: note }) });
-        if (!r.ok) throw 0;
-        exNotes = await r.json(); exRenderNotes();
-        toast(note ? 'Saved ' + key : 'Deleted ' + key, true);
-      } catch (e) { toast('Could not save note', false); }
-    }
-
-    $('ex-note').addEventListener('keydown', function(e) { if (e.key === 'Enter') exSaveNote(); });
-    exPreset();
-    exLoadNotes();
-
-    function doOTA() {
-      var f = document.getElementById('bin').files[0];
-      if (!f) { toast('No file selected', false); return; }
-      var prog = document.getElementById('prog');
-      var msg = document.getElementById('ota-msg');
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var buf = e.target.result;
-        prog.style.display = 'block';
-        prog.value = 0;
-        msg.textContent = 'Uploading ' + f.name + '...';
-        var xhr = new XMLHttpRequest();
-        xhr.upload.onprogress = function(ev) {
-          if (ev.lengthComputable) prog.value = Math.round(ev.loaded / ev.total * 100);
-        };
-        xhr.onload = function() {
-          if (xhr.status === 200) {
-            msg.textContent = 'Flash complete! Rebooting...';
-          } else {
-            msg.textContent = 'OTA failed: ' + xhr.responseText;
-            toast('OTA Failed', false);
-          }
-        };
-        xhr.onerror = function() { msg.textContent = 'Connection error'; toast('Error', false); };
-        xhr.open('POST', '/ota');
-        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-        xhr.send(buf);
+  }
+  function exShowNote() { $('ex-key').textContent = exKey(); $('ex-note').value = exNotes[exKey()] || ''; }
+  function exRenderNotes() {
+    var keys = Object.keys(exNotes).sort(function (a, b) {
+      var pa = a.split(':'), pb = b.split(':');
+      return pa[0] === pb[0] ? (+pa[1]) - (+pb[1]) : (pa[0] < pb[0] ? -1 : 1);
+    });
+    $('ex-count').textContent = keys.length;
+    var box = $('ex-notes');
+    box.innerHTML = '';
+    if (!keys.length) { box.innerHTML = '<p class="hint" style="margin:6px">No notes yet.</p>'; return; }
+    keys.forEach(function (k) {
+      var row = document.createElement('div');
+      row.className = 'note';
+      row.title = 'Load this frame';
+      var kk = document.createElement('span'); kk.className = 'key'; kk.textContent = k;
+      var vv = document.createElement('span'); vv.textContent = exNotes[k];
+      row.appendChild(kk); row.appendChild(vv);
+      row.onclick = function () {
+        var p = k.split(':');
+        $('ex-preset').value = p[0]; exPreset(); $('ex-n').value = p[1]; exShowNote();
       };
-      reader.readAsArrayBuffer(f);
-    }
-  </script>
+      box.appendChild(row);
+    });
+  }
+  function exLoadNotes() {
+    fetch('/notes').then(function (r) { return r.json(); })
+      .then(function (d) { exNotes = d || {}; exRenderNotes(); exShowNote(); }).catch(function () {});
+  }
+  async function exSaveNote() {
+    var key = exKey(), note = $('ex-note').value.trim();
+    try {
+      var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ key: key, note: note }) });
+      if (!r.ok) throw 0;
+      exNotes = await r.json(); exRenderNotes();
+      toast(note ? 'Saved note for ' + key : 'Deleted note for ' + key, true);
+    } catch (e) { toast('Could not save note', false); }
+  }
+  $('ex-note').addEventListener('keydown', function (e) { if (e.key === 'Enter') exSaveNote(); });
+  $('ex-n').addEventListener('change', exShowNote);
+  exPreset();
+  exLoadNotes();
+
+  // ---------------- Firmware (OTA) ----------------
+  function doOTA() {
+    var f = $('bin').files[0];
+    if (!f) { toast('Choose a .bin file first', false); return; }
+    var prog = $('prog'), msg = $('ota-msg');
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      prog.hidden = false; prog.value = 0;
+      msg.textContent = 'Uploading ' + f.name + '…';
+      var xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = function (ev) { if (ev.lengthComputable) prog.value = Math.round(ev.loaded / ev.total * 100); };
+      xhr.onload = function () {
+        if (xhr.status === 200) { msg.textContent = 'Flash complete. The globe is rebooting.'; toast('Firmware updated', true); }
+        else { msg.textContent = 'Update failed: ' + xhr.responseText; toast('Update failed', false); }
+      };
+      xhr.onerror = function () { msg.textContent = 'Connection error'; toast('Connection error', false); };
+      xhr.open('POST', '/ota');
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      xhr.send(e.target.result);
+    };
+    reader.readAsArrayBuffer(f);
+  }
+</script>
 </body>
 </html>
