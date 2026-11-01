@@ -11,10 +11,10 @@
     "--query-driver=**",
     "--compile-commands-dir=c:\\Users\\david\\Documents\\code\\InfoGlobeHack\\hello_world\\build"
   ],
-  "idf.currentSetup": "C:\\Espressif\\frameworks\\esp-idf-v5.5.4",
-  "idf.espIdfPathWin": "C:\\Espressif\\frameworks\\esp-idf-v5.5.4",
+  "idf.currentSetup": "C:\\Espressif\\frameworks\\esp-idf-v6.1",
+  "idf.espIdfPathWin": "C:\\Espressif\\frameworks\\esp-idf-v6.1",
   "idf.toolsPathWin": "C:\\Espressif",
-  "idf.pythonBinPathWin": "C:\\Espressif\\python_env\\idf5.5_py3.13_env\\Scripts\\python.exe",
+  "idf.pythonBinPathWin": "C:\\Espressif\\python_env\\idf6.1_py3.13_env\\Scripts\\python.exe",
   "idf.gitPathWin": "C:\\Program Files\\Git\\cmd\\git.exe",
   "idf.portWin": "COM6",
   "idf.flashType": "UART",
