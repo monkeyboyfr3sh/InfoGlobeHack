@@ -79,6 +79,22 @@
       border: 1px solid var(--input-border); border-radius: 4px; padding: 0 12px; height: 32px;
     }
     select { padding-right: 28px; }
+    textarea {
+      width: 100%; font: inherit; color: var(--text); background: var(--surface); resize: vertical;
+      border: 1px solid var(--input-border); border-radius: 4px; padding: 8px 12px; min-height: 72px; flex: 1 1 100%;
+    }
+    textarea:focus { outline: none; box-shadow: 0 0 0 1px var(--bg), 0 0 0 3px var(--accent); }
+    .md { line-height: 1.5; overflow-wrap: anywhere; }
+    .md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+    .md p, .md ul, .md ol, .md pre, .md blockquote { margin: 0 0 8px; }
+    .md ul, .md ol { padding-left: 20px; }
+    .md h4, .md h5, .md h6 { margin: 8px 0 4px; font-size: 1rem; font-weight: 600; color: var(--text-strong); }
+    .md h5, .md h6 { font-size: .875rem; }
+    .md pre { background: var(--muted-bg); border-radius: 4px; padding: 8px 12px; overflow: auto; }
+    .md pre code { background: none; padding: 0; }
+    .md blockquote { border-left: 3px solid var(--border-strong); padding-left: 10px; color: var(--text-muted); }
+    .md a { color: var(--accent-text); }
+    .preview { margin-top: 8px; padding: 8px 12px; border: 1px dashed var(--border-strong); border-radius: 4px; background: var(--subtle); }
     input[type=number] { width: 96px; }
     input::placeholder { color: var(--placeholder); }
     input:focus, select:focus, button:focus-visible, .tab:focus-visible, summary:focus-visible, .switch input:focus-visible + .slider {
@@ -142,7 +158,7 @@
     summary { cursor: pointer; font-weight: 600; }
     .notes { margin-top: 8px; max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
     .notes .hint { margin: 8px 12px; }
-    .note { display: grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .note { display: grid; grid-template-columns: 90px 1fr; gap: 12px; align-items: start; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
     .note:last-child { border-bottom: 0; }
     .note:hover { background: var(--subtle); }
     .note .key { font-family: var(--mono); font-size: .8125rem; color: var(--accent-text); }
@@ -258,7 +274,7 @@
       <div class="split">
         <div>
           <h2>Guided test</h2>
-          <p class="hint" style="margin:0">The page sends a test to the globe. Watch it, say what happened, press Enter. That's it.</p>
+          <p class="hint" style="margin:0">The page sends a test to the globe. Watch it, say what happened, press Ctrl+Enter. That's it.</p>
         </div>
         <button class="btn primary" id="g-start" onclick="gStart()">Start</button>
       </div>
@@ -279,8 +295,9 @@
           <button class="btn" onclick="gQuick('Garbled / weird characters')">Garbled</button>
         </div>
         <div class="row" style="margin-top:8px">
-          <input type="text" id="g-note" placeholder="Or describe it in a few words, then Enter" autocomplete="off" style="flex:1 1 240px">
+          <textarea id="g-note" rows="3" placeholder="Or describe what you saw. Markdown works. Ctrl+Enter saves."></textarea>
         </div>
+        <div class="md preview" id="g-preview" hidden></div>
         <div class="row" style="margin-top:8px">
           <button class="btn" onclick="gMove(-1)">Back</button>
           <button class="btn" onclick="gShow(true)">Show again</button>
@@ -339,12 +356,11 @@
     <div class="card stack">
       <div>
         <h2>Notes</h2>
-        <p class="hint" style="margin:0">Saved on the globe for <code id="ex-key">fx:0</code>. Leave empty and save to delete.</p>
+        <p class="hint" style="margin:0">Saved on the globe for <code id="ex-key">fx:0</code>. Markdown and multiple lines are fine. Leave empty and save to delete.</p>
       </div>
-      <div class="row">
-        <input type="text" id="ex-note" placeholder="What did the globe do?" autocomplete="off" style="flex:1 1 220px">
-        <button class="btn primary" onclick="exSaveNote()">Save note</button>
-      </div>
+      <textarea id="ex-note" rows="4" placeholder="What did the globe do? Markdown works. Ctrl+Enter saves."></textarea>
+      <div class="md preview" id="ex-preview" hidden></div>
+      <div class="row"><div style="flex:1"></div><button class="btn primary" onclick="exSaveNote()">Save note</button></div>
       <details open>
         <summary>All notes (<span id="ex-count">0</span>)</summary>
         <div class="notes" id="ex-notes"></div>
@@ -532,6 +548,56 @@
   pollIr();
   setInterval(pollIr, 2000);
 
+  // ---------------- Markdown (small, safe subset) ----------------
+  // Supports: # headings, **bold**, *italic*, `code`, ``` code blocks ```,
+  // - / * / 1. lists, > quotes, [links](http://...), blank-line paragraphs,
+  // and single newlines as line breaks. All input is HTML-escaped first.
+  function mdEscape(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function mdInline(s) {
+    var codes = [];
+    s = s.replace(/`([^`]+)`/g, function (_, c) { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+         .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+         .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return s.replace(/\u0000(\d+)\u0000/g, function (_, i) { return '<code>' + codes[+i] + '</code>'; });
+  }
+  function md(src) {
+    var lines = mdEscape(src || '').replace(/\r\n?/g, '\n').split('\n');
+    var out = [], para = [], list = null, inCode = false, code = [];
+    function flushPara() { if (para.length) { out.push('<p>' + para.map(mdInline).join('<br>') + '</p>'); para = []; } }
+    function flushList() { if (list) { out.push('<' + list.tag + '>' + list.items.map(function (i) { return '<li>' + mdInline(i) + '</li>'; }).join('') + '</' + list.tag + '>'); list = null; } }
+    lines.forEach(function (line) {
+      if (/^```/.test(line)) {
+        if (inCode) { out.push('<pre><code>' + code.join('\n') + '</code></pre>'); code = []; inCode = false; }
+        else { flushPara(); flushList(); inCode = true; }
+        return;
+      }
+      if (inCode) { code.push(line); return; }
+      var m;
+      if (!line.trim()) { flushPara(); flushList(); return; }
+      if ((m = line.match(/^(#{1,3})\s+(.*)$/))) { flushPara(); flushList(); out.push('<h' + (m[1].length + 3) + '>' + mdInline(m[2]) + '</h' + (m[1].length + 3) + '>'); return; }
+      if ((m = line.match(/^\s*[-*]\s+(.*)$/))) { flushPara(); if (!list || list.tag !== 'ul') { flushList(); list = { tag: 'ul', items: [] }; } list.items.push(m[1]); return; }
+      if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) { flushPara(); if (!list || list.tag !== 'ol') { flushList(); list = { tag: 'ol', items: [] }; } list.items.push(m[1]); return; }
+      if ((m = line.match(/^&gt;\s?(.*)$/))) { flushPara(); flushList(); out.push('<blockquote>' + mdInline(m[1]) + '</blockquote>'); return; }
+      flushList(); para.push(line);
+    });
+    if (inCode) out.push('<pre><code>' + code.join('\n') + '</code></pre>');
+    flushPara(); flushList();
+    return out.join('');
+  }
+  // Live preview under a note box; Ctrl/Cmd+Enter saves, Enter makes a new line.
+  function wireNoteBox(boxId, previewId, save) {
+    var box = $(boxId), pv = $(previewId);
+    function render() { var v = box.value.trim(); pv.hidden = !v; pv.innerHTML = v ? md(box.value) : ''; }
+    box.addEventListener('input', render);
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
+    });
+    box.renderPreview = render;
+  }
+
   // ---------------- Guided test ----------------
   // Each test: key (note id), title, what to look for, frame bytes.
   function txt(s) { return Array.prototype.map.call(s, function (c) { return c.charCodeAt(0) & 255; }); }
@@ -608,7 +674,7 @@
     $('g-title').textContent = t.title;
     $('g-look').textContent = t.look;
     $('g-hex').textContent = t.bytes.map(hex2).join(' ');
-    $('g-note').value = exNotes[t.key] || '';
+    $('g-note').value = exNotes[t.key] || ''; $('g-note').renderPreview();
     $('g-note').focus();
     if (!send) return;
     var seq = ++gSendSeq;
@@ -643,7 +709,7 @@
     gMove(1);
   }
   function gQuick(text) { $('g-note').value = text; gSave(text); }
-  $('g-note').addEventListener('keydown', function (e) { if (e.key === 'Enter') gSave(); });
+  wireNoteBox('g-note', 'g-preview', function () { gSave(); });
 
   // ---------------- Protocol explorer ----------------
   var EX_PRESETS = {
@@ -713,7 +779,7 @@
       exTimer = setInterval(function () { exStep(1); }, s * 1000);
     }
   }
-  function exShowNote() { $('ex-key').textContent = exKey(); $('ex-note').value = exNotes[exKey()] || ''; }
+  function exShowNote() { $('ex-key').textContent = exKey(); $('ex-note').value = exNotes[exKey()] || ''; $('ex-note').renderPreview && $('ex-note').renderPreview(); }
   function exRenderNotes() {
     var keys = Object.keys(exNotes).sort(function (a, b) {
       var pa = a.split(':'), pb = b.split(':');
@@ -728,7 +794,7 @@
       row.className = 'note';
       row.title = 'Load this frame';
       var kk = document.createElement('span'); kk.className = 'key'; kk.textContent = k;
-      var vv = document.createElement('span'); vv.textContent = exNotes[k];
+      var vv = document.createElement('div'); vv.className = 'md'; vv.innerHTML = md(exNotes[k]);
       row.appendChild(kk); row.appendChild(vv);
       row.onclick = function () {
         var p = k.split(':');
@@ -751,7 +817,7 @@
       toast(note ? 'Saved note for ' + key : 'Deleted note for ' + key, true);
     } catch (e) { toast('Could not save note', false); }
   }
-  $('ex-note').addEventListener('keydown', function (e) { if (e.key === 'Enter') exSaveNote(); });
+  wireNoteBox('ex-note', 'ex-preview', exSaveNote);
   $('ex-n').addEventListener('change', exShowNote);
   exPreset();
   exLoadNotes();

@@ -331,29 +331,122 @@ static esp_err_t ir_handler(httpd_req_t *req)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Protocol explorer notes: {"key": "note", ...} as an NVS blob        */
-/*  (NVS survives normal flashing; the SPIFFS image does not)           */
+/*  Protocol explorer notes: {"key": "note (markdown)", ...}            */
+/*  Stored in /notes/notes.json on the dedicated "notes" SPIFFS         */
+/*  partition, which is not part of the flash image, so normal flashing */
+/*  never touches it. Older notes in NVS are migrated on first load.    */
 /* ------------------------------------------------------------------ */
 
-#define NOTES_NS        "explorer"
-#define NOTES_KEY       "notes"
-#define NOTES_MAX_BYTES 6000
+#define NOTES_BASE        "/notes"
+#define NOTES_FILE        NOTES_BASE "/notes.json"
+#define NOTES_TMP         NOTES_BASE "/notes.tmp"
+#define NOTES_MAX_BYTES   (96 * 1024)      // whole JSON file
+#define NOTE_POST_MAX     (16 * 1024)      // one POST body
+#define NOTES_LEGACY_NS   "explorer"       // pre-SPIFFS storage (NVS blob)
+#define NOTES_LEGACY_KEY  "notes"
 
-static cJSON *notes_load(void)
+static bool s_notes_fs_ok = false;
+
+static void init_notes_fs(void)
+{
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = NOTES_BASE,
+        .partition_label = "notes",
+        .max_files = 3,
+        .format_if_mount_failed = true,
+    };
+    esp_err_t err = esp_vfs_spiffs_register(&conf);
+    s_notes_fs_ok = (err == ESP_OK);
+    if (!s_notes_fs_ok) {
+        ESP_LOGE(TAG, "Notes partition mount failed: %s", esp_err_to_name(err));
+    }
+}
+
+static char *read_file(const char *path, size_t max)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return NULL;
+    }
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *buf = NULL;
+    if (n >= 0 && (size_t)n <= max) {
+        buf = malloc(n + 1);
+        if (buf && fread(buf, 1, n, f) == (size_t)n) {
+            buf[n] = '\0';
+        } else {
+            free(buf);
+            buf = NULL;
+        }
+    }
+    fclose(f);
+    return buf;
+}
+
+static cJSON *notes_load_legacy_nvs(void)
 {
     cJSON *obj = NULL;
     nvs_handle_t h;
-    if (nvs_open(NOTES_NS, NVS_READONLY, &h) == ESP_OK) {
+    if (nvs_open(NOTES_LEGACY_NS, NVS_READONLY, &h) == ESP_OK) {
         size_t n = 0;
-        if (nvs_get_blob(h, NOTES_KEY, NULL, &n) == ESP_OK && n > 0 && n <= NOTES_MAX_BYTES + 1) {
+        if (nvs_get_blob(h, NOTES_LEGACY_KEY, NULL, &n) == ESP_OK && n > 0 && n <= 8192) {
             char *buf = malloc(n);
-            if (buf && nvs_get_blob(h, NOTES_KEY, buf, &n) == ESP_OK) {
+            if (buf && nvs_get_blob(h, NOTES_LEGACY_KEY, buf, &n) == ESP_OK) {
                 buf[n - 1] = '\0';
                 obj = cJSON_Parse(buf);
             }
             free(buf);
         }
         nvs_close(h);
+    }
+    return obj;
+}
+
+static bool notes_save(const cJSON *notes)
+{
+    if (!s_notes_fs_ok) {
+        return false;
+    }
+    char *out = cJSON_PrintUnformatted(notes);
+    bool ok = false;
+    if (out && strlen(out) <= NOTES_MAX_BYTES) {
+        // Write a temp file, then swap it in, so a reset mid-write can't
+        // leave a half-written notes file behind.
+        FILE *f = fopen(NOTES_TMP, "w");
+        if (f) {
+            ok = fputs(out, f) >= 0;
+            ok = (fclose(f) == 0) && ok;
+        }
+        if (ok) {
+            remove(NOTES_FILE);
+            ok = rename(NOTES_TMP, NOTES_FILE) == 0;
+        }
+    }
+    free(out);
+    return ok;
+}
+
+static cJSON *notes_load(void)
+{
+    cJSON *obj = NULL;
+    char *buf = s_notes_fs_ok ? read_file(NOTES_FILE, NOTES_MAX_BYTES) : NULL;
+    if (buf) {
+        obj = cJSON_Parse(buf);
+        free(buf);
+    } else if (s_notes_fs_ok) {
+        // First run on the new storage: bring over notes saved in NVS.
+        obj = notes_load_legacy_nvs();
+        if (cJSON_IsObject(obj) && notes_save(obj)) {
+            nvs_handle_t h;
+            if (nvs_open(NOTES_LEGACY_NS, NVS_READWRITE, &h) == ESP_OK) {
+                nvs_erase_key(h, NOTES_LEGACY_KEY);
+                nvs_commit(h);
+                nvs_close(h);
+            }
+            ESP_LOGI(TAG, "Migrated %d explorer notes from NVS", cJSON_GetArraySize(obj));
+        }
     }
     if (!cJSON_IsObject(obj)) {
         cJSON_Delete(obj);
@@ -362,20 +455,32 @@ static cJSON *notes_load(void)
     return obj;
 }
 
-static bool notes_save(const cJSON *notes)
+/* Like recv_json() but with room for long, multi-line notes. */
+static cJSON *recv_json_large(httpd_req_t *req, size_t max)
 {
-    char *out = cJSON_PrintUnformatted(notes);
-    bool ok = false;
-    if (out && strlen(out) <= NOTES_MAX_BYTES) {
-        nvs_handle_t h;
-        if (nvs_open(NOTES_NS, NVS_READWRITE, &h) == ESP_OK) {
-            ok = nvs_set_blob(h, NOTES_KEY, out, strlen(out) + 1) == ESP_OK &&
-                 nvs_commit(h) == ESP_OK;
-            nvs_close(h);
-        }
+    if (req->content_len == 0 || req->content_len > max) {
+        return NULL;
     }
-    free(out);
-    return ok;
+    char *buf = malloc(req->content_len + 1);
+    if (!buf) {
+        return NULL;
+    }
+    size_t got = 0;
+    while (got < req->content_len) {
+        int r = httpd_req_recv(req, buf + got, req->content_len - got);
+        if (r == HTTPD_SOCK_ERR_TIMEOUT) {
+            continue;
+        }
+        if (r <= 0) {
+            free(buf);
+            return NULL;
+        }
+        got += r;
+    }
+    buf[got] = '\0';
+    cJSON *root = cJSON_Parse(buf);
+    free(buf);
+    return root;
 }
 
 static esp_err_t notes_handler(httpd_req_t *req)
@@ -383,13 +488,13 @@ static esp_err_t notes_handler(httpd_req_t *req)
     cJSON *notes = notes_load();
 
     if (req->method == HTTP_POST) {
-        cJSON *root = recv_json(req);
+        cJSON *root = recv_json_large(req, NOTE_POST_MAX);
         cJSON *key  = root ? cJSON_GetObjectItem(root, "key")  : NULL;
         cJSON *note = root ? cJSON_GetObjectItem(root, "note") : NULL;
         if (!cJSON_IsString(key) || !key->valuestring[0] || !cJSON_IsString(note)) {
             cJSON_Delete(root);
             cJSON_Delete(notes);
-            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Need {key, note}");
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Need {key, note} (note up to 16 KB)");
             return ESP_FAIL;
         }
         cJSON_DeleteItemFromObject(notes, key->valuestring);
@@ -420,6 +525,7 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     s_display_queue = display_queue;
     memset(s_button_cmds, 0, sizeof(s_button_cmds));
     init_spiffs();
+    init_notes_fs();
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers    = 16;
