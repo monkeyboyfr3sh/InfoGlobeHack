@@ -4,73 +4,102 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>InfoGlobe</title>
+  <script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
   <style>
+    /* Light theme (default) */
     :root {
-      --gray-10: #fbfafd; --gray-50: #ececef; --gray-100: #dcdcde; --gray-200: #bfbfc3;
-      --gray-400: #89888d; --gray-500: #737278; --gray-700: #535158; --gray-900: #333238; --gray-950: #1f1e24;
-      --blue-500: #1f75cb; --blue-600: #1068bf; --blue-700: #0b5cad; --blue-50: #e9f3fc;
-      --green-500: #108548; --red-500: #dd2b0e;
+      color-scheme: light;
+      --bg: #ffffff; --surface: #ffffff; --subtle: #fbfafd; --muted-bg: #ececef;
+      --border: #dcdcde; --border-strong: #bfbfc3; --input-border: #89888d;
+      --text: #333238; --text-strong: #1f1e24; --text-muted: #737278; --placeholder: #89888d;
+      --accent: #1663f5; --accent-hover: #0f55dc; --accent-active: #0b47bd; --on-accent: #ffffff;
+      --accent-text: #1360ee; --toggle-off: #89888d;
+      --toast-bg: #333238; --danger: #dd2b0e;
       --font: "GitLab Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
       --mono: "GitLab Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
     }
+    /* Dark theme: explicit choice, or system preference when no choice saved */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #18171d; --surface: #232128; --subtle: #28272d; --muted-bg: #333238;
+      --border: #3a383f; --border-strong: #4c4b51; --input-border: #626168;
+      --text: #ececef; --text-strong: #fbfafd; --text-muted: #a4a3a8; --placeholder: #737278;
+      --accent: #2f7bff; --accent-hover: #4a8dff; --accent-active: #1f6aef; --on-accent: #ffffff;
+      --accent-text: #6aa6ff; --toggle-off: #626168;
+      --toast-bg: #ececef; --danger: #ec5941;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #18171d; --surface: #232128; --subtle: #28272d; --muted-bg: #333238;
+        --border: #3a383f; --border-strong: #4c4b51; --input-border: #626168;
+        --text: #ececef; --text-strong: #fbfafd; --text-muted: #a4a3a8; --placeholder: #737278;
+        --accent: #2f7bff; --accent-hover: #4a8dff; --accent-active: #1f6aef; --on-accent: #ffffff;
+        --accent-text: #6aa6ff; --toggle-off: #626168;
+        --toast-bg: #ececef; --danger: #ec5941;
+      }
+    }
+
     * { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; }
-    body { margin: 0; background: #fff; color: var(--gray-900); font: 14px/1.5 var(--font); }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); }
     .wrap { max-width: 800px; margin: 0 auto; padding: 0 16px 48px; }
 
     /* Page header */
     header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 20px 0 12px; }
-    header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; color: var(--gray-950); }
-    #status { color: var(--gray-500); font-size: .875rem; }
-    #status b { color: var(--gray-900); font-weight: 600; }
+    header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; color: var(--text-strong); }
+    .head-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #status { color: var(--text-muted); font-size: .875rem; }
+    #status b { color: var(--text); font-weight: 600; }
 
     /* Tabs */
-    .tabs { display: flex; border-bottom: 1px solid var(--gray-100); overflow-x: auto; }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); overflow-x: auto; }
     .tab {
-      appearance: none; background: none; border: 0; margin: 0; font: inherit; color: var(--gray-500);
+      appearance: none; background: none; border: 0; margin: 0; font: inherit; color: var(--text-muted);
       padding: 12px 16px; cursor: pointer; white-space: nowrap; box-shadow: inset 0 -2px 0 0 transparent;
     }
-    .tab:hover { color: var(--gray-900); box-shadow: inset 0 -2px 0 0 var(--gray-200); }
-    .tab[aria-selected="true"] { color: var(--gray-950); font-weight: 600; box-shadow: inset 0 -2px 0 0 var(--blue-500); }
+    .tab:hover { color: var(--text); box-shadow: inset 0 -2px 0 0 var(--border-strong); }
+    .tab[aria-selected="true"] { color: var(--text-strong); font-weight: 600; box-shadow: inset 0 -2px 0 0 var(--accent); }
     .panel[hidden] { display: none; }
 
     /* Settings-style sections */
-    .card { padding: 24px 0; border-bottom: 1px solid var(--gray-100); margin: 0; }
-    .card h2 { margin: 0 0 4px; font-size: 1rem; font-weight: 600; color: var(--gray-950); }
-    .hint { margin: 0 0 16px; color: var(--gray-500); }
-    .hint b { color: var(--gray-900); font-weight: 600; }
+    .card { padding: 24px 0; border-bottom: 1px solid var(--border); margin: 0; }
+    .card h2 { margin: 0 0 4px; font-size: 1rem; font-weight: 600; color: var(--text-strong); }
+    .hint { margin: 0 0 16px; color: var(--text-muted); }
+    .hint b { color: var(--text); font-weight: 600; }
     .stack > * + * { margin-top: 16px; }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .split { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 
     /* Forms */
     label.field { display: block; }
-    label.field > span { display: block; font-weight: 600; color: var(--gray-900); margin-bottom: 6px; }
+    label.field > span { display: block; font-weight: 600; color: var(--text); margin-bottom: 6px; }
     input[type=text], input[type=number], select {
-      width: 100%; font: inherit; color: var(--gray-900); background: #fff;
-      border: 1px solid var(--gray-400); border-radius: 4px; padding: 0 12px; height: 32px;
+      width: 100%; font: inherit; color: var(--text); background: var(--surface);
+      border: 1px solid var(--input-border); border-radius: 4px; padding: 0 12px; height: 32px;
     }
     select { padding-right: 28px; }
     input[type=number] { width: 96px; }
-    input::placeholder { color: var(--gray-400); }
+    input::placeholder { color: var(--placeholder); }
     input:focus, select:focus, button:focus-visible, .tab:focus-visible, summary:focus-visible, .switch input:focus-visible + .slider {
-      outline: none; box-shadow: 0 0 0 1px #fff, 0 0 0 3px var(--blue-500);
+      outline: none; box-shadow: 0 0 0 1px var(--bg), 0 0 0 3px var(--accent);
     }
     .tab:focus-visible { border-radius: 4px; }
-    input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--blue-500); }
+    input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
     label.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
     input.mono, .mono { font-family: var(--mono); }
+    a { color: var(--accent-text); }
 
     /* Buttons */
     button.btn {
       font: inherit; font-weight: 400; height: 32px; padding: 0 12px; border-radius: 4px; cursor: pointer;
-      background: #fff; color: var(--gray-900); border: 0; box-shadow: inset 0 0 0 1px var(--gray-200);
+      background: var(--surface); color: var(--text); border: 0; box-shadow: inset 0 0 0 1px var(--border-strong);
     }
-    button.btn:hover { background: var(--gray-10); box-shadow: inset 0 0 0 1px var(--gray-400); }
-    button.btn:active { background: var(--gray-50); }
-    button.btn.primary { background: var(--blue-500); color: #fff; box-shadow: inset 0 0 0 1px var(--blue-600); }
-    button.btn.primary:hover { background: var(--blue-600); box-shadow: inset 0 0 0 1px var(--blue-700); }
-    button.btn.primary:active { background: var(--blue-700); }
+    button.btn:hover { background: var(--subtle); box-shadow: inset 0 0 0 1px var(--input-border); }
+    button.btn:active { background: var(--muted-bg); }
+    button.btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-active); }
+    button.btn.primary:hover { background: var(--accent-hover); }
+    button.btn.primary:active { background: var(--accent-active); }
 
     .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -80,55 +109,58 @@
     .seg { display: inline-flex; }
     .seg button {
       font: inherit; height: 32px; padding: 0 12px; cursor: pointer; border: 0;
-      background: #fff; color: var(--gray-900); box-shadow: inset 0 0 0 1px var(--gray-200);
+      background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-strong);
     }
     .seg button:first-child { border-radius: 4px 0 0 4px; }
     .seg button:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
-    .seg button:hover { background: var(--gray-10); }
-    .seg button[aria-pressed="true"] { background: var(--gray-50); font-weight: 600; box-shadow: inset 0 0 0 1px var(--gray-400); position: relative; }
+    .seg button:hover { background: var(--subtle); }
+    .seg button[aria-pressed="true"] {
+      background: var(--accent); color: var(--on-accent); font-weight: 600;
+      box-shadow: inset 0 0 0 1px var(--accent-active); position: relative;
+    }
 
     /* Toggle */
     .switch { position: relative; width: 48px; height: 24px; flex: none; }
     .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .slider { position: absolute; inset: 0; background: var(--gray-400); border-radius: 12px; cursor: pointer; transition: background .15s; }
+    .slider { position: absolute; inset: 0; background: var(--toggle-off); border-radius: 12px; cursor: pointer; transition: background .15s; }
     .slider::before { content: ""; position: absolute; width: 16px; height: 16px; left: 4px; top: 4px; background: #fff; border-radius: 50%; transition: transform .15s; }
-    .switch input:checked + .slider { background: var(--blue-500); }
+    .switch input:checked + .slider { background: var(--accent); }
     .switch input:checked + .slider::before { transform: translateX(24px); }
 
     /* Single stats */
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .stat .k { order: -1; color: var(--gray-500); font-size: .875rem; }
     .stat { display: flex; flex-direction: column; }
-    .stat .v { font-size: 1.75rem; font-weight: 600; color: var(--gray-950); font-variant-numeric: tabular-nums; line-height: 1.3; }
+    .stat .k { color: var(--text-muted); font-size: .875rem; }
+    .stat .v { font-size: 1.75rem; font-weight: 600; color: var(--text-strong); font-variant-numeric: tabular-nums; line-height: 1.3; }
 
-    code { font-family: var(--mono); font-size: .8125rem; color: var(--gray-900); background: var(--gray-50); padding: 1px 4px; border-radius: 4px; word-break: break-all; }
-    .frame { font-family: var(--mono); font-size: .8125rem; background: var(--gray-10); border: 1px solid var(--gray-100); border-radius: 4px; padding: 8px 12px; min-height: 34px; word-break: break-all; }
+    code { font-family: var(--mono); font-size: .8125rem; color: var(--text); background: var(--muted-bg); padding: 1px 4px; border-radius: 4px; word-break: break-all; }
+    .frame { font-family: var(--mono); font-size: .8125rem; background: var(--subtle); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; min-height: 34px; word-break: break-all; }
 
     details { margin-top: 16px; }
     summary { cursor: pointer; font-weight: 600; }
-    .notes { margin-top: 8px; max-height: 320px; overflow: auto; border: 1px solid var(--gray-100); border-radius: 4px; }
+    .notes { margin-top: 8px; max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
     .notes .hint { margin: 8px 12px; }
-    .note { display: grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--gray-100); cursor: pointer; }
+    .note { display: grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
     .note:last-child { border-bottom: 0; }
-    .note:hover { background: var(--gray-10); }
-    .note .key { font-family: var(--mono); font-size: .8125rem; color: var(--blue-500); }
+    .note:hover { background: var(--subtle); }
+    .note .key { font-family: var(--mono); font-size: .8125rem; color: var(--accent-text); }
 
-    input[type=file] { font: inherit; }
-    progress { width: 100%; height: 8px; accent-color: var(--blue-500); }
+    input[type=file] { font: inherit; color: var(--text); }
+    progress { width: 100%; height: 8px; accent-color: var(--accent); }
 
     #toast {
       position: fixed; left: 16px; bottom: 16px; z-index: 10; display: none; max-width: calc(100% - 32px);
-      background: var(--gray-900); color: #fff; padding: 12px 16px; border-radius: 4px;
-      box-shadow: 0 4px 12px rgba(5,5,6,.2);
+      background: var(--toast-bg); color: var(--bg); padding: 12px 16px; border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(5,5,6,.25);
     }
-    #toast.err { background: var(--red-500); }
+    #toast.err { background: var(--danger); color: #fff; }
   </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>InfoGlobe</h1>
-    <div id="status">Connecting&hellip;</div>
+    <div class="head-right"><div id="status">Connecting&hellip;</div><button class="btn" id="theme-btn" onclick="toggleTheme()" aria-label="Switch light or dark theme">Dark</button></div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -299,6 +331,21 @@
 
 <script>
   function $(id) { return document.getElementById(id); }
+
+  // ---------------- Theme ----------------
+  function currentTheme() {
+    var t = document.documentElement.dataset.theme;
+    if (t) return t;
+    return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  function renderThemeBtn() { $('theme-btn').textContent = currentTheme() === 'dark' ? 'Light mode' : 'Dark mode'; }
+  function toggleTheme() {
+    var next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    renderThemeBtn();
+  }
+  renderThemeBtn();
 
   // ---------------- Tabs ----------------
   function showTab(name) {
