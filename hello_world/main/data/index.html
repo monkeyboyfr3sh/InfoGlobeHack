@@ -252,6 +252,15 @@
       .xp-side { position: static; max-height: none; }
       .xp-list { max-height: 260px; }
     }
+    .qlabel.sub { font-weight: 400; color: var(--text-muted); padding-left: 14px; }
+    .qlabel.sub::before { content: "\21B3  "; }
+    .chip.check { display: inline-flex; align-items: center; gap: 8px; }
+    .chip.check .box { width: 14px; height: 14px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px currentColor; position: relative; }
+    .chip.check[aria-pressed="true"] .box { background: var(--on-accent); }
+    .chip.check[aria-pressed="true"] .box::after {
+      content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
+      border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg);
+    }
     #toast {
       position: fixed; left: 16px; bottom: 16px; z-index: 10; display: none; max-width: calc(100% - 32px);
       background: var(--toast-bg); color: var(--bg); padding: 12px 16px; border-radius: 4px;
@@ -718,28 +727,39 @@
       bytes: customBytes }
   ];
 
-  // Questions. Transition effects get the detailed set; everything else gets "Result".
+  // Questions. Each field is a single choice ('choice') or an on/off switch ('check').
+  // Sub-properties (show) only appear when their parent choice makes them relevant.
+  var SPEEDS = [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']];
+  var MOVING_ENTRY = { spin: 1, both: 1, fade: 1, rows: 1, drop: 1 };
+  var AFTER_FIELDS = [
+    { id: 'afterSpin', label: 'Afterwards', type: 'check', text: 'Spins', group: 'after' },
+    { id: 'afterBlink', type: 'check', text: 'Blinks', group: 'after' },
+    { id: 'afterDir', label: 'Spin direction', sub: true, show: function (s) { return s.afterSpin; },
+      opts: [['rl', 'Right → left'], ['lr', 'Left → right']] },
+    { id: 'afterSpeed', label: 'Spin speed', sub: true, show: function (s) { return s.afterSpin; }, opts: SPEEDS }
+  ];
   var FX_FIELDS = [
     { id: 'entry', label: 'New text arrives', opts: [
-      ['spin-lr', 'Spins in left → right'], ['spin-rl', 'Spins in right → left'], ['both', 'From a spot, both ways'],
-      ['fade', 'Fades in'], ['rows', 'Builds up in rows'], ['drop', 'Drops in'], ['instant', 'Appears instantly'], ['other', 'Other'] ] },
-    { id: 'rows', label: 'Row pattern', showIf: ['entry', 'rows'], opts: [
+      ['spin', 'Spins in'], ['both', 'From a spot, both ways'], ['fade', 'Fades in'], ['rows', 'Builds up in rows'],
+      ['drop', 'Drops in'], ['instant', 'Appears instantly'], ['other', 'Other'] ] },
+    { id: 'entryDir', label: 'Direction', sub: true, show: function (s) { return s.entry === 'spin'; },
+      opts: [['lr', 'Left → right'], ['rl', 'Right → left']] },
+    { id: 'rows', label: 'Row pattern', sub: true, show: function (s) { return s.entry === 'rows'; }, opts: [
       ['bottom-up', 'Bottom → top'], ['top-down', 'Top → bottom'], ['center-out', 'Centre → out'],
       ['odd-even', 'Odd rows, then even'], ['outer-in', 'Outer rows inward'], ['other', 'Other'] ] },
+    { id: 'entrySpeed', label: 'Speed', sub: true, show: function (s) { return !!MOVING_ENTRY[s.entry]; }, opts: SPEEDS },
     { id: 'old', label: 'Old text', opts: [
       ['overwrite', 'Overwritten letter by letter'], ['pushed', 'Pushed out'], ['blank', 'Blanked first'],
-      ['fade', 'Fades out first'], ['other', 'Other'] ] },
-    { id: 'speed', label: 'Speed', opts: [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']] },
-    { id: 'then', label: 'Afterwards', opts: [
-      ['spin', 'Normal spin'], ['still', 'Stays still'], ['spin-lr', 'Moves left → right'],
-      ['blink', 'Blinks'], ['other', 'Other'] ] }
-  ];
+      ['fade', 'Fades out first'], ['other', 'Other'] ] }
+  ].concat(AFTER_FIELDS);
   var RESULT_FIELDS = [
     { id: 'result', label: 'Result', opts: [
       ['nothing', 'Nothing happened'], ['same', 'Same as previous'], ['blank', 'Went blank'],
       ['garbled', 'Garbled'], ['new', 'Something new'] ] }
-  ];
+  ].concat(AFTER_FIELDS);
   var ALL_FIELDS = FX_FIELDS.concat(RESULT_FIELDS);
+  // Answer fields carried over when pre-filling a new effect from the previous one
+  var PREFILL_IDS = ['entry', 'entryDir', 'rows', 'entrySpeed', 'old', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
 
   var exNotes = {};
   var xp = { fam: 'fx', n: 0 };
@@ -754,22 +774,48 @@
     try { return 'custom:' + xpBytes().map(hex2).join(''); } catch (e) { return 'custom:?'; }
   }
 
+  // Saved answers are JSON. v:1 (first form) is upgraded to v:2 on read.
+  function upgradeNote(d) {
+    if (d.v !== 1) return d;
+    var n = { v: 2 };
+    ['result', 'rows', 'old', 'like', 'text'].forEach(function (k) { if (d[k] !== undefined) n[k] = d[k]; });
+    if (d.entry === 'spin-lr' || d.entry === 'spin-rl') { n.entry = 'spin'; n.entryDir = d.entry.slice(5); }
+    else if (d.entry) n.entry = d.entry;
+    if (d.speed) n.entrySpeed = d.speed;
+    if (d.then === 'spin') { n.afterSpin = true; n.afterDir = 'rl'; }
+    else if (d.then === 'spin-lr') { n.afterSpin = true; n.afterDir = 'lr'; }
+    else if (d.then === 'blink') n.afterBlink = true;
+    else if (d.then === 'still') n.afterSpin = false;
+    return n;
+  }
   function parseNote(v) {
     if (typeof v !== 'string' || v.charAt(0) !== '{') return null;
-    try { var d = JSON.parse(v); return d && d.v === 1 ? d : null; } catch (e) { return null; }
+    try { var d = JSON.parse(v); return d && (d.v === 1 || d.v === 2) ? upgradeNote(d) : null; } catch (e) { return null; }
   }
   function optLabel(fid, val) {
     var f = ALL_FIELDS.filter(function (x) { return x.id === fid; })[0];
-    var o = f && f.opts.filter(function (x) { return x[0] === val; })[0];
+    var o = f && f.opts && f.opts.filter(function (x) { return x[0] === val; })[0];
     return o ? o[1] : val;
   }
   function fxSummary(d) {
-    var p = [];
+    var p = [], low = function (s) { return String(s).toLowerCase(); };
     if (d.result) p.push(optLabel('result', d.result));
-    if (d.entry) p.push(optLabel('entry', d.entry) + (d.entry === 'rows' && d.rows ? ' (' + optLabel('rows', d.rows).toLowerCase() + ')' : ''));
-    if (d.old) p.push('old text: ' + optLabel('old', d.old).toLowerCase());
-    if (d.speed) p.push(optLabel('speed', d.speed).toLowerCase() + ' speed');
-    if (d.then) p.push('then ' + optLabel('then', d.then).toLowerCase());
+    if (d.entry) {
+      var e = optLabel('entry', d.entry), q = [];
+      if (d.entry === 'spin' && d.entryDir) q.push(low(optLabel('entryDir', d.entryDir)));
+      if (d.entry === 'rows' && d.rows) q.push(low(optLabel('rows', d.rows)));
+      if (d.entrySpeed) q.push(low(d.entrySpeed));
+      p.push(e + (q.length ? ' (' + q.join(', ') + ')' : ''));
+    }
+    if (d.old) p.push('old text: ' + low(optLabel('old', d.old)));
+    var a = [];
+    if (d.afterSpin) {
+      var sq = [d.afterDir ? low(optLabel('afterDir', d.afterDir)) : '', d.afterSpeed || ''].filter(Boolean);
+      a.push('spins' + (sq.length ? ' (' + sq.join(', ') + ')' : ''));
+    }
+    if (d.afterBlink) a.push('blinks');
+    if (a.length) p.push('then ' + a.join(' + '));
+    else if (d.afterSpin === false && d.entry) p.push('then stays still');
     if (d.like !== undefined && d.like !== '') p.push('like FX ' + d.like);
     return p.join(' · ');
   }
@@ -784,16 +830,32 @@
   function xpBuildQuestions() {
     var g = $('xp-questions');
     g.innerHTML = '';
+    var groups = {};
     xpFields().forEach(function (f) {
-      var lab = document.createElement('div'); lab.className = 'qlabel'; lab.id = 'ql-' + f.id; lab.textContent = f.label;
-      var chips = document.createElement('div'); chips.className = 'chips'; chips.id = 'qc-' + f.id;
-      f.opts.forEach(function (o) {
+      var holder;
+      if (f.group && groups[f.group]) {
+        holder = groups[f.group];          // extra switch on an existing row (e.g. Blinks next to Spins)
+      } else {
+        var lab = document.createElement('div');
+        lab.className = 'qlabel' + (f.sub ? ' sub' : ''); lab.id = 'ql-' + f.id; lab.textContent = f.label;
+        holder = document.createElement('div'); holder.className = 'chips'; holder.id = 'qc-' + f.id;
+        g.appendChild(lab); g.appendChild(holder);
+        if (f.group) groups[f.group] = holder;
+      }
+      if (f.type === 'check') {
         var b = document.createElement('button');
-        b.type = 'button'; b.className = 'chip'; b.textContent = o[1]; b.dataset.val = o[0];
-        b.onclick = function () { xpSel[f.id] = xpSel[f.id] === o[0] ? '' : o[0]; xpPaintChips(); $('xp-prefill').hidden = true; };
-        chips.appendChild(b);
-      });
-      g.appendChild(lab); g.appendChild(chips);
+        b.type = 'button'; b.className = 'chip check'; b.dataset.field = f.id;
+        b.innerHTML = '<span class="box" aria-hidden="true"></span>' + mdEscape(f.text);
+        b.onclick = function () { xpSel[f.id] = !xpSel[f.id]; xpPaintChips(); $('xp-prefill').hidden = true; };
+        holder.appendChild(b);
+      } else {
+        f.opts.forEach(function (o) {
+          var c = document.createElement('button');
+          c.type = 'button'; c.className = 'chip'; c.textContent = o[1]; c.dataset.field = f.id; c.dataset.val = o[0];
+          c.onclick = function () { xpSel[f.id] = xpSel[f.id] === o[0] ? '' : o[0]; xpPaintChips(); $('xp-prefill').hidden = true; };
+          holder.appendChild(c);
+        });
+      }
     });
     if (fam().structured) {
       var lab = document.createElement('div'); lab.className = 'qlabel'; lab.textContent = 'Same as FX #';
@@ -803,11 +865,17 @@
       g.appendChild(lab); g.appendChild(box);
     }
   }
+  function fieldVisible(f) { return !f.show || !!f.show(xpSel); }
   function xpPaintChips() {
     xpFields().forEach(function (f) {
-      var hide = !!(f.showIf && xpSel[f.showIf[0]] !== f.showIf[1]);
-      $('ql-' + f.id).hidden = hide; $('qc-' + f.id).hidden = hide;
-      $('qc-' + f.id).querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', xpSel[f.id] === b.dataset.val); });
+      if ($('ql-' + f.id)) {
+        var vis = fieldVisible(f);
+        $('ql-' + f.id).hidden = !vis; $('qc-' + f.id).hidden = !vis;
+      }
+    });
+    $('xp-questions').querySelectorAll('.chip').forEach(function (b) {
+      var on = b.dataset.val !== undefined ? xpSel[b.dataset.field] === b.dataset.val : !!xpSel[b.dataset.field];
+      b.setAttribute('aria-pressed', on);
     });
   }
   function xpLoadAnswers() {
@@ -817,12 +885,12 @@
       var L = fam().list, i = L.indexOf(xp.n);
       for (i = (i < 0 ? L.length : i) - 1; i >= 0 && !d; i--) {
         var p = parseNote(exNotes[xp.fam + ':' + L[i]]);
-        if (p) { d = { entry: p.entry, rows: p.rows, old: p.old, speed: p.speed, then: p.then }; from = L[i]; }
+        if (p) { d = {}; PREFILL_IDS.forEach(function (k) { if (p[k] !== undefined) d[k] = p[k]; }); from = L[i]; }
       }
     }
     d = d || {};
     xpSel = {};
-    xpFields().forEach(function (f) { xpSel[f.id] = d[f.id] || ''; });
+    xpFields().forEach(function (f) { xpSel[f.id] = f.type === 'check' ? !!d[f.id] : (d[f.id] || ''); });
     if ($('xp-like')) $('xp-like').value = from === null && d.like !== undefined ? d.like : '';
     $('xp-note').value = from === null ? (d.text || '') : '';
     $('xp-note').renderPreview();
@@ -911,10 +979,14 @@
   async function xpSave(stay) {
     var key = xpKey();
     if (key === 'custom:?') { toast('Fix the custom frame first', false); return; }
-    var d = { v: 1 };
+    var d = { v: 2 };
     xpFields().forEach(function (f) {
-      if (xpSel[f.id] && !(f.showIf && xpSel[f.showIf[0]] !== f.showIf[1])) d[f.id] = xpSel[f.id];
+      if (!fieldVisible(f)) return;
+      if (f.type === 'check') { if (xpSel[f.id]) d[f.id] = true; }
+      else if (xpSel[f.id]) d[f.id] = xpSel[f.id];
     });
+    // Afterwards with neither switch on means it stays still (worth recording for effects)
+    if (fam().structured && !d.afterSpin && !d.afterBlink && Object.keys(d).length > 1) d.afterSpin = false;
     var like = $('xp-like') ? $('xp-like').value.trim() : '';
     if (like !== '') d.like = parseInt(like, 10);
     var text = $('xp-note').value.trim();
