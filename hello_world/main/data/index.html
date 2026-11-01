@@ -94,6 +94,19 @@
     .md pre code { background: none; padding: 0; }
     .md blockquote { border-left: 3px solid var(--border-strong); padding-left: 10px; color: var(--text-muted); }
     .md a { color: var(--accent-text); }
+    .fx-field { margin-top: 12px; }
+    .fx-field[hidden] { display: none; }
+    .fx-label { font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .fx-label .hint { font-weight: 400; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      font: inherit; height: 30px; padding: 0 12px; border: 0; border-radius: 15px; cursor: pointer;
+      background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-strong);
+    }
+    .chip:hover { background: var(--subtle); box-shadow: inset 0 0 0 1px var(--input-border); }
+    .chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-active); }
+    .chip:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--bg), 0 0 0 3px var(--accent); }
+    .prefill { margin: 4px 0 0; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--subtle); }
     .preview { margin-top: 8px; padding: 8px 12px; border: 1px dashed var(--border-strong); border-radius: 4px; background: var(--subtle); }
     input[type=number] { width: 96px; }
     input::placeholder { color: var(--placeholder); }
@@ -288,22 +301,35 @@
           <div style="font-weight:600;color:var(--text-strong)" id="g-title"></div>
           <div class="hint" style="margin:4px 0 0" id="g-look"></div>
         </div>
-        <div class="row" style="margin-top:12px">
+        <div id="g-fx" hidden>
+          <p class="hint prefill" id="g-prefill" hidden></p>
+          <div id="g-fx-fields"></div>
+          <div class="fx-field">
+            <div class="fx-label">Like FX #</div>
+            <div class="row">
+              <input type="number" id="g-like" min="0" max="255" inputmode="numeric" style="width:84px" placeholder="&ndash;">
+              <span class="hint" style="margin:0">optional: an earlier effect this looks the same as</span>
+            </div>
+          </div>
+        </div>
+        <div class="row" id="g-quick" style="margin-top:12px">
           <button class="btn" onclick="gQuick('Nothing happened')">Nothing happened</button>
           <button class="btn" onclick="gQuick('Same as previous')">Same as previous</button>
           <button class="btn" onclick="gQuick('Screen went blank')">Went blank</button>
           <button class="btn" onclick="gQuick('Garbled / weird characters')">Garbled</button>
         </div>
-        <div class="row" style="margin-top:8px">
-          <textarea id="g-note" rows="3" placeholder="Or describe what you saw. Markdown works. Ctrl+Enter saves."></textarea>
+        <div class="fx-label" id="g-note-label" style="margin-top:12px">Extra notes <span class="hint">(optional, Markdown)</span></div>
+        <div class="row">
+          <textarea id="g-note" rows="2" placeholder="Anything the choices above don't cover"></textarea>
         </div>
         <div class="md preview" id="g-preview" hidden></div>
-        <div class="row" style="margin-top:8px">
+        <div class="row" style="margin-top:12px">
           <button class="btn" onclick="gMove(-1)">Back</button>
           <button class="btn" onclick="gShow(true)">Show again</button>
           <button class="btn" onclick="gMove(1)">Skip</button>
           <div style="flex:1"></div>
-          <button class="btn primary" onclick="gSave()">Save &amp; next</button>
+          <button class="btn" onclick="gSave(undefined, true)" title="Ctrl+S">Save</button>
+          <button class="btn primary" onclick="gSave()" title="Ctrl+Enter">Save &amp; next</button>
         </div>
         <p class="hint" style="margin:10px 0 0">Sent: <code id="g-hex"></code></p>
       </div>
@@ -666,16 +692,110 @@
     }
   }
   function rawHex(b) { return b.map(hex2).join(''); }
+  // ---- Structured answers for transition effects ----
+  var FX_FIELDS = [
+    { id: 'entry', label: 'New text arrives', opts: [
+      ['spin-lr', 'Spins in left → right'], ['spin-rl', 'Spins in right → left'], ['both', 'From a spot, both ways'],
+      ['fade', 'Fades in'], ['rows', 'Builds up in rows'], ['drop', 'Drops in'], ['instant', 'Appears instantly'], ['other', 'Other'] ] },
+    { id: 'rows', label: 'Row pattern', showIf: ['entry', 'rows'], opts: [
+      ['bottom-up', 'Bottom → top'], ['top-down', 'Top → bottom'], ['center-out', 'Centre → out'],
+      ['odd-even', 'Odd rows, then even'], ['outer-in', 'Outer rows inward, alternating'], ['other', 'Other'] ] },
+    { id: 'old', label: 'Old text', opts: [
+      ['overwrite', 'Overwritten letter by letter'], ['pushed', 'Pushed out by new text'], ['blank', 'Blanked first'],
+      ['fade', 'Fades out first'], ['other', 'Other'] ] },
+    { id: 'speed', label: 'Speed', opts: [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']] },
+    { id: 'then', label: 'Then', opts: [
+      ['spin', 'Normal spin (right → left)'], ['still', 'Stays still'], ['spin-lr', 'Keeps moving left → right'],
+      ['blink', 'Blinks'], ['other', 'Other'] ] }
+  ];
+  var fxSel = {};
+
+  function parseNote(v) {
+    if (typeof v !== 'string' || v.charAt(0) !== '{') return null;
+    try { var d = JSON.parse(v); return d && d.v === 1 ? d : null; } catch (e) { return null; }
+  }
+  function optLabel(fid, val) {
+    var f = FX_FIELDS.filter(function (x) { return x.id === fid; })[0];
+    var o = f && f.opts.filter(function (x) { return x[0] === val; })[0];
+    return o ? o[1] : val;
+  }
+  function fxSummary(d) {
+    var p = [];
+    if (d.entry) p.push(optLabel('entry', d.entry) + (d.entry === 'rows' && d.rows ? ' (' + optLabel('rows', d.rows).toLowerCase() + ')' : ''));
+    if (d.old) p.push('old text: ' + optLabel('old', d.old).toLowerCase());
+    if (d.speed) p.push(optLabel('speed', d.speed).toLowerCase() + ' speed');
+    if (d.then) p.push('then ' + optLabel('then', d.then).toLowerCase());
+    if (d.like !== undefined && d.like !== '') p.push('like FX ' + d.like);
+    return p.join(' · ');
+  }
+  function noteHtml(v) {
+    var d = parseNote(v);
+    if (!d) return md(v);
+    return '<p><strong>' + mdEscape(fxSummary(d) || '(no choices)') + '</strong></p>' + (d.text ? md(d.text) : '');
+  }
+
+  function fxBuildForm() {
+    var box = $('g-fx-fields');
+    FX_FIELDS.forEach(function (f) {
+      var wrap = document.createElement('div');
+      wrap.className = 'fx-field'; wrap.id = 'fxf-' + f.id;
+      var lab = document.createElement('div'); lab.className = 'fx-label'; lab.textContent = f.label;
+      var chips = document.createElement('div'); chips.className = 'chips';
+      f.opts.forEach(function (o) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = o[1]; b.dataset.val = o[0];
+        b.onclick = function () { fxSel[f.id] = fxSel[f.id] === o[0] ? '' : o[0]; fxRender(); $('g-prefill').hidden = true; };
+        chips.appendChild(b);
+      });
+      wrap.appendChild(lab); wrap.appendChild(chips); box.appendChild(wrap);
+    });
+  }
+  function fxRender() {
+    FX_FIELDS.forEach(function (f) {
+      var wrap = $('fxf-' + f.id);
+      wrap.hidden = !!(f.showIf && fxSel[f.showIf[0]] !== f.showIf[1]);
+      wrap.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', fxSel[f.id] === b.dataset.val); });
+    });
+  }
+  function fxLoad(t) {
+    var d = parseNote(exNotes[t.key]), from = null;
+    if (!d) {
+      // New effect: start from the closest earlier answered effect
+      for (var i = gIdx - 1; i >= 0 && !d; i--) {
+        if (G_TESTS[i].key.indexOf('fx:') === 0) { d = parseNote(exNotes[G_TESTS[i].key]); if (d) from = G_TESTS[i].key.slice(3); }
+      }
+      d = d ? { entry: d.entry, rows: d.rows, old: d.old, speed: d.speed, then: d.then } : {};
+    }
+    fxSel = { entry: d.entry || '', rows: d.rows || '', old: d.old || '', speed: d.speed || '', then: d.then || '' };
+    $('g-like').value = from === null && d.like !== undefined ? d.like : '';
+    $('g-note').value = from === null ? (d.text || '') : '';
+    $('g-prefill').hidden = from === null;
+    $('g-prefill').textContent = from !== null ? 'Pre-filled from FX ' + from + '. Change only what is different.' : '';
+    fxRender();
+  }
+  function fxCollect() {
+    var d = { v: 1 };
+    FX_FIELDS.forEach(function (f) { if (fxSel[f.id] && !(f.showIf && fxSel[f.showIf[0]] !== f.showIf[1])) d[f.id] = fxSel[f.id]; });
+    var like = $('g-like').value.trim();
+    if (like !== '') d.like = parseInt(like, 10);
+    var text = $('g-note').value.trim();
+    if (text) d.text = text;
+    return d;
+  }
+
   async function gShow(send) {
     var t = G_TESTS[gIdx];
+    var isFx = t.key.indexOf('fx:') === 0;
     $('g-progress').textContent = 'Test ' + (gIdx + 1) + ' of ' + G_TESTS.length + ' · ' +
       Object.keys(exNotes).filter(function (k) { return G_TESTS.some(function (x) { return x.key === k; }); }).length + ' answered';
     $('g-bar').max = G_TESTS.length; $('g-bar').value = gIdx + 1;
-    $('g-title').textContent = t.title;
-    $('g-look').textContent = t.look;
+    $('g-title').textContent = t.title + (exNotes[t.key] ? '  ✓ saved' : '');
+    $('g-look').textContent = isFx ? 'Watch how "FX ' + pad2(+t.key.slice(3)) + '" replaces the dashes, then pick what you saw.' : t.look;
     $('g-hex').textContent = t.bytes.map(hex2).join(' ');
-    $('g-note').value = exNotes[t.key] || ''; $('g-note').renderPreview();
-    $('g-note').focus();
+    $('g-fx').hidden = !isFx;
+    $('g-quick').hidden = isFx;
+    if (isFx) { fxLoad(t); } else { $('g-note').value = exNotes[t.key] || ''; }
+    $('g-note').renderPreview();
     if (!send) return;
     var seq = ++gSendSeq;
     await gPrepare();
@@ -695,9 +815,15 @@
     gIdx = Math.max(0, Math.min(G_TESTS.length - 1, gIdx + d));
     gShow(true);
   }
-  async function gSave(note) {
+  async function gSave(note, stay) {
     var t = G_TESTS[gIdx];
-    note = (note !== undefined ? note : $('g-note').value).trim();
+    if (t.key.indexOf('fx:') === 0 && note === undefined) {
+      var d = fxCollect();
+      if (Object.keys(d).length < 2) { toast('Pick at least one choice', false); return; }
+      note = JSON.stringify(d);
+    } else {
+      note = (note !== undefined ? note : $('g-note').value).trim();
+    }
     if (!note) { toast('Pick an answer or type what you saw', false); return; }
     try {
       var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -705,11 +831,19 @@
       if (!r.ok) throw 0;
       exNotes = await r.json(); exRenderNotes();
     } catch (e) { toast('Could not save', false); return; }
+    if (stay) { toast('Saved ' + t.title, true); gShow(false); return; }
     if (gIdx >= G_TESTS.length - 1) { toast('All tests done, thank you!', true); gShow(false); return; }
     gMove(1);
   }
   function gQuick(text) { $('g-note').value = text; gSave(text); }
   wireNoteBox('g-note', 'g-preview', function () { gSave(); });
+  fxBuildForm();
+  // Ctrl+S = save and stay, Ctrl+Enter = save and next (while the guided test is open)
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || $('g-body').hidden || $('tab-explorer').hidden) return;
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); gSave(undefined, true); }
+    else if (e.key === 'Enter' && document.activeElement !== $('g-note')) { e.preventDefault(); gSave(); }
+  });
 
   // ---------------- Protocol explorer ----------------
   var EX_PRESETS = {
@@ -779,7 +913,13 @@
       exTimer = setInterval(function () { exStep(1); }, s * 1000);
     }
   }
-  function exShowNote() { $('ex-key').textContent = exKey(); $('ex-note').value = exNotes[exKey()] || ''; $('ex-note').renderPreview && $('ex-note').renderPreview(); }
+  function exShowNote() {
+    // Structured (guided-form) notes: edit only their free-text part here
+    var v = exNotes[exKey()] || '', d = parseNote(v);
+    $('ex-key').textContent = exKey() + (d ? ' — ' + fxSummary(d) : '');
+    $('ex-note').value = d ? (d.text || '') : v;
+    $('ex-note').renderPreview && $('ex-note').renderPreview();
+  }
   function exRenderNotes() {
     var keys = Object.keys(exNotes).sort(function (a, b) {
       var pa = a.split(':'), pb = b.split(':');
@@ -794,7 +934,7 @@
       row.className = 'note';
       row.title = 'Load this frame';
       var kk = document.createElement('span'); kk.className = 'key'; kk.textContent = k;
-      var vv = document.createElement('div'); vv.className = 'md'; vv.innerHTML = md(exNotes[k]);
+      var vv = document.createElement('div'); vv.className = 'md'; vv.innerHTML = noteHtml(exNotes[k]);
       row.appendChild(kk); row.appendChild(vv);
       row.onclick = function () {
         var p = k.split(':');
@@ -809,6 +949,11 @@
   }
   async function exSaveNote() {
     var key = exKey(), note = $('ex-note').value.trim();
+    var d = parseNote(exNotes[key]);
+    if (d) {   // keep the structured choices, replace the free text
+      if (note) d.text = note; else delete d.text;
+      note = JSON.stringify(d);
+    }
     try {
       var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ key: key, note: note }) });
