@@ -325,7 +325,7 @@
         <div class="md preview" id="g-preview" hidden></div>
         <div class="row" style="margin-top:12px">
           <button class="btn" onclick="gMove(-1)">Back</button>
-          <button class="btn" onclick="gShow(true)">Show again</button>
+          <button class="btn" onclick="gSend()">Show again</button>
           <button class="btn" onclick="gMove(1)">Skip</button>
           <div style="flex:1"></div>
           <button class="btn" onclick="gSave(undefined, true)" title="Ctrl+S">Save</button>
@@ -796,7 +796,12 @@
     $('g-quick').hidden = isFx;
     if (isFx) { fxLoad(t); } else { $('g-note').value = exNotes[t.key] || ''; }
     $('g-note').renderPreview();
-    if (!send) return;
+    if (send) gSend();
+  }
+  // Send the current test to the globe (neutral frame, then the test frame).
+  // Only touches the globe, never the form, so "Show again" keeps your inputs.
+  async function gSend() {
+    var t = G_TESTS[gIdx];
     var seq = ++gSendSeq;
     await gPrepare();
     await post('/raw', { hex: rawHex(BLANK_FRAME) });          // neutral state first...
