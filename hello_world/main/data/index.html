@@ -261,6 +261,21 @@
       content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
       border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg);
     }
+    .xp-q-fx > .qgrid { margin-bottom: 14px; }
+    .phases { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .phase { border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; background: var(--subtle); }
+    .phase-title { font-weight: 600; color: var(--text-strong); margin-bottom: 10px; }
+    .qgrid.narrow { grid-template-columns: 92px 1fr; gap: 10px 12px; }
+    .review {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      margin: 0 0 14px; padding: 10px 14px; border-radius: 4px; border-left: 3px solid #c17d10; background: var(--subtle);
+    }
+    .xp-item .tag {
+      margin-left: 8px; font-size: .7rem; font-weight: 600; padding: 0 6px; border-radius: 8px;
+      background: #c17d10; color: #fff; vertical-align: 1px;
+    }
+    .cam { border-top: 1px solid var(--border); padding-top: 10px; }
+    @media (max-width: 1100px) { .phases { grid-template-columns: 1fr; } }
     #toast {
       position: fixed; left: 16px; bottom: 16px; z-index: 10; display: none; max-width: calc(100% - 32px);
       background: var(--toast-bg); color: var(--bg); padding: 12px 16px; border-radius: 4px;
@@ -376,6 +391,14 @@
           <div class="split"><span class="hint" id="xp-progress"></span><span class="hint" id="xp-pct"></span></div>
           <progress id="xp-bar" value="0" max="1"></progress>
         </div>
+        <div class="cam">
+          <div class="row">
+            <button class="btn" type="button" id="xp-cam" onclick="xpCameraRun()">Camera run</button>
+            <input type="number" id="xp-cam-secs" min="3" max="30" value="8" inputmode="numeric" style="width:64px" aria-label="Seconds per effect">
+            <span class="hint" style="margin:0">s each</span>
+          </div>
+          <p class="hint" id="xp-cam-status" style="margin:6px 0 0">Plays every unanswered test of this type, one after another, for filming.</p>
+        </div>
         <div class="xp-list" id="xp-list" role="listbox" aria-label="Tests"></div>
       </aside>
 
@@ -414,6 +437,10 @@
 
         <div class="xp-answer">
           <h3>What did the globe do?</h3>
+          <div class="review" id="xp-review" hidden>
+            <span><strong>Proposed from camera footage.</strong> Check it on the globe, fix anything that's off, then confirm.</span>
+            <button class="btn primary" type="button" onclick="xpSave(true)">Confirm</button>
+          </div>
           <p class="hint prefill" id="xp-prefill" hidden></p>
           <div class="qgrid" id="xp-questions"></div>
           <div class="qgrid" style="margin-top:14px">
@@ -745,11 +772,39 @@
       bytes: customBytes }
   ];
 
-  // Questions. Each field is a single choice ('choice') or an on/off switch ('check').
-  // Sub-properties (show) only appear when their parent choice makes them relevant.
+  // Questions. Each field is a single choice or an on/off switch ('check').
+  // Sub-properties (show) only appear when their parent makes them relevant.
+  // Transition effects are described as two phases (old text leaves, new text
+  // arrives) using the same motion vocabulary, plus what happens afterwards.
   var SPEEDS = [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']];
-  var MOVING_ENTRY = { spin: 1, both: 1, fade: 1, rows: 1, drop: 1, vslide: 1 };
-  var VDIRS = [['up', 'Moving up (from the bottom)'], ['down', 'Moving down (from the top)']];
+  var HDIRS = [['lr', 'Left → right'], ['rl', 'Right → left'], ['split', 'Both ways from a spot']];
+  var VDIRS = [['up', 'Up'], ['down', 'Down']];
+  var PASSES = [['1', 'One pass'], ['2-even', 'Two: even, then odd'], ['2-odd', 'Two: odd, then even']];
+  var ROW_PATTERNS = [['bottom-up', 'Bottom → top'], ['top-down', 'Top → bottom'], ['center-out', 'Centre → out'],
+                      ['odd-even', 'Odd rows, then even'], ['outer-in', 'Outer rows inward'], ['other', 'Other']];
+  var MOTIONS = {
+    slide: 'Slides sideways', wipe: 'Wiper', vslide: 'Slides vertically', rows: 'Row by row', fade: 'Fades',
+    instant: 'Instant', overwrite: 'Overwritten by new text', drop: 'Drops', none: 'Nothing', other: 'Other'
+  };
+  var MOVING = { slide: 1, wipe: 1, vslide: 1, rows: 1, fade: 1, drop: 1 };
+  function phaseFields(ph, isExit) {
+    var T = ph + 'Type', types = ['slide', 'wipe', 'vslide', 'rows', 'fade', 'instant']
+      .concat(isExit ? ['overwrite'] : [], ['drop', 'none', 'other'])
+      .map(function (k) { return [k, k === 'instant' ? (isExit ? 'Blanks instantly' : 'Appears instantly') : MOTIONS[k]]; });
+    return [
+      { id: T, panel: ph, label: 'Motion', opts: types },
+      { id: ph + 'Dir', panel: ph, label: 'Direction', sub: true, opts: HDIRS,
+        show: function (s) { return s[T] === 'slide' || s[T] === 'wipe'; } },
+      { id: ph + 'VDir', panel: ph, label: 'Direction', sub: true, opts: VDIRS,
+        show: function (s) { return s[T] === 'vslide'; } },
+      { id: ph + 'Passes', panel: ph, label: 'Passes', sub: true, opts: PASSES,
+        show: function (s) { return s[T] === 'wipe'; } },
+      { id: ph + 'Pattern', panel: ph, label: 'Pattern', sub: true, opts: ROW_PATTERNS,
+        show: function (s) { return s[T] === 'rows'; } },
+      { id: ph + 'Speed', panel: ph, label: 'Speed', sub: true, opts: SPEEDS,
+        show: function (s) { return !!MOVING[s[T]]; } }
+    ];
+  }
   var AFTER_FIELDS = [
     { id: 'afterSpin', label: 'Afterwards', type: 'check', text: 'Spins', group: 'after' },
     { id: 'afterBlink', type: 'check', text: 'Blinks', group: 'after' },
@@ -757,39 +812,15 @@
       opts: [['rl', 'Right → left'], ['lr', 'Left → right']] },
     { id: 'afterSpeed', label: 'Spin speed', sub: true, show: function (s) { return s.afterSpin; }, opts: SPEEDS }
   ];
-  var FX_FIELDS = [
-    { id: 'entry', label: 'New text arrives', opts: [
-      ['spin', 'Spins in'], ['both', 'From a spot, both ways'], ['fade', 'Fades in'], ['rows', 'Builds up in rows'],
-      ['vslide', 'Slides in vertically'], ['drop', 'Drops in'], ['instant', 'Appears instantly'],
-      ['none', 'Nothing / goes blank'], ['other', 'Other'] ] },
-    { id: 'entryVDir', label: 'Moving', sub: true, show: function (s) { return s.entry === 'vslide'; }, opts: VDIRS },
-    { id: 'entryStyle', label: 'Style', sub: true, show: function (s) { return s.entry === 'spin' || s.entry === 'both'; },
-      opts: [['banner', 'Banner: text slides in'], ['wipe', 'Wiper: reveals text in place']] },
-    { id: 'entryPasses', label: 'Passes', sub: true,
-      show: function (s) { return (s.entry === 'spin' || s.entry === 'both') && s.entryStyle === 'wipe'; },
-      opts: [['1', 'One pass'], ['2-even', 'Two passes: even, then odd'], ['2-odd', 'Two passes: odd, then even']] },
-    { id: 'entryDir', label: 'Direction', sub: true, show: function (s) { return s.entry === 'spin'; },
-      opts: [['lr', 'Left → right'], ['rl', 'Right → left']] },
-    { id: 'rows', label: 'Row pattern', sub: true, show: function (s) { return s.entry === 'rows'; }, opts: [
-      ['bottom-up', 'Bottom → top'], ['top-down', 'Top → bottom'], ['center-out', 'Centre → out'],
-      ['odd-even', 'Odd rows, then even'], ['outer-in', 'Outer rows inward'], ['other', 'Other'] ] },
-    { id: 'entrySpeed', label: 'Speed', sub: true, show: function (s) { return !!MOVING_ENTRY[s.entry]; }, opts: SPEEDS },
-    { id: 'old', label: 'Old text', opts: [
-      ['overwrite', 'Overwritten letter by letter'], ['pushed', 'Pushed out'], ['blank', 'Blanked first'],
-      ['fade', 'Fades out first'], ['wipe', 'Wiped away'], ['vslide', 'Slides out vertically'], ['other', 'Other'] ] },
-    { id: 'oldDir', label: 'Direction', sub: true, show: function (s) { return s.old === 'wipe'; },
-      opts: [['rl', 'Right → left'], ['lr', 'Left → right']] },
-    { id: 'oldVDir', label: 'Moving', sub: true, show: function (s) { return s.old === 'vslide'; },
-      opts: [['up', 'Moving up'], ['down', 'Moving down']] }
-  ].concat(AFTER_FIELDS);
+  var FX_FIELDS = phaseFields('exit', true).concat(phaseFields('enter', false), AFTER_FIELDS);
   var RESULT_FIELDS = [
     { id: 'result', label: 'Result', opts: [
       ['nothing', 'Nothing happened'], ['same', 'Same as previous'], ['blank', 'Went blank'],
       ['garbled', 'Garbled'], ['new', 'Something new'] ] }
   ].concat(AFTER_FIELDS);
   var ALL_FIELDS = FX_FIELDS.concat(RESULT_FIELDS);
-  // Answer fields carried over when pre-filling a new effect from the previous one
-  var PREFILL_IDS = ['entry', 'entryStyle', 'entryPasses', 'entryDir', 'entryVDir', 'rows', 'entrySpeed', 'old', 'oldDir', 'oldVDir', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
+  // Carried over when pre-filling a new effect from the previous one (not name/notes/status)
+  var PREFILL_IDS = FX_FIELDS.map(function (f) { return f.id; });
 
   var exNotes = {};
   var xp = { fam: 'fx', n: 0 };
@@ -804,9 +835,9 @@
     try { return 'custom:' + xpBytes().map(hex2).join(''); } catch (e) { return 'custom:?'; }
   }
 
-  // Saved answers are JSON. v:1 (first form) is upgraded to v:2 on read.
-  function upgradeNote(d) {
-    if (d.v !== 1) return d;
+  // Saved answers are JSON. Older shapes are upgraded on read:
+  //   v1 (first form) -> v2 (entry/old fields) -> v3 (exit/enter phases, name, status)
+  function upgradeV1(d) {
     var n = { v: 2 };
     ['result', 'rows', 'old', 'like', 'text'].forEach(function (k) { if (d[k] !== undefined) n[k] = d[k]; });
     if (d.entry === 'spin-lr' || d.entry === 'spin-rl') { n.entry = 'spin'; n.entryDir = d.entry.slice(5); }
@@ -818,39 +849,73 @@
     else if (d.then === 'still') n.afterSpin = false;
     return n;
   }
+  function upgradeV2(d) {
+    if (!d.entry && !d.old) { d.v = 2; return d; }      // non-effect answers (Result) keep their shape
+    var n = { v: 3, status: d.status || 'confirmed' };
+    ['afterSpin', 'afterBlink', 'afterDir', 'afterSpeed', 'like', 'text', 'name', 'result'].forEach(function (k) {
+      if (d[k] !== undefined) n[k] = d[k];
+    });
+    var e = d.entry;
+    if (e === 'spin' && d.entryStyle === 'wipe') { n.enterType = 'wipe'; n.enterDir = d.entryDir; n.enterPasses = d.entryPasses; }
+    else if (e === 'spin') { n.enterType = 'slide'; n.enterDir = d.entryDir; }
+    else if (e === 'both') { n.enterType = d.entryStyle === 'wipe' ? 'wipe' : 'slide'; n.enterDir = 'split'; n.enterPasses = d.entryPasses; }
+    else if (e === 'rows') { n.enterType = 'rows'; n.enterPattern = d.rows; }
+    else if (e === 'vslide') { n.enterType = 'vslide'; n.enterVDir = d.entryVDir; }
+    else if (e) n.enterType = e;                          // fade, drop, instant, none, other
+    if (d.entrySpeed && MOVING[n.enterType]) n.enterSpeed = d.entrySpeed;
+    var o = d.old;
+    if (o === 'overwrite') n.exitType = 'overwrite';
+    else if (o === 'pushed') { n.exitType = 'slide'; n.exitDir = n.enterDir; n.exitSpeed = n.enterSpeed; }
+    else if (o === 'blank') n.exitType = 'instant';
+    else if (o === 'fade') n.exitType = 'fade';
+    else if (o === 'wipe') { n.exitType = 'wipe'; n.exitDir = d.oldDir; }
+    else if (o === 'vslide') { n.exitType = 'vslide'; n.exitVDir = d.oldVDir; }
+    else if (o) n.exitType = o;
+    Object.keys(n).forEach(function (k) { if (n[k] === undefined) delete n[k]; });
+    return n;
+  }
   function parseNote(v) {
     if (typeof v !== 'string' || v.charAt(0) !== '{') return null;
-    try { var d = JSON.parse(v); return d && (d.v === 1 || d.v === 2) ? upgradeNote(d) : null; } catch (e) { return null; }
+    try {
+      var d = JSON.parse(v);
+      if (!d || !(d.v >= 1 && d.v <= 3)) return null;
+      if (d.v === 1) d = upgradeV1(d);
+      if (d.v === 2) d = upgradeV2(d);
+      return d;
+    } catch (e) { return null; }
   }
   function optLabel(fid, val) {
     var f = ALL_FIELDS.filter(function (x) { return x.id === fid; })[0];
     var o = f && f.opts && f.opts.filter(function (x) { return x[0] === val; })[0];
     return o ? o[1] : val;
   }
+  function phaseText(d, ph) {
+    var t = d[ph + 'Type'];
+    if (!t) return '';
+    var low = function (s) { return String(s).toLowerCase(); };
+    var s = low(optLabel(ph + 'Type', t)), q = [];
+    if ((t === 'slide' || t === 'wipe') && d[ph + 'Dir']) q.push(low(optLabel(ph + 'Dir', d[ph + 'Dir'])));
+    if (t === 'vslide' && d[ph + 'VDir']) q.push(d[ph + 'VDir']);
+    if (t === 'wipe' && d[ph + 'Passes'] && d[ph + 'Passes'] !== '1')
+      q.push(d[ph + 'Passes'] === '2-even' ? 'two passes, even then odd' : 'two passes, odd then even');
+    if (t === 'rows' && d[ph + 'Pattern']) q.push(low(optLabel(ph + 'Pattern', d[ph + 'Pattern'])));
+    if (d[ph + 'Speed'] && d[ph + 'Speed'] !== 'normal') q.push(d[ph + 'Speed']);
+    return s + (q.length ? ' (' + q.join(', ') + ')' : '');
+  }
   function fxSummary(d) {
-    var p = [], low = function (s) { return String(s).toLowerCase(); };
+    var p = [];
     if (d.result) p.push(optLabel('result', d.result));
-    if (d.entry) {
-      var e = optLabel('entry', d.entry), q = [];
-      if ((d.entry === 'spin' || d.entry === 'both') && d.entryStyle) q.push(d.entryStyle === 'wipe' ? 'wiper' : 'banner');
-      if (d.entryStyle === 'wipe' && d.entryPasses && d.entryPasses !== '1')
-        q.push(d.entryPasses === '2-even' ? 'two passes: even then odd' : 'two passes: odd then even');
-      if (d.entry === 'spin' && d.entryDir) q.push(low(optLabel('entryDir', d.entryDir)));
-      if (d.entry === 'rows' && d.rows) q.push(low(optLabel('rows', d.rows)));
-      if (d.entry === 'vslide' && d.entryVDir) q.push('moving ' + d.entryVDir);
-      if (d.entrySpeed) q.push(low(d.entrySpeed));
-      p.push(e + (q.length ? ' (' + q.join(', ') + ')' : ''));
-    }
-    if (d.old) p.push('old text: ' + low(optLabel('old', d.old)) + (d.old === 'vslide' && d.oldVDir ? ' (moving ' + d.oldVDir + ')' : '') +
-      (d.old === 'wipe' && d.oldDir ? ' (' + low(optLabel('oldDir', d.oldDir)) + ')' : ''));
+    var out = phaseText(d, 'exit'), inn = phaseText(d, 'enter');
+    if (out) p.push('out: ' + out);
+    if (inn) p.push('in: ' + inn);
     var a = [];
     if (d.afterSpin) {
-      var sq = [d.afterDir ? low(optLabel('afterDir', d.afterDir)) : '', d.afterSpeed || ''].filter(Boolean);
+      var sq = [d.afterDir ? optLabel('afterDir', d.afterDir).toLowerCase() : '', d.afterSpeed && d.afterSpeed !== 'normal' ? d.afterSpeed : ''].filter(Boolean);
       a.push('spins' + (sq.length ? ' (' + sq.join(', ') + ')' : ''));
     }
     if (d.afterBlink) a.push('blinks');
     if (a.length) p.push('then ' + a.join(' + '));
-    else if (d.afterSpin === false && d.entry) p.push('then stays still');
+    else if (d.afterSpin === false && (out || inn)) p.push('then stays still');
     if (d.like !== undefined && d.like !== '') p.push('like FX ' + d.like);
     return p.join(' · ');
   }
@@ -858,47 +923,69 @@
     var d = parseNote(v);
     if (!d) return md(v);
     var s = fxSummary(d);
-    return (s ? '<p><strong>' + mdEscape(s) + '</strong></p>' : '') + (d.text ? md(d.text) : '');
+    return (d.name ? '<p><strong>' + mdEscape(d.name) + '</strong></p>' : '') +
+           (s ? '<p>' + mdEscape(s) + '</p>' : '') + (d.text ? md(d.text) : '');
   }
 
   // ---- Rendering ----
-  function xpBuildQuestions() {
-    var g = $('xp-questions');
-    g.innerHTML = '';
-    var groups = {};
-    xpFields().forEach(function (f) {
-      var holder;
-      if (f.group && groups[f.group]) {
-        holder = groups[f.group];          // extra switch on an existing row (e.g. Blinks next to Spins)
-      } else {
-        var lab = document.createElement('div');
-        lab.className = 'qlabel' + (f.sub ? ' sub' : ''); lab.id = 'ql-' + f.id; lab.textContent = f.label;
-        holder = document.createElement('div'); holder.className = 'chips'; holder.id = 'qc-' + f.id;
-        g.appendChild(lab); g.appendChild(holder);
-        if (f.group) groups[f.group] = holder;
-      }
-      if (f.type === 'check') {
-        var b = document.createElement('button');
-        b.type = 'button'; b.className = 'chip check'; b.dataset.field = f.id;
-        b.innerHTML = '<span class="box" aria-hidden="true"></span>' + mdEscape(f.text);
-        b.onclick = function () { xpSel[f.id] = !xpSel[f.id]; xpPaintChips(); $('xp-prefill').hidden = true; };
-        holder.appendChild(b);
-      } else {
-        f.opts.forEach(function (o) {
-          var c = document.createElement('button');
-          c.type = 'button'; c.className = 'chip'; c.textContent = o[1]; c.dataset.field = f.id; c.dataset.val = o[0];
-          c.onclick = function () { xpSel[f.id] = xpSel[f.id] === o[0] ? '' : o[0]; xpPaintChips(); $('xp-prefill').hidden = true; };
-          holder.appendChild(c);
-        });
-      }
-    });
-    if (fam().structured) {
-      var lab = document.createElement('div'); lab.className = 'qlabel'; lab.textContent = 'Same as FX #';
-      var box = document.createElement('div'); box.className = 'row';
-      box.innerHTML = '<input type="number" id="xp-like" min="0" max="255" inputmode="numeric" style="width:84px" placeholder="&ndash;">' +
-                      '<span class="hint" style="margin:0">optional</span>';
-      g.appendChild(lab); g.appendChild(box);
+  function chipButton(f, o) {
+    var c = document.createElement('button');
+    c.type = 'button'; c.className = 'chip'; c.dataset.field = f.id;
+    if (f.type === 'check') {
+      c.className += ' check';
+      c.innerHTML = '<span class="box" aria-hidden="true"></span>' + mdEscape(f.text);
+      c.onclick = function () { xpSel[f.id] = !xpSel[f.id]; xpTouched(); };
+    } else {
+      c.textContent = o[1]; c.dataset.val = o[0];
+      c.onclick = function () { xpSel[f.id] = xpSel[f.id] === o[0] ? '' : o[0]; xpTouched(); };
     }
+    return c;
+  }
+  function xpTouched() { xpPaintChips(); $('xp-prefill').hidden = true; }
+  function addFieldRow(grid, f, groups) {
+    var holder;
+    if (f.group && groups[f.group]) {
+      holder = groups[f.group];
+    } else {
+      var lab = document.createElement('div');
+      lab.className = 'qlabel' + (f.sub ? ' sub' : ''); lab.id = 'ql-' + f.id; lab.textContent = f.label;
+      holder = document.createElement('div'); holder.className = 'chips'; holder.id = 'qc-' + f.id;
+      grid.appendChild(lab); grid.appendChild(holder);
+      if (f.group) groups[f.group] = holder;
+    }
+    if (f.type === 'check') holder.appendChild(chipButton(f));
+    else f.opts.forEach(function (o) { holder.appendChild(chipButton(f, o)); });
+  }
+  function xpBuildQuestions() {
+    var g = $('xp-questions'), groups = {};
+    g.innerHTML = '';
+    g.className = fam().structured ? 'xp-q-fx' : 'qgrid';
+    if (!fam().structured) {
+      xpFields().forEach(function (f) { addFieldRow(g, f, groups); });
+      return;
+    }
+    // Name
+    var nameRow = document.createElement('div'); nameRow.className = 'qgrid';
+    nameRow.innerHTML = '<div class="qlabel">Name</div><div class="row">' +
+      '<input type="text" id="xp-name" maxlength="40" autocomplete="off" placeholder="e.g. Window shade" style="flex:1 1 220px">' +
+      '<span class="hint" style="margin:0">Same as FX #</span>' +
+      '<input type="number" id="xp-like" min="0" max="255" inputmode="numeric" style="width:76px" placeholder="&ndash;"></div>';
+    g.appendChild(nameRow);
+    // Two phases side by side
+    var phases = document.createElement('div'); phases.className = 'phases';
+    [['exit', 'Old text leaves'], ['enter', 'New text arrives']].forEach(function (p) {
+      var card = document.createElement('div'); card.className = 'phase';
+      var h = document.createElement('div'); h.className = 'phase-title'; h.textContent = p[1];
+      var grid = document.createElement('div'); grid.className = 'qgrid narrow';
+      xpFields().filter(function (f) { return f.panel === p[0]; }).forEach(function (f) { addFieldRow(grid, f, groups); });
+      card.appendChild(h); card.appendChild(grid); phases.appendChild(card);
+    });
+    g.appendChild(phases);
+    // Afterwards
+    var after = document.createElement('div'); after.className = 'qgrid';
+    xpFields().filter(function (f) { return !f.panel; }).forEach(function (f) { addFieldRow(after, f, groups); });
+    g.appendChild(after);
+    ['xp-name', 'xp-like'].forEach(function (id) { $(id).addEventListener('input', function () { $('xp-prefill').hidden = true; }); });
   }
   function fieldVisible(f) { return !f.show || !!f.show(xpSel); }
   function xpPaintChips() {
@@ -913,6 +1000,7 @@
       b.setAttribute('aria-pressed', on);
     });
   }
+  var xpStatus = '';
   function xpLoadAnswers() {
     var v = exNotes[xpKey()], d = parseNote(v), from = null;
     if (v !== undefined && !d) d = { text: v };                       // older free-text note
@@ -927,6 +1015,9 @@
     xpSel = {};
     xpFields().forEach(function (f) { xpSel[f.id] = f.type === 'check' ? !!d[f.id] : (d[f.id] || ''); });
     if ($('xp-like')) $('xp-like').value = from === null && d.like !== undefined ? d.like : '';
+    if ($('xp-name')) $('xp-name').value = from === null ? (d.name || '') : '';
+    xpStatus = from === null ? (d.status || '') : '';
+    $('xp-review').hidden = xpStatus !== 'proposed';
     $('xp-note').value = from === null ? (d.text || '') : '';
     $('xp-note').renderPreview();
     $('xp-prefill').hidden = from === null;
@@ -1014,26 +1105,37 @@
   async function xpSave(stay) {
     var key = xpKey();
     if (key === 'custom:?') { toast('Fix the custom frame first', false); return; }
-    var d = { v: 2 };
+    var d = { v: fam().structured ? 3 : 2 };
+    if (fam().structured) {
+      d.status = 'confirmed';                     // anything saved from the form is reviewed
+      var nm = $('xp-name') ? $('xp-name').value.trim() : '';
+      if (nm) d.name = nm;
+    }
     xpFields().forEach(function (f) {
       if (!fieldVisible(f)) return;
       if (f.type === 'check') { if (xpSel[f.id]) d[f.id] = true; }
       else if (xpSel[f.id]) d[f.id] = xpSel[f.id];
     });
     // Afterwards with neither switch on means it stays still (worth recording for effects)
-    if (fam().structured && !d.afterSpin && !d.afterBlink && Object.keys(d).length > 1) d.afterSpin = false;
+    if (fam().structured && !d.afterSpin && !d.afterBlink && (d.exitType || d.enterType)) d.afterSpin = false;
     var like = $('xp-like') ? $('xp-like').value.trim() : '';
     if (like !== '') d.like = parseInt(like, 10);
     var text = $('xp-note').value.trim();
     if (text) d.text = text;
-    if (Object.keys(d).length < 2) { toast('Pick a choice or write a note', false); return; }
+    if (Object.keys(d).filter(function (k) { return k !== 'v' && k !== 'status'; }).length < 1) {
+      toast('Pick a choice or write a note', false); return;
+    }
     try {
       var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ key: key, note: JSON.stringify(d) }) });
       if (!r.ok) throw 0;
       exNotes = await r.json();
     } catch (e) { toast('Could not save', false); return; }
-    if (stay || fam().custom) { toast('Saved', true); xpRender(true); $('xp-prefill').hidden = true; return; }
+    if (stay || fam().custom) {
+      toast(xpStatus === 'proposed' ? 'Confirmed' : 'Saved', true);
+      xpStatus = d.status || ''; $('xp-review').hidden = true;
+      xpRender(true); $('xp-prefill').hidden = true; return;
+    }
     var L = fam().list, i = L.indexOf(xp.n);
     if (i >= 0 && i === L.length - 1) { toast('Saved. That was the last one of this type.', true); xpRender(true); return; }
     xpStep(1);
@@ -1084,7 +1186,12 @@
       row.className = 'xp-item' + (v !== undefined ? ' done' : '') + (it.key === cur ? ' current' : '');
       row.setAttribute('role', 'option'); row.setAttribute('aria-selected', it.key === cur);
       var top = document.createElement('div'); top.className = 'xp-item-top';
-      var name = document.createElement('span'); name.className = 'xp-item-name' + (it.custom ? ' mono' : ''); name.textContent = it.label;
+      var pd = parseNote(v);
+      var name = document.createElement('span'); name.className = 'xp-item-name' + (it.custom ? ' mono' : '');
+      name.textContent = it.label.replace('Transition effect ', 'FX ') + (pd && pd.name ? ' \u00b7 ' + pd.name : '');
+      if (pd && pd.status === 'proposed') {
+        var tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'Review'; name.appendChild(tag);
+      }
       var mark = document.createElement('span'); mark.className = 'xp-item-mark'; mark.textContent = v !== undefined ? '✓' : '';
       top.appendChild(name); top.appendChild(mark); row.appendChild(top);
       if (v !== undefined) {
@@ -1105,6 +1212,31 @@
     });
     var c = box.querySelector('.current');
     if (c && c.scrollIntoView) c.scrollIntoView({ block: 'nearest' });
+  }
+
+  // ---- Camera run: play every unanswered (or proposed) test of this type, for filming ----
+  var camRunning = false;
+  async function xpCameraRun() {
+    if (camRunning) { camRunning = false; return; }
+    var f = fam();
+    if (f.custom) { toast('Pick a test type other than Custom', false); return; }
+    var todo = f.list.filter(function (n) {
+      var d = parseNote(exNotes[f.id + ':' + n]);
+      return exNotes[f.id + ':' + n] === undefined || (d && d.status === 'proposed');
+    });
+    if (!todo.length) { toast('Nothing left to film for ' + f.name, true); return; }
+    var secs = Math.max(3, Math.min(30, parseInt($('xp-cam-secs').value, 10) || 8));
+    camRunning = true;
+    $('xp-cam').textContent = 'Stop';
+    for (var i = 0; i < todo.length && camRunning; i++) {
+      xpGo(f.id, todo[i], false);
+      $('xp-cam-status').textContent = 'Filming ' + f.title(todo[i]) + ' (' + (i + 1) + ' of ' + todo.length + ')';
+      await xpSend();
+      for (var t = 0; t < secs * 10 && camRunning; t++) await new Promise(function (r) { setTimeout(r, 100); });
+    }
+    $('xp-cam-status').textContent = camRunning ? 'Done: ' + todo.length + ' tests played.' : 'Stopped.';
+    camRunning = false;
+    $('xp-cam').textContent = 'Camera run';
   }
 
   // ---- Init ----

@@ -7,3 +7,7 @@ build/*
 *.exe
 *managed_components*
 python/.venv*
+
+# Camera footage for the protocol explorer (large; keep out of git)
+captures/*
+!captures/README.md
