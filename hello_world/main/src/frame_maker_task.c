@@ -17,6 +17,11 @@
 #include "infoglobe_animations.h"
 
 #include "tcp_server_task.h"
+#include "network.h"
+
+/* How long a new IP address takes over the globe from the clock. */
+#define IP_SHOW_MS          20000
+#define IP_POLL_MS          1000
 
 #if CONFIG_EXAMPLE_CONNECT_ETHERNET && (CONFIG_INFOGLOBE_BUTTON_GPIO == 0)
 #error "GPIO0 is the Ethernet RMII clock input; pick another button GPIO in menuconfig (e.g. 32)"
@@ -50,6 +55,9 @@ void frame_maker_task(void *pvParameters)
 
     bool prev_io_level = true;
     bool curr_io_level = true;
+    TickType_t ip_poll_tick = xTaskGetTickCount();
+    TickType_t ip_show_until = 0;
+    bool showing_ip = false;
     const gpio_config_t button_conf = {
         .pin_bit_mask = 1ULL << CONFIG_INFOGLOBE_BUTTON_GPIO,
         .mode = GPIO_MODE_INPUT,
@@ -75,9 +83,42 @@ void frame_maker_task(void *pvParameters)
         }
         prev_io_level = curr_io_level;
 
-        if( g_time_on ) {
+        // Announce a new address when the preferred interface changes
+        // (cable pulled -> Wi-Fi IP, cable back -> Ethernet IP, both gone).
+        TickType_t now = xTaskGetTickCount();
+        if ((now - ip_poll_tick) >= pdMS_TO_TICKS(IP_POLL_MS)) {
+            ip_poll_tick = now;
+            char ip[16];
+            const char *iface = NULL;
+            if (network_ip_changed(ip, sizeof(ip), &iface)) {
+                if (ip[0]) {
+                    ESP_LOGI(TAG, "Preferred address is now %s (%s)", ip, iface);
+                } else {
+                    ESP_LOGW(TAG, "No network address on any interface");
+                }
+                // Only take over the globe from the clock, never from text
+                // someone put up through the web UI (time mode off).
+                if (g_time_on) {
+                    if (ip[0]) {
+                        single_string_rotate(display_queue, ip, strlen(ip), 1);
+                    } else {
+                        const char *msg = "No network...";
+                        send_string_w_bytes_to_queue(display_queue, msg, strlen(msg), 0x00, 0x00);
+                    }
+                    ip_show_until = now + pdMS_TO_TICKS(IP_SHOW_MS);
+                    showing_ip = true;
+                }
+            }
+        }
+        if (showing_ip && (int32_t)(now - ip_show_until) >= 0) {
+            showing_ip = false;   // clock redraws within 500 ms (colon blink)
+        }
+
+        if( g_time_on && !showing_ip ) {
             // Always run time animation
             run_animation_time_1(display_queue);
+        } else if (showing_ip) {
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
         
         // // Occasionally run animation 1

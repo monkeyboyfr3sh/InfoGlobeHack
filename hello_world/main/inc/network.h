@@ -18,8 +18,17 @@ esp_err_t network_start(void);
 bool network_wait_for_ip(TickType_t timeout);
 
 /**
- * Write the preferred IPv4 address (Ethernet first, then Wi-Fi) into buf.
+ * Write the preferred IPv4 address (Ethernet first, Wi-Fi as fallback) into
+ * buf and remember it as the address currently shown on the globe.
  * Returns "Ethernet" or "Wi-Fi" for the interface used, or NULL if neither
  * currently has an address (buf is then set to "").
  */
 const char *network_get_ip_string(char *buf, size_t len);
+
+/**
+ * Has the preferred address changed since it was last shown?
+ * If so, writes the new address into buf ("" when no interface has one),
+ * sets *iface ("Ethernet", "Wi-Fi" or NULL), marks it as shown, and returns
+ * true. Cheap enough to poll.
+ */
+bool network_ip_changed(char *buf, size_t len, const char **iface);

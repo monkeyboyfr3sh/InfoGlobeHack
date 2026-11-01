@@ -248,9 +248,13 @@ static bool netif_ip_string(esp_netif_t *netif, char *buf, size_t len)
     return true;
 }
 
-const char *network_get_ip_string(char *buf, size_t len)
+/* Address last shown on the globe; shared by the startup and clock tasks. */
+static char s_shown_ip[16];
+static portMUX_TYPE s_shown_lock = portMUX_INITIALIZER_UNLOCKED;
+
+static const char *preferred_ip(char *buf, size_t len)
 {
-    EventBits_t bits = xEventGroupGetBits(s_net_events);
+    EventBits_t bits = s_net_events ? xEventGroupGetBits(s_net_events) : 0;
 #if CONFIG_EXAMPLE_CONNECT_ETHERNET
     if ((bits & ETH_GOT_IP_BIT) && netif_ip_string(s_eth_netif, buf, len)) {
         return "Ethernet";
@@ -263,4 +267,32 @@ const char *network_get_ip_string(char *buf, size_t len)
         buf[0] = '\0';
     }
     return NULL;
+}
+
+const char *network_get_ip_string(char *buf, size_t len)
+{
+    const char *iface = preferred_ip(buf, len);
+    taskENTER_CRITICAL(&s_shown_lock);
+    strlcpy(s_shown_ip, buf, sizeof(s_shown_ip));
+    taskEXIT_CRITICAL(&s_shown_lock);
+    return iface;
+}
+
+bool network_ip_changed(char *buf, size_t len, const char **iface)
+{
+    char now[sizeof(s_shown_ip)];
+    const char *now_iface = preferred_ip(now, sizeof(now));
+
+    taskENTER_CRITICAL(&s_shown_lock);
+    bool changed = strcmp(now, s_shown_ip) != 0;
+    if (changed) {
+        strlcpy(s_shown_ip, now, sizeof(s_shown_ip));
+    }
+    taskEXIT_CRITICAL(&s_shown_lock);
+
+    if (changed) {
+        strlcpy(buf, now, len);
+        *iface = now_iface;
+    }
+    return changed;
 }
