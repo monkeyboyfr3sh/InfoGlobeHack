@@ -179,6 +179,42 @@
     input[type=file] { font: inherit; color: var(--text); }
     progress { width: 100%; height: 8px; accent-color: var(--accent); }
 
+    /* Explorer workspace */
+    .xp-pick { display: grid; grid-template-columns: minmax(200px, 1fr) auto auto; gap: 12px 16px; align-items: end; }
+    .xp-go { display: flex; gap: 8px; flex-wrap: wrap; }
+    .stepper { display: inline-flex; }
+    .stepper .btn { width: 34px; padding: 0; border-radius: 0; }
+    .stepper .btn:first-child { border-radius: 4px 0 0 4px; }
+    .stepper .btn:last-child { border-radius: 0 4px 4px 0; }
+    .stepper input { width: 72px; border-radius: 0; text-align: center; margin: 0 -1px; position: relative; }
+    .xp-num > span { display: block; font-weight: 600; margin-bottom: 6px; }
+    .xp-progress { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+    .xp-progress progress { width: 160px; flex: none; }
+    .xp-progress .hint { margin: 0; }
+    .xp-title { display: flex; align-items: center; gap: 10px; }
+    .xp-title h2 { margin: 0; }
+    .badge { font-size: .75rem; font-weight: 600; padding: 1px 8px; border-radius: 10px; background: var(--accent); color: var(--on-accent); }
+    #xp-look { margin: 6px 0 14px; }
+    .qgrid { display: grid; grid-template-columns: 150px 1fr; gap: 14px 16px; align-items: start; }
+    .qlabel { font-weight: 600; color: var(--text); padding-top: 5px; }
+    .qlabel[hidden], .chips[hidden] { display: none; }
+    .actionbar {
+      position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 12px 0; background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .actionbar .keys { margin: 0; font-size: .8rem; }
+    .note { grid-template-columns: 170px 1fr 32px; }
+    .note .key { font-family: var(--font); font-size: .875rem; font-weight: 600; color: var(--accent-text); }
+    .btn.icon.del { width: 28px; height: 28px; font-size: 1.1rem; line-height: 1; }
+    @media (max-width: 640px) {
+      .xp-pick { grid-template-columns: 1fr 1fr; }
+      .xp-type, .xp-go { grid-column: 1 / -1; }
+      .qgrid { grid-template-columns: 1fr; gap: 6px; }
+      .qlabel { padding-top: 6px; }
+      .note { grid-template-columns: 1fr 32px; }
+      .note .md { grid-column: 1 / 2; }
+      .actionbar .keys { display: none; }
+    }
     #toast {
       position: fixed; left: 16px; bottom: 16px; z-index: 10; display: none; max-width: calc(100% - 32px);
       background: var(--toast-bg); color: var(--bg); padding: 12px 16px; border-radius: 4px;
@@ -283,114 +319,85 @@
 
   <!-- ============================ EXPLORER ============================ -->
   <section class="panel" id="tab-explorer" role="tabpanel" hidden>
-    <div class="card stack" id="guided">
-      <div class="split">
-        <div>
-          <h2>Guided test</h2>
-          <p class="hint" style="margin:0">The page sends a test to the globe. Watch it, say what happened, press Ctrl+Enter. That's it.</p>
-        </div>
-        <button class="btn primary" id="g-start" onclick="gStart()">Start</button>
-      </div>
 
-      <div id="g-body" hidden>
-        <div class="split" style="margin-bottom:8px">
-          <span class="hint" style="margin:0" id="g-progress"></span>
-          <progress id="g-bar" value="0" max="1" style="width:40%"></progress>
-        </div>
-        <div class="frame" style="font-family:var(--font);font-size:1rem">
-          <div style="font-weight:600;color:var(--text-strong)" id="g-title"></div>
-          <div class="hint" style="margin:4px 0 0" id="g-look"></div>
-        </div>
-        <div id="g-fx" hidden>
-          <p class="hint prefill" id="g-prefill" hidden></p>
-          <div id="g-fx-fields"></div>
-          <div class="fx-field">
-            <div class="fx-label">Like FX #</div>
-            <div class="row">
-              <input type="number" id="g-like" min="0" max="255" inputmode="numeric" style="width:84px" placeholder="&ndash;">
-              <span class="hint" style="margin:0">optional: an earlier effect this looks the same as</span>
-            </div>
+    <!-- 1. Pick a test -->
+    <div class="card">
+      <div class="xp-pick">
+        <label class="field xp-type"><span>Test type</span>
+          <select id="xp-family" onchange="xpFamily()"></select>
+        </label>
+        <div class="field xp-num">
+          <span>Value</span>
+          <div class="stepper">
+            <button class="btn" type="button" onclick="xpStep(-1)" aria-label="Previous value">&#9664;</button>
+            <input type="number" id="xp-n" min="0" max="255" inputmode="numeric" onchange="xpSetN(this.value)" aria-label="Value">
+            <button class="btn" type="button" onclick="xpStep(1)" aria-label="Next value">&#9654;</button>
           </div>
         </div>
-        <div class="row" id="g-quick" style="margin-top:12px">
-          <button class="btn" onclick="gQuick('Nothing happened')">Nothing happened</button>
-          <button class="btn" onclick="gQuick('Same as previous')">Same as previous</button>
-          <button class="btn" onclick="gQuick('Screen went blank')">Went blank</button>
-          <button class="btn" onclick="gQuick('Garbled / weird characters')">Garbled</button>
+        <div class="xp-go">
+          <button class="btn primary" type="button" onclick="xpSend()">Show on globe</button>
+          <button class="btn" type="button" onclick="xpNextUnanswered()">Next unanswered</button>
         </div>
-        <div class="fx-label" id="g-note-label" style="margin-top:12px">Extra notes <span class="hint">(optional, Markdown)</span></div>
-        <div class="row">
-          <textarea id="g-note" rows="2" placeholder="Anything the choices above don't cover"></textarea>
-        </div>
-        <div class="md preview" id="g-preview" hidden></div>
-        <div class="row" style="margin-top:12px">
-          <button class="btn" onclick="gMove(-1)">Back</button>
-          <button class="btn" onclick="gSend()">Show again</button>
-          <button class="btn" onclick="gMove(1)">Skip</button>
-          <div style="flex:1"></div>
-          <button class="btn" onclick="gSave(undefined, true)" title="Ctrl+S">Save</button>
-          <button class="btn primary" onclick="gSave()" title="Ctrl+Enter">Save &amp; next</button>
-        </div>
-        <p class="hint" style="margin:10px 0 0">Sent: <code id="g-hex"></code></p>
+      </div>
+      <div class="xp-progress">
+        <progress id="xp-bar" value="0" max="1"></progress>
+        <span class="hint" id="xp-progress"></span>
       </div>
     </div>
 
-    <div class="card stack">
-      <div>
-        <h2>Manual explorer</h2>
-        <p class="hint" style="margin:0">
-          Frame = <code>[command] [byte 2] [text] [trailer]</code>. <code>{n}</code> is the value under test
-          (decimal in text, <code>{x}</code> for hex; a byte in the other fields). Sending switches the display to Message mode.
-        </p>
+    <!-- 2. What is being sent -->
+    <div class="card">
+      <div class="xp-title">
+        <h2 id="xp-title"></h2>
+        <span class="badge" id="xp-saved" hidden>Saved</span>
       </div>
-
-      <label class="field"><span>Preset</span>
-        <select id="ex-preset" onchange="exPreset()">
-          <option value="fx">Transition effects &mdash; 00 00 + text + effect</option>
-          <option value="cmd">Command sweep &mdash; command byte = n</option>
-          <option value="blink">0x05 blink byte</option>
-          <option value="shift">0x05 shift byte</option>
-          <option value="custom">Custom</option>
-        </select>
-      </label>
-
-      <div class="grid2">
-        <label class="field"><span>Command (hex)</span><input type="text" id="ex-cmd" class="mono" autocomplete="off"></label>
-        <label class="field"><span>Byte 2 (hex)</span><input type="text" id="ex-b2" class="mono" autocomplete="off"></label>
-        <label class="field" style="grid-column:1/-1"><span>Text</span><input type="text" id="ex-text" autocomplete="off"></label>
-        <label class="field" style="grid-column:1/-1"><span>Trailer (hex bytes)</span><input type="text" id="ex-trail" class="mono" autocomplete="off"></label>
+      <p class="hint" id="xp-look"></p>
+      <div class="qgrid">
+        <div class="qlabel">Frame</div>
+        <div><div class="frame" id="xp-hex">&ndash;</div></div>
       </div>
-
-      <div class="row">
-        <button class="btn" onclick="exStep(-1)" aria-label="Previous">&#9664; Prev</button>
-        <input type="number" id="ex-n" min="0" max="255" value="0" inputmode="numeric" aria-label="Value n" style="width:84px">
-        <button class="btn" onclick="exStep(1)" aria-label="Next">Next &#9654;</button>
-        <button class="btn primary" onclick="exSend()">Send</button>
-      </div>
-
-      <div class="row">
-        <label class="check"><input type="checkbox" id="ex-auto" onchange="exAuto()"> Auto-step every</label>
-        <input type="number" id="ex-secs" min="1" max="60" value="5" inputmode="numeric" style="width:76px"> <span>seconds</span>
-      </div>
-
-      <div>
-        <div class="hint" style="margin-bottom:4px">Last frame sent</div>
-        <div class="frame" id="ex-hex">&ndash;</div>
+      <div id="xp-custom" hidden>
+        <div class="qgrid" style="margin-top:12px">
+          <div class="qlabel">Command</div><div><input type="text" id="cx-cmd" class="mono" value="00" autocomplete="off" oninput="xpRender(true)"></div>
+          <div class="qlabel">Byte 2</div><div><input type="text" id="cx-b2" class="mono" value="00" autocomplete="off" oninput="xpRender(true)"></div>
+          <div class="qlabel">Text</div><div><input type="text" id="cx-text" value="HELLO {n}" autocomplete="off" oninput="xpRender(true)"></div>
+          <div class="qlabel">Trailer</div><div><input type="text" id="cx-trail" class="mono" value="{n}" autocomplete="off" oninput="xpRender(true)"></div>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Bytes are hex. <code>{n}</code> is the value above (a byte in hex fields, two digits in text; <code>{x}</code> gives hex in text).</p>
       </div>
     </div>
 
-    <div class="card stack">
-      <div>
-        <h2>Notes</h2>
-        <p class="hint" style="margin:0">Saved on the globe for <code id="ex-key">fx:0</code>. Markdown and multiple lines are fine. Leave empty and save to delete.</p>
+    <!-- 3. What did the globe do -->
+    <div class="card">
+      <h2>What did the globe do?</h2>
+      <p class="hint prefill" id="xp-prefill" hidden></p>
+      <div class="qgrid" id="xp-questions"></div>
+      <div class="qgrid" style="margin-top:12px">
+        <div class="qlabel">Notes</div>
+        <div>
+          <textarea id="xp-note" rows="3" placeholder="Optional. Anything the choices don't cover. Markdown works."></textarea>
+          <div class="md preview" id="xp-preview" hidden></div>
+        </div>
       </div>
-      <textarea id="ex-note" rows="4" placeholder="What did the globe do? Markdown works. Ctrl+Enter saves."></textarea>
-      <div class="md preview" id="ex-preview" hidden></div>
-      <div class="row"><div style="flex:1"></div><button class="btn primary" onclick="exSaveNote()">Save note</button></div>
-      <details open>
-        <summary>All notes (<span id="ex-count">0</span>)</summary>
-        <div class="notes" id="ex-notes"></div>
-      </details>
+    </div>
+
+    <!-- 4. Actions (stick to the bottom while scrolling) -->
+    <div class="actionbar">
+      <button class="btn" type="button" onclick="xpStep(-1)">Back</button>
+      <button class="btn" type="button" onclick="xpStep(1)">Skip</button>
+      <span class="hint keys">Ctrl+S save &middot; Ctrl+Enter save &amp; next</span>
+      <div style="flex:1"></div>
+      <button class="btn" type="button" onclick="xpSave(true)">Save</button>
+      <button class="btn primary" type="button" onclick="xpSave(false)">Save &amp; next</button>
+    </div>
+
+    <!-- 5. Shared notes -->
+    <div class="card">
+      <div class="split" style="margin-bottom:8px">
+        <h2 style="margin:0">All notes <span class="hint" id="xp-count"></span></h2>
+        <select id="xp-filter" onchange="xpRenderNotes()" style="width:auto"></select>
+      </div>
+      <div class="notes" id="xp-notes"></div>
     </div>
   </section>
 
@@ -624,103 +631,112 @@
     box.renderPreview = render;
   }
 
-  // ---------------- Guided test ----------------
-  // Each test: key (note id), title, what to look for, frame bytes.
+  // ---------------- Explorer (one workspace: pick a test, show it, answer it) ----------------
   function txt(s) { return Array.prototype.map.call(s, function (c) { return c.charCodeAt(0) & 255; }); }
   function pad2(n) { return ('0' + n).slice(-2); }
-  var BLANK_FRAME = [0x05, 0x00].concat(txt('--------'), [0x00, 0x00, 0x08]);   // neutral "before" state
-  var G_TESTS = (function () {
-    var t = [], i;
-    var fxOrder = [];
-    for (i = 0; i <= 63; i++) fxOrder.push(i);
-    [64, 100, 128, 255].forEach(function (v) { fxOrder.push(v); });
-    var fxKnown = { 38: 'Said to be "static display"', 39: 'Said to be "flashing display"' };
-    fxOrder.forEach(function (n) {
-      t.push({ key: 'fx:' + n, title: 'Transition effect ' + n,
-        look: (fxKnown[n] ? fxKnown[n] + '. ' : '') + 'How does "FX ' + pad2(n) + '" replace the dashes? (direction, letters dropping, fading, etc.)',
-        bytes: [0x00, 0x00].concat(txt('FX ' + pad2(n)), [n & 255]) });
-    });
-    for (i = 0; i <= 12; i++) {
-      t.push({ key: 'blink:' + i, title: 'Blink setting ' + i + ' (clock-style message)',
-        look: 'Does any part of "BLINK ' + pad2(i) + '" flash? Which letters?',
-        bytes: [0x05, 0x00].concat(txt('BLINK ' + pad2(i)), [0x00, i, 0x08]) });
-    }
-    for (i = 0; i <= 16; i++) {
-      t.push({ key: 'shift:' + i, title: 'Shift setting ' + i + ' (clock-style message)',
-        look: 'Where does "SHIFT ' + pad2(i) + '" sit or move compared to the last one?',
-        bytes: [0x05, 0x00].concat(txt('SHIFT ' + pad2(i)), [0x00, 0x00, i]) });
-    }
-    var cmds = [0x00, 0x04, 0x05, 0x06, 0x06, 0x01, 0x02, 0x03];
-    for (i = 0x07; i <= 0x1F; i++) cmds.push(i);
-    cmds.push(0x80, 0x81, 0xFF);
-    var cmdKnown = { 0: 'Known: text with transition 0', 4: 'Known: shows text right away and scrolls it',
-                     5: 'Known: your clock format', 6: 'Known: turns scrolling on/off (this test runs twice)' };
-    var seen6 = false;
-    cmds.forEach(function (c) {
-      var hx = ('0' + c.toString(16)).slice(-2).toUpperCase();
-      var key = 'cmd:' + c;
-      if (c === 6) { key = seen6 ? 'cmd:6b' : 'cmd:6'; seen6 = true; }
-      t.push({ key: key, title: 'Command byte ' + hx + (c === 6 && key === 'cmd:6b' ? ' (second time)' : ''),
-        look: (cmdKnown[c] ? cmdKnown[c] + '. ' : '') + 'What happens to "CMD ' + hx + '"? Anything at all?',
-        bytes: [c, 0x00].concat(txt('CMD ' + hx), [0x00]) });
-    });
-    [0x01, 0x02, 0x03, 0x04].concat([7, 8, 9, 10, 11, 12, 13, 14, 15]).forEach(function (c) {
-      var hx = ('0' + c.toString(16)).slice(-2).toUpperCase();
-      t.push({ key: 'alone:' + c, title: 'Command byte ' + hx + ' on its own (no text)',
-        look: 'Only the command is sent. Does the display change, clear, or do anything?',
-        bytes: [c] });
-    });
-    for (i = 0; i <= 15; i++) {
-      t.push({ key: 'b2:' + i, title: 'Second byte = ' + i + ' (clock-style message)',
-        look: 'Is "B2 ' + pad2(i) + '" any different (speed, brightness, position, nothing)?',
-        bytes: [0x05, i].concat(txt('B2 ' + pad2(i)), [0x00, 0x00, 0x08]) });
-    }
-    return t;
-  })();
-  var gIdx = 0, gSendSeq = 0;
+  function hex2(v) { return ('0' + (v & 255).toString(16)).slice(-2).toUpperCase(); }
+  function range(a, b) { var r = []; for (var i = a; i <= b; i++) r.push(i); return r; }
+  var BLANK_FRAME = [0x05, 0x00].concat(txt('--------'), [0x00, 0x00, 0x08]);   // neutral "before" frame
 
-  function gFirstUnanswered() {
-    for (var i = 0; i < G_TESTS.length; i++) if (!exNotes[G_TESTS[i].key]) return i;
-    return G_TESTS.length - 1;
-  }
-  async function gPrepare() {
-    if (!exPrepared) {
-      await post('/ir', { test: false });
-      await post('/mode', { time_mode: false });
-      showMode(false);
-      exPrepared = true;
+  function customBytes(n) {
+    function field(s) {
+      var out = [];
+      s.replace(/\{n\}|\{x\}/g, ' ' + hex2(n) + ' ').split(/[\s,]+/).forEach(function (t) {
+        if (!t) return;
+        if (!/^[0-9a-fA-F]{1,2}$/.test(t)) throw new Error('Not a hex byte: ' + t);
+        out.push(parseInt(t, 16));
+      });
+      return out;
     }
+    var text = $('cx-text').value.replace(/\{n\}/g, pad2(n)).replace(/\{x\}/g, hex2(n));
+    var b = field($('cx-cmd').value).concat(field($('cx-b2').value), txt(text), field($('cx-trail').value));
+    if (b.length > 40) throw new Error('Frame is ' + b.length + ' bytes (max 40)');
+    return b;
   }
-  function rawHex(b) { return b.map(hex2).join(''); }
-  // ---- Structured answers for transition effects ----
+
+  var FX_KNOWN = { 38: 'Said to be "static display". ', 39: 'Said to be "flashing display". ' };
+  var CMD_KNOWN = { 0: 'Known: text with transition 0. ', 4: 'Known: shows text right away and scrolls it. ',
+                    5: 'Known: the clock format. ', 6: 'Known: turns scrolling on/off (try it twice). ' };
+  var FAMILIES = [
+    { id: 'fx', name: 'Transition effects', structured: true,
+      list: range(0, 63).concat([64, 100, 128, 255]),
+      title: function (n) { return 'Transition effect ' + n; },
+      look: function (n) { return (FX_KNOWN[n] || '') + 'Watch how "FX ' + pad2(n) + '" replaces the dashes.'; },
+      bytes: function (n) { return [0x00, 0x00].concat(txt('FX ' + pad2(n)), [n & 255]); } },
+    { id: 'blink', name: 'Blink byte (0x05 format)', list: range(0, 12),
+      title: function (n) { return 'Blink byte = ' + n; },
+      look: function (n) { return 'Does any part of "BLINK ' + pad2(n) + '" flash? Which letters?'; },
+      bytes: function (n) { return [0x05, 0x00].concat(txt('BLINK ' + pad2(n)), [0x00, n, 0x08]); } },
+    { id: 'shift', name: 'Shift byte (0x05 format)', list: range(0, 16),
+      title: function (n) { return 'Shift byte = ' + n; },
+      look: function (n) { return 'Where does "SHIFT ' + pad2(n) + '" sit or move compared to the last one?'; },
+      bytes: function (n) { return [0x05, 0x00].concat(txt('SHIFT ' + pad2(n)), [0x00, 0x00, n]); } },
+    { id: 'cmd', name: 'Command byte', list: [0, 4, 5, 6, 1, 2, 3].concat(range(7, 31), [0x80, 0x81, 0xFF]),
+      title: function (n) { return 'Command byte ' + hex2(n); },
+      look: function (n) { return (CMD_KNOWN[n] || '') + 'What happens to "CMD ' + hex2(n) + '"? Anything at all?'; },
+      bytes: function (n) { return [n & 255, 0x00].concat(txt('CMD ' + hex2(n)), [0x00]); } },
+    { id: 'alone', name: 'Command byte alone (no text)', list: [1, 2, 3, 4].concat(range(7, 15)),
+      title: function (n) { return 'Command byte ' + hex2(n) + ' on its own'; },
+      look: function () { return 'Only the command byte is sent. Does the display change, clear, or do anything?'; },
+      bytes: function (n) { return [n & 255]; } },
+    { id: 'b2', name: 'Second byte (0x05 format)', list: range(0, 15),
+      title: function (n) { return 'Second byte = ' + n; },
+      look: function (n) { return 'Is "B2 ' + pad2(n) + '" any different (speed, brightness, position, nothing)?'; },
+      bytes: function (n) { return [0x05, n & 255].concat(txt('B2 ' + pad2(n)), [0x00, 0x00, 0x08]); } },
+    { id: 'custom', name: 'Custom frame', custom: true, list: range(0, 255),
+      title: function (n) { return 'Custom frame'; },
+      look: function () { return 'Build any frame with the fields below.'; },
+      bytes: customBytes }
+  ];
+
+  // Questions. Transition effects get the detailed set; everything else gets "Result".
   var FX_FIELDS = [
     { id: 'entry', label: 'New text arrives', opts: [
       ['spin-lr', 'Spins in left → right'], ['spin-rl', 'Spins in right → left'], ['both', 'From a spot, both ways'],
       ['fade', 'Fades in'], ['rows', 'Builds up in rows'], ['drop', 'Drops in'], ['instant', 'Appears instantly'], ['other', 'Other'] ] },
     { id: 'rows', label: 'Row pattern', showIf: ['entry', 'rows'], opts: [
       ['bottom-up', 'Bottom → top'], ['top-down', 'Top → bottom'], ['center-out', 'Centre → out'],
-      ['odd-even', 'Odd rows, then even'], ['outer-in', 'Outer rows inward, alternating'], ['other', 'Other'] ] },
+      ['odd-even', 'Odd rows, then even'], ['outer-in', 'Outer rows inward'], ['other', 'Other'] ] },
     { id: 'old', label: 'Old text', opts: [
-      ['overwrite', 'Overwritten letter by letter'], ['pushed', 'Pushed out by new text'], ['blank', 'Blanked first'],
+      ['overwrite', 'Overwritten letter by letter'], ['pushed', 'Pushed out'], ['blank', 'Blanked first'],
       ['fade', 'Fades out first'], ['other', 'Other'] ] },
     { id: 'speed', label: 'Speed', opts: [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']] },
-    { id: 'then', label: 'Then', opts: [
-      ['spin', 'Normal spin (right → left)'], ['still', 'Stays still'], ['spin-lr', 'Keeps moving left → right'],
+    { id: 'then', label: 'Afterwards', opts: [
+      ['spin', 'Normal spin'], ['still', 'Stays still'], ['spin-lr', 'Moves left → right'],
       ['blink', 'Blinks'], ['other', 'Other'] ] }
   ];
-  var fxSel = {};
+  var RESULT_FIELDS = [
+    { id: 'result', label: 'Result', opts: [
+      ['nothing', 'Nothing happened'], ['same', 'Same as previous'], ['blank', 'Went blank'],
+      ['garbled', 'Garbled'], ['new', 'Something new'] ] }
+  ];
+  var ALL_FIELDS = FX_FIELDS.concat(RESULT_FIELDS);
+
+  var exNotes = {};
+  var xp = { fam: 'fx', n: 0 };
+  var xpSel = {};
+  var xpPrepared = false, xpSendSeq = 0;
+
+  function fam(id) { return FAMILIES.filter(function (f) { return f.id === (id || xp.fam); })[0]; }
+  function xpFields() { return fam().structured ? FX_FIELDS : RESULT_FIELDS; }
+  function xpBytes() { return fam().bytes(xp.n); }
+  function xpKey() {
+    if (!fam().custom) return xp.fam + ':' + xp.n;
+    try { return 'custom:' + xpBytes().map(hex2).join(''); } catch (e) { return 'custom:?'; }
+  }
 
   function parseNote(v) {
     if (typeof v !== 'string' || v.charAt(0) !== '{') return null;
     try { var d = JSON.parse(v); return d && d.v === 1 ? d : null; } catch (e) { return null; }
   }
   function optLabel(fid, val) {
-    var f = FX_FIELDS.filter(function (x) { return x.id === fid; })[0];
+    var f = ALL_FIELDS.filter(function (x) { return x.id === fid; })[0];
     var o = f && f.opts.filter(function (x) { return x[0] === val; })[0];
     return o ? o[1] : val;
   }
   function fxSummary(d) {
     var p = [];
+    if (d.result) p.push(optLabel('result', d.result));
     if (d.entry) p.push(optLabel('entry', d.entry) + (d.entry === 'rows' && d.rows ? ' (' + optLabel('rows', d.rows).toLowerCase() + ')' : ''));
     if (d.old) p.push('old text: ' + optLabel('old', d.old).toLowerCase());
     if (d.speed) p.push(optLabel('speed', d.speed).toLowerCase() + ' speed');
@@ -731,246 +747,231 @@
   function noteHtml(v) {
     var d = parseNote(v);
     if (!d) return md(v);
-    return '<p><strong>' + mdEscape(fxSummary(d) || '(no choices)') + '</strong></p>' + (d.text ? md(d.text) : '');
+    var s = fxSummary(d);
+    return (s ? '<p><strong>' + mdEscape(s) + '</strong></p>' : '') + (d.text ? md(d.text) : '');
   }
 
-  function fxBuildForm() {
-    var box = $('g-fx-fields');
-    FX_FIELDS.forEach(function (f) {
-      var wrap = document.createElement('div');
-      wrap.className = 'fx-field'; wrap.id = 'fxf-' + f.id;
-      var lab = document.createElement('div'); lab.className = 'fx-label'; lab.textContent = f.label;
-      var chips = document.createElement('div'); chips.className = 'chips';
+  // ---- Rendering ----
+  function xpBuildQuestions() {
+    var g = $('xp-questions');
+    g.innerHTML = '';
+    xpFields().forEach(function (f) {
+      var lab = document.createElement('div'); lab.className = 'qlabel'; lab.id = 'ql-' + f.id; lab.textContent = f.label;
+      var chips = document.createElement('div'); chips.className = 'chips'; chips.id = 'qc-' + f.id;
       f.opts.forEach(function (o) {
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'chip'; b.textContent = o[1]; b.dataset.val = o[0];
-        b.onclick = function () { fxSel[f.id] = fxSel[f.id] === o[0] ? '' : o[0]; fxRender(); $('g-prefill').hidden = true; };
+        b.onclick = function () { xpSel[f.id] = xpSel[f.id] === o[0] ? '' : o[0]; xpPaintChips(); $('xp-prefill').hidden = true; };
         chips.appendChild(b);
       });
-      wrap.appendChild(lab); wrap.appendChild(chips); box.appendChild(wrap);
+      g.appendChild(lab); g.appendChild(chips);
     });
-  }
-  function fxRender() {
-    FX_FIELDS.forEach(function (f) {
-      var wrap = $('fxf-' + f.id);
-      wrap.hidden = !!(f.showIf && fxSel[f.showIf[0]] !== f.showIf[1]);
-      wrap.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', fxSel[f.id] === b.dataset.val); });
-    });
-  }
-  function fxLoad(t) {
-    var d = parseNote(exNotes[t.key]), from = null;
-    if (!d) {
-      // New effect: start from the closest earlier answered effect
-      for (var i = gIdx - 1; i >= 0 && !d; i--) {
-        if (G_TESTS[i].key.indexOf('fx:') === 0) { d = parseNote(exNotes[G_TESTS[i].key]); if (d) from = G_TESTS[i].key.slice(3); }
-      }
-      d = d ? { entry: d.entry, rows: d.rows, old: d.old, speed: d.speed, then: d.then } : {};
+    if (fam().structured) {
+      var lab = document.createElement('div'); lab.className = 'qlabel'; lab.textContent = 'Same as FX #';
+      var box = document.createElement('div'); box.className = 'row';
+      box.innerHTML = '<input type="number" id="xp-like" min="0" max="255" inputmode="numeric" style="width:84px" placeholder="&ndash;">' +
+                      '<span class="hint" style="margin:0">optional</span>';
+      g.appendChild(lab); g.appendChild(box);
     }
-    fxSel = { entry: d.entry || '', rows: d.rows || '', old: d.old || '', speed: d.speed || '', then: d.then || '' };
-    $('g-like').value = from === null && d.like !== undefined ? d.like : '';
-    $('g-note').value = from === null ? (d.text || '') : '';
-    $('g-prefill').hidden = from === null;
-    $('g-prefill').textContent = from !== null ? 'Pre-filled from FX ' + from + '. Change only what is different.' : '';
-    fxRender();
   }
-  function fxCollect() {
-    var d = { v: 1 };
-    FX_FIELDS.forEach(function (f) { if (fxSel[f.id] && !(f.showIf && fxSel[f.showIf[0]] !== f.showIf[1])) d[f.id] = fxSel[f.id]; });
-    var like = $('g-like').value.trim();
-    if (like !== '') d.like = parseInt(like, 10);
-    var text = $('g-note').value.trim();
-    if (text) d.text = text;
-    return d;
+  function xpPaintChips() {
+    xpFields().forEach(function (f) {
+      var hide = !!(f.showIf && xpSel[f.showIf[0]] !== f.showIf[1]);
+      $('ql-' + f.id).hidden = hide; $('qc-' + f.id).hidden = hide;
+      $('qc-' + f.id).querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', xpSel[f.id] === b.dataset.val); });
+    });
+  }
+  function xpLoadAnswers() {
+    var v = exNotes[xpKey()], d = parseNote(v), from = null;
+    if (v !== undefined && !d) d = { text: v };                       // older free-text note
+    if (!d && fam().structured) {                                      // new effect: start from the last answered one
+      var L = fam().list, i = L.indexOf(xp.n);
+      for (i = (i < 0 ? L.length : i) - 1; i >= 0 && !d; i--) {
+        var p = parseNote(exNotes[xp.fam + ':' + L[i]]);
+        if (p) { d = { entry: p.entry, rows: p.rows, old: p.old, speed: p.speed, then: p.then }; from = L[i]; }
+      }
+    }
+    d = d || {};
+    xpSel = {};
+    xpFields().forEach(function (f) { xpSel[f.id] = d[f.id] || ''; });
+    if ($('xp-like')) $('xp-like').value = from === null && d.like !== undefined ? d.like : '';
+    $('xp-note').value = from === null ? (d.text || '') : '';
+    $('xp-note').renderPreview();
+    $('xp-prefill').hidden = from === null;
+    $('xp-prefill').textContent = from !== null ? 'Pre-filled from FX ' + from + '. Change only what is different.' : '';
+    xpPaintChips();
+  }
+  function xpRenderFrame() {
+    var f = fam(), hex;
+    try { hex = xpBytes().map(hex2).join(' '); } catch (e) { hex = e.message; }
+    $('xp-hex').textContent = hex;
+    $('xp-title').textContent = f.title(xp.n);
+    $('xp-look').textContent = f.look(xp.n);
+    $('xp-saved').hidden = exNotes[xpKey()] === undefined;
+    $('xp-custom').hidden = !f.custom;
+    var done = f.list.filter(function (n) { return exNotes[f.id + ':' + n] !== undefined; }).length;
+    if (f.custom) {
+      done = Object.keys(exNotes).filter(function (k) { return k.indexOf('custom:') === 0; }).length;
+      $('xp-bar').hidden = true;
+      $('xp-progress').textContent = done + ' custom frames noted';
+    } else {
+      var pos = f.list.indexOf(xp.n);
+      $('xp-bar').hidden = false; $('xp-bar').max = f.list.length; $('xp-bar').value = done;
+      $('xp-progress').textContent = done + ' of ' + f.list.length + ' answered' +
+        (pos < 0 ? ' · ' + xp.n + ' is outside the suggested list' : ' · #' + (pos + 1) + ' in the list');
+    }
+  }
+  // keepAnswers: true while editing a custom frame, so typing doesn't wipe the answer
+  function xpRender(keepAnswers) {
+    $('xp-family').value = xp.fam;
+    $('xp-n').value = xp.n;
+    xpRenderFrame();
+    if (!keepAnswers) xpLoadAnswers();
+    try { localStorage.setItem('xp', JSON.stringify(xp)); } catch (e) {}
   }
 
-  async function gShow(send) {
-    var t = G_TESTS[gIdx];
-    var isFx = t.key.indexOf('fx:') === 0;
-    $('g-progress').textContent = 'Test ' + (gIdx + 1) + ' of ' + G_TESTS.length + ' · ' +
-      Object.keys(exNotes).filter(function (k) { return G_TESTS.some(function (x) { return x.key === k; }); }).length + ' answered';
-    $('g-bar').max = G_TESTS.length; $('g-bar').value = gIdx + 1;
-    $('g-title').textContent = t.title + (exNotes[t.key] ? '  ✓ saved' : '');
-    $('g-look').textContent = isFx ? 'Watch how "FX ' + pad2(+t.key.slice(3)) + '" replaces the dashes, then pick what you saw.' : t.look;
-    $('g-hex').textContent = t.bytes.map(hex2).join(' ');
-    $('g-fx').hidden = !isFx;
-    $('g-quick').hidden = isFx;
-    if (isFx) { fxLoad(t); } else { $('g-note').value = exNotes[t.key] || ''; }
-    $('g-note').renderPreview();
-    if (send) gSend();
+  // ---- Navigation (each move shows the new test on the globe) ----
+  function xpGo(famId, n, send) {
+    var changed = famId !== xp.fam;
+    xp.fam = famId; xp.n = Math.max(0, Math.min(255, n | 0));
+    if (changed) xpBuildQuestions();
+    xpRender();
+    if (send !== false) xpSend();
   }
-  // Send the current test to the globe (neutral frame, then the test frame).
-  // Only touches the globe, never the form, so "Show again" keeps your inputs.
-  async function gSend() {
-    var t = G_TESTS[gIdx];
-    var seq = ++gSendSeq;
-    await gPrepare();
-    await post('/raw', { hex: rawHex(BLANK_FRAME) });          // neutral state first...
+  function xpFamily() {
+    var f = fam($('xp-family').value);
+    var first = f.list.filter(function (n) { return exNotes[f.id + ':' + n] === undefined; })[0];
+    xpGo(f.id, first !== undefined ? first : f.list[0]);
+  }
+  function xpSetN(v) { xpGo(xp.fam, parseInt(v, 10) || 0); }
+  function xpStep(d) {
+    var L = fam().list, i = L.indexOf(xp.n);
+    if (i < 0) {   // off-list value: go to the nearest list entry in that direction
+      var c = L.filter(function (n) { return d > 0 ? n > xp.n : n < xp.n; });
+      xpGo(xp.fam, c.length ? (d > 0 ? c[0] : c[c.length - 1]) : xp.n);
+      return;
+    }
+    xpGo(xp.fam, L[Math.max(0, Math.min(L.length - 1, i + d))]);
+  }
+  function xpNextUnanswered() {
+    var order = FAMILIES.filter(function (f) { return !f.custom; });
+    var start = Math.max(0, order.indexOf(fam()));
+    for (var k = 0; k < order.length; k++) {
+      var f = order[(start + k) % order.length];
+      var from = k === 0 ? f.list.indexOf(xp.n) + 1 : 0;
+      for (var i = from; i < f.list.length; i++) {
+        if (exNotes[f.id + ':' + f.list[i]] === undefined) { xpGo(f.id, f.list[i]); return; }
+      }
+    }
+    toast('Everything in the suggested lists is answered', true);
+  }
+
+  // ---- Sending to the globe ----
+  async function xpPrepare() {
+    if (xpPrepared) return;
+    await post('/ir', { test: false });          // stopping the test pattern restores the clock...
+    await post('/mode', { time_mode: false });   // ...so switch the clock off afterwards
+    showMode(false);
+    xpPrepared = true;
+  }
+  async function xpSend() {
+    var bytes;
+    try { bytes = xpBytes(); } catch (e) { toast(e.message, false); return; }
+    var seq = ++xpSendSeq;
+    await xpPrepare();
+    await post('/raw', { hex: BLANK_FRAME.map(hex2).join('') });     // neutral state first...
     await new Promise(function (r) { setTimeout(r, 1500); });
-    if (seq !== gSendSeq) return;                                 // user moved on meanwhile
-    var ok = await post('/raw', { hex: rawHex(t.bytes) });      // ...then the test frame
+    if (seq !== xpSendSeq) return;                                  // moved on meanwhile
+    var ok = await post('/raw', { hex: bytes.map(hex2).join('') }); // ...then the test frame
     if (!ok) toast('Send failed', false);
   }
-  function gStart() {
-    $('g-body').hidden = false;
-    $('g-start').textContent = 'Resume';
-    gIdx = gFirstUnanswered();
-    gShow(true);
-  }
-  function gMove(d) {
-    gIdx = Math.max(0, Math.min(G_TESTS.length - 1, gIdx + d));
-    gShow(true);
-  }
-  async function gSave(note, stay) {
-    var t = G_TESTS[gIdx];
-    if (t.key.indexOf('fx:') === 0 && note === undefined) {
-      var d = fxCollect();
-      if (Object.keys(d).length < 2) { toast('Pick at least one choice', false); return; }
-      note = JSON.stringify(d);
-    } else {
-      note = (note !== undefined ? note : $('g-note').value).trim();
-    }
-    if (!note) { toast('Pick an answer or type what you saw', false); return; }
+
+  // ---- Saving (notes are shared by every test type) ----
+  async function xpSave(stay) {
+    var key = xpKey();
+    if (key === 'custom:?') { toast('Fix the custom frame first', false); return; }
+    var d = { v: 1 };
+    xpFields().forEach(function (f) {
+      if (xpSel[f.id] && !(f.showIf && xpSel[f.showIf[0]] !== f.showIf[1])) d[f.id] = xpSel[f.id];
+    });
+    var like = $('xp-like') ? $('xp-like').value.trim() : '';
+    if (like !== '') d.like = parseInt(like, 10);
+    var text = $('xp-note').value.trim();
+    if (text) d.text = text;
+    if (Object.keys(d).length < 2) { toast('Pick a choice or write a note', false); return; }
     try {
       var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ key: t.key, note: note }) });
+                                      body: JSON.stringify({ key: key, note: JSON.stringify(d) }) });
       if (!r.ok) throw 0;
-      exNotes = await r.json(); exRenderNotes();
+      exNotes = await r.json();
     } catch (e) { toast('Could not save', false); return; }
-    if (stay) { toast('Saved ' + t.title, true); gShow(false); return; }
-    if (gIdx >= G_TESTS.length - 1) { toast('All tests done, thank you!', true); gShow(false); return; }
-    gMove(1);
+    xpRenderNotes();
+    if (stay || fam().custom) { toast('Saved', true); xpRender(true); $('xp-prefill').hidden = true; return; }
+    var L = fam().list, i = L.indexOf(xp.n);
+    if (i >= 0 && i === L.length - 1) { toast('Saved. That was the last one of this type.', true); xpRender(true); return; }
+    xpStep(1);
   }
-  function gQuick(text) { $('g-note').value = text; gSave(text); }
-  wireNoteBox('g-note', 'g-preview', function () { gSave(); });
-  fxBuildForm();
-  // Ctrl+S = save and stay, Ctrl+Enter = save and next (while the guided test is open)
-  document.addEventListener('keydown', function (e) {
-    if (!(e.ctrlKey || e.metaKey) || $('g-body').hidden || $('tab-explorer').hidden) return;
-    if (e.key === 's' || e.key === 'S') { e.preventDefault(); gSave(undefined, true); }
-    else if (e.key === 'Enter' && document.activeElement !== $('g-note')) { e.preventDefault(); gSave(); }
-  });
+  async function xpDelete(key) {
+    try {
+      var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ key: key, note: '' }) });
+      if (!r.ok) throw 0;
+      exNotes = await r.json(); xpRenderNotes(); xpRender(); toast('Deleted ' + key, true);
+    } catch (e) { toast('Could not delete', false); }
+  }
 
-  // ---------------- Protocol explorer ----------------
-  var EX_PRESETS = {
-    fx:     { cmd: '00',  b2: '00', text: 'FX {n}',    trail: '{n}' },
-    cmd:    { cmd: '{n}', b2: '00', text: 'CMD {x}',   trail: '00' },
-    blink:  { cmd: '05',  b2: '00', text: 'BLINK {n}', trail: '00 {n} 08' },
-    shift:  { cmd: '05',  b2: '00', text: 'SHIFT {n}', trail: '00 00 {n}' },
-    custom: null
-  };
-  var exNotes = {}, exTimer = null, exPrepared = false;
-
-  function hex2(v) { return ('0' + (v & 255).toString(16)).slice(-2).toUpperCase(); }
-  function exN() { var n = parseInt($('ex-n').value, 10); return isNaN(n) ? 0 : Math.max(0, Math.min(255, n)); }
-  function exKey() { return $('ex-preset').value + ':' + exN(); }
-
-  function exPreset() {
-    var p = EX_PRESETS[$('ex-preset').value];
-    if (p) { $('ex-cmd').value = p.cmd; $('ex-b2').value = p.b2; $('ex-text').value = p.text; $('ex-trail').value = p.trail; }
-    exShowNote();
-  }
-  function exBytesField(s, n) {
-    var out = [];
-    s.replace(/\{n\}/g, ' ' + hex2(n) + ' ').replace(/\{x\}/g, ' ' + hex2(n) + ' ')
-     .split(/[\s,]+/).forEach(function (t) {
-       if (!t) return;
-       var v = parseInt(t, 16);
-       if (!/^[0-9a-fA-F]{1,2}$/.test(t) || isNaN(v)) throw new Error('Not a hex byte: ' + t);
-       out.push(v);
-     });
-    return out;
-  }
-  function exFrame() {
-    var n = exN();
-    var text = $('ex-text').value.replace(/\{n\}/g, ('0' + n).slice(-2)).replace(/\{x\}/g, hex2(n));
-    var bytes = exBytesField($('ex-cmd').value, n).concat(exBytesField($('ex-b2').value, n));
-    for (var i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 255);
-    bytes = bytes.concat(exBytesField($('ex-trail').value, n));
-    if (bytes.length > 40) throw new Error('Frame is ' + bytes.length + ' bytes (max 40)');
-    return bytes;
-  }
-  async function exSend() {
-    var bytes;
-    try { bytes = exFrame(); } catch (e) { toast(e.message, false); return; }
-    if (!exPrepared) {   // keep the test pattern / clock from overwriting test frames
-      await post('/ir', { test: false });          // stopping it restores the clock...
-      await post('/mode', { time_mode: false });   // ...so switch the clock off after
-      showMode(false);
-      exPrepared = true;
-    }
-    $('ex-hex').textContent = bytes.map(hex2).join(' ');
-    var ok = await post('/raw', { hex: bytes.map(hex2).join('') });
-    if (!ok) toast('Send failed', false);
-    exShowNote();
-  }
-  function exStep(d) {
-    var n = exN() + d;
-    if (n < 0) n = 255;
-    if (n > 255) n = 0;
-    $('ex-n').value = n;
-    exSend();
-  }
-  function exAuto() {
-    if (exTimer) { clearInterval(exTimer); exTimer = null; }
-    if ($('ex-auto').checked) {
-      var s = Math.max(1, parseInt($('ex-secs').value, 10) || 5);
-      exSend();
-      exTimer = setInterval(function () { exStep(1); }, s * 1000);
-    }
-  }
-  function exShowNote() {
-    // Structured (guided-form) notes: edit only their free-text part here
-    var v = exNotes[exKey()] || '', d = parseNote(v);
-    $('ex-key').textContent = exKey() + (d ? ' — ' + fxSummary(d) : '');
-    $('ex-note').value = d ? (d.text || '') : v;
-    $('ex-note').renderPreview && $('ex-note').renderPreview();
-  }
-  function exRenderNotes() {
-    var keys = Object.keys(exNotes).sort(function (a, b) {
-      var pa = a.split(':'), pb = b.split(':');
-      return pa[0] === pb[0] ? (+pa[1]) - (+pb[1]) : (pa[0] < pb[0] ? -1 : 1);
-    });
-    $('ex-count').textContent = keys.length;
-    var box = $('ex-notes');
-    box.innerHTML = '';
-    if (!keys.length) { box.innerHTML = '<p class="hint" style="margin:6px">No notes yet.</p>'; return; }
+  // ---- Shared notes list ----
+  function famLabel(k) { var f = fam(k.split(':')[0]); return f ? f.name : k.split(':')[0]; }
+  function xpRenderNotes() {
+    var filter = $('xp-filter').value;
+    var order = FAMILIES.map(function (f) { return f.id; });
+    var keys = Object.keys(exNotes).filter(function (k) { return !filter || k.indexOf(filter + ':') === 0; })
+      .sort(function (a, b) {
+        var pa = a.split(':'), pb = b.split(':'), fa = order.indexOf(pa[0]), fb = order.indexOf(pb[0]);
+        if (fa !== fb) return fa - fb;
+        return (parseInt(pa[1], 10) || 0) - (parseInt(pb[1], 10) || 0) || (pa[1] < pb[1] ? -1 : 1);
+      });
+    $('xp-count').textContent = '(' + Object.keys(exNotes).length + ')';
+    var box = $('xp-notes'); box.innerHTML = '';
+    if (!keys.length) { box.innerHTML = '<p class="hint">No notes yet.</p>'; return; }
     keys.forEach(function (k) {
-      var row = document.createElement('div');
-      row.className = 'note';
-      row.title = 'Load this frame';
-      var kk = document.createElement('span'); kk.className = 'key'; kk.textContent = k;
+      var row = document.createElement('div'); row.className = 'note';
+      var p = k.split(':'), f = fam(p[0]);
+      var kk = document.createElement('div'); kk.className = 'key';
+      kk.textContent = f && !f.custom ? f.title(+p[1]) : 'Custom ' + p.slice(1).join(':').replace(/(..)/g, '$1 ').trim();
       var vv = document.createElement('div'); vv.className = 'md'; vv.innerHTML = noteHtml(exNotes[k]);
-      row.appendChild(kk); row.appendChild(vv);
+      var del = document.createElement('button'); del.type = 'button'; del.className = 'btn icon del'; del.title = 'Delete note';
+      del.setAttribute('aria-label', 'Delete note for ' + kk.textContent); del.textContent = '×';
+      del.onclick = function (e) { e.stopPropagation(); if (confirm('Delete the note for ' + kk.textContent + '?')) xpDelete(k); };
       row.onclick = function () {
-        var p = k.split(':');
-        $('ex-preset').value = p[0]; exPreset(); $('ex-n').value = p[1]; exShowNote();
+        if (f && !f.custom) { xpGo(p[0], +p[1]); window.scrollTo({ top: 0, behavior: 'smooth' }); }
       };
+      row.title = f && !f.custom ? 'Open and show on the globe' : '';
+      row.appendChild(kk); row.appendChild(vv); row.appendChild(del);
       box.appendChild(row);
     });
   }
-  function exLoadNotes() {
+
+  // ---- Init ----
+  (function () {
+    var sel = $('xp-family'), flt = $('xp-filter');
+    flt.innerHTML = '<option value="">All types</option>';
+    FAMILIES.forEach(function (f) {
+      var o = document.createElement('option'); o.value = f.id; o.textContent = f.name; sel.appendChild(o);
+      var o2 = o.cloneNode(true); flt.appendChild(o2);
+    });
+    try { var s = JSON.parse(localStorage.getItem('xp')); if (s && fam(s.fam)) xp = { fam: s.fam, n: s.n | 0 }; } catch (e) {}
+    wireNoteBox('xp-note', 'xp-preview', function () { xpSave(false); });
+    xpBuildQuestions();
+    xpRender();
     fetch('/notes').then(function (r) { return r.json(); })
-      .then(function (d) { exNotes = d || {}; exRenderNotes(); exShowNote(); }).catch(function () {});
-  }
-  async function exSaveNote() {
-    var key = exKey(), note = $('ex-note').value.trim();
-    var d = parseNote(exNotes[key]);
-    if (d) {   // keep the structured choices, replace the free text
-      if (note) d.text = note; else delete d.text;
-      note = JSON.stringify(d);
-    }
-    try {
-      var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ key: key, note: note }) });
-      if (!r.ok) throw 0;
-      exNotes = await r.json(); exRenderNotes();
-      toast(note ? 'Saved note for ' + key : 'Deleted note for ' + key, true);
-    } catch (e) { toast('Could not save note', false); }
-  }
-  wireNoteBox('ex-note', 'ex-preview', exSaveNote);
-  $('ex-n').addEventListener('change', exShowNote);
-  exPreset();
-  exLoadNotes();
+      .then(function (d) { exNotes = d || {}; xpRenderNotes(); xpRender(); }).catch(function () {});
+    document.addEventListener('keydown', function (e) {
+      if (!(e.ctrlKey || e.metaKey) || $('tab-explorer').hidden) return;
+      if (e.key === 's' || e.key === 'S') { e.preventDefault(); xpSave(true); }
+      else if (e.key === 'Enter' && document.activeElement !== $('xp-note')) { e.preventDefault(); xpSave(false); }
+    });
+  })();
 
   // ---------------- Firmware (OTA) ----------------
   function doOTA() {
