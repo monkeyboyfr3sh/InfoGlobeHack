@@ -11,5 +11,9 @@
     "--query-driver=**",
     "--compile-commands-dir=c:\\Users\\david\\Documents\\code\\InfoGlobeHack\\hello_world\\build"
   ],
-  "idf.currentSetup": "C:\\Users\\DavidDev\\esp\\v5.2.5\\esp-idf"
+  "idf.currentSetup": "C:\\Espressif\\frameworks\\esp-idf-v5.5.4",
+  "idf.espIdfPathWin": "C:\\Espressif\\frameworks\\esp-idf-v5.5.4",
+  "idf.toolsPathWin": "C:\\Espressif",
+  "idf.pythonBinPathWin": "C:\\Espressif\\python_env\\idf5.5_py3.13_env\\Scripts\\python.exe",
+  "idf.gitPathWin": "C:\\Program Files\\Git\\cmd\\git.exe"
 }

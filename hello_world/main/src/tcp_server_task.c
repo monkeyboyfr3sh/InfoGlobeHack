@@ -13,6 +13,7 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "protocol_examples_common.h"
+#include "example_common_private.h"
 #include "string.h"
 
 #include "infoglobe_animations.h"
@@ -58,7 +59,11 @@ void tcp_server_task(void *pvParameters)
             size_t bw2 = snprintf(connect_msg, msg_max, "No WiFi...");
             send_string_w_bytes_to_queue(display_queue, connect_msg, bw2, 0x00, 0x0);
             vTaskDelay(pdMS_TO_TICKS(3000));
-            example_disconnect();
+            /* A failed example_connect() has already unregistered its event
+             * handlers and never registered its shutdown hook, so
+             * example_disconnect() would abort on ESP_ERR_NOT_FOUND. Just stop
+             * Wi-Fi and destroy the netif so the next attempt starts clean. */
+            example_wifi_stop();
         }
     } while (wifi_err != ESP_OK);
 

@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "driver/ledc.h"
 #include "driver/gptimer.h"
+#include "esp_private/periph_ctrl.h"
 #include <stdlib.h>
 #include <string.h>
 #include "esp_log.h"
@@ -39,14 +40,21 @@ void ir_tx_task(void *pvParameters)
     // Grab queue
     QueueHandle_t display_queue = (QueueHandle_t)(pvParameters);
 
+    // A software reset (panic, esp_restart) does not reset the LEDC peripheral.
+    // Stale state from the previous run (e.g. a pending duty_start) makes the
+    // ESP-IDF 5.5 LEDC driver spin forever in ledc_ll_set_duty_start() and the
+    // interrupt watchdog reboot-loops the board. Reset the peripheral first.
+    periph_module_reset(PERIPH_LEDC_MODULE);
+
     // Configure LEDC timer for 38 kHz
     ledc_timer_config_t ledc_timer = {
         .speed_mode = LEDC_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_8_BIT,
         .timer_num = LEDC_TIMER,
         .freq_hz = 38540,
+        .clk_cfg = LEDC_AUTO_CLK,
     };
-    ledc_timer_config(&ledc_timer);
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
 
     // Configure LEDC channel
     ledc_channel_config_t ledc_channel = {
@@ -57,7 +65,7 @@ void ir_tx_task(void *pvParameters)
         .timer_sel = LEDC_TIMER,
         .duty = PWM_DUTY,
     };
-    ledc_channel_config(&ledc_channel);
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
 
     // Initialize message
     initalize_message();
