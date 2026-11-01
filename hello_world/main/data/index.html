@@ -397,7 +397,13 @@
             <input type="number" id="xp-cam-secs" min="3" max="30" value="8" inputmode="numeric" style="width:64px" aria-label="Seconds per effect">
             <span class="hint" style="margin:0">s each</span>
           </div>
-          <p class="hint" id="xp-cam-status" style="margin:6px 0 0">Plays every unanswered test of this type, one after another, for filming.</p>
+          <div class="row" style="margin-top:6px">
+            <label class="check" title="Before: 12345678, after: 22:ABCDE, so the order of every position is visible on video">
+              <input type="checkbox" id="xp-distinct" checked onchange="xpRender(true)"> Distinct characters</label>
+            <span class="hint" style="margin:0">Repeat</span>
+            <input type="number" id="xp-cam-rep" min="1" max="3" value="2" inputmode="numeric" style="width:56px" aria-label="Times to play each test">
+          </div>
+          <p class="hint" id="xp-cam-status" style="margin:6px 0 0">Plays every unanswered or proposed test of this type, one after another, for filming.</p>
         </div>
         <div class="xp-list" id="xp-list" role="listbox" aria-label="Tests"></div>
       </aside>
@@ -1037,13 +1043,15 @@
   }
   function xpRenderFrame() {
     var f = fam(), hex;
-    try { hex = xpBytes().map(hex2).join(' '); } catch (e) { hex = e.message; }
+    var pair = null;
+    try { pair = xpFramePair(); hex = pair.test.map(hex2).join(' '); } catch (e) { hex = e.message; }
     $('xp-hex').textContent = hex;
     $('xp-title').textContent = f.title(xp.n);
     $('xp-look').textContent = f.look(xp.n);
     $('xp-saved').hidden = exNotes[xpKey()] === undefined;
     $('xp-custom').hidden = !f.custom;
     $('xp-clear').disabled = exNotes[xpKey()] === undefined;
+    if (pair && pair.text) $('xp-look').textContent = 'Watch how "' + pair.text + '" replaces "12345678" (distinct characters mode).';
     if (!f.custom && f.list.indexOf(xp.n) < 0) $('xp-look').textContent += ' (Value ' + xp.n + ' is outside the suggested list.)';
     xpRenderList();
   }
@@ -1100,12 +1108,24 @@
     showMode(false);
     xpPrepared = true;
   }
+  // Effects in "distinct characters" mode use a unique character in every visible
+  // position, so video shows which positions leave/arrive and in what order:
+  //   before 12345678 (static)   ->   test "22:ABCDE" with effect 22
+  function xpDistinct() { return xp.fam === 'fx' && $('xp-distinct') && $('xp-distinct').checked; }
+  function xpFramePair() {
+    if (!xpDistinct()) return { before: BLANK_FRAME, test: xpBytes() };
+    var label = num(xp.n) + ':';
+    var text = label + 'ABCDEFGH'.slice(0, 8 - label.length);
+    return { before: [0x05, 0x00].concat(txt('12345678'), [0x00, 0x00, 0x08]),
+             test: [0x00, 0x00].concat(txt(text), [xp.n & 255]), text: text };
+  }
   async function xpSend() {
     var bytes;
-    try { bytes = xpBytes(); } catch (e) { toast(e.message, false); return; }
+    var pair;
+    try { pair = xpFramePair(); bytes = pair.test; } catch (e) { toast(e.message, false); return; }
     var seq = ++xpSendSeq;
     await xpPrepare();
-    await post('/raw', { hex: BLANK_FRAME.map(hex2).join('') });     // neutral state first...
+    await post('/raw', { hex: pair.before.map(hex2).join('') });     // neutral state first...
     await new Promise(function (r) { setTimeout(r, 1500); });
     if (seq !== xpSendSeq) return;                                  // moved on meanwhile
     var ok = await post('/raw', { hex: bytes.map(hex2).join('') }); // ...then the test frame
@@ -1237,13 +1257,17 @@
     });
     if (!todo.length) { toast('Nothing left to film for ' + f.name, true); return; }
     var secs = Math.max(3, Math.min(30, parseInt($('xp-cam-secs').value, 10) || 8));
+    var reps = Math.max(1, Math.min(3, parseInt($('xp-cam-rep').value, 10) || 1));
     camRunning = true;
     $('xp-cam').textContent = 'Stop';
     for (var i = 0; i < todo.length && camRunning; i++) {
       xpGo(f.id, todo[i], false);
-      $('xp-cam-status').textContent = 'Filming ' + f.title(todo[i]) + ' (' + (i + 1) + ' of ' + todo.length + ')';
-      await xpSend();
-      for (var t = 0; t < secs * 10 && camRunning; t++) await new Promise(function (r) { setTimeout(r, 100); });
+      for (var r = 1; r <= reps && camRunning; r++) {
+        $('xp-cam-status').textContent = 'Filming ' + f.title(todo[i]) + (reps > 1 ? ', take ' + r + ' of ' + reps : '') +
+                                         ' (' + (i + 1) + ' of ' + todo.length + ')';
+        await xpSend();
+        for (var t = 0; t < secs * 10 && camRunning; t++) await new Promise(function (res) { setTimeout(res, 100); });
+      }
     }
     $('xp-cam-status').textContent = camRunning ? 'Done: ' + todo.length + ' tests played.' : 'Stopped.';
     camRunning = false;
