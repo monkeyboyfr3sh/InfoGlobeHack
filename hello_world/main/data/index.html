@@ -744,6 +744,9 @@
       ['drop', 'Drops in'], ['instant', 'Appears instantly'], ['other', 'Other'] ] },
     { id: 'entryStyle', label: 'Style', sub: true, show: function (s) { return s.entry === 'spin' || s.entry === 'both'; },
       opts: [['banner', 'Banner: text slides in'], ['wipe', 'Wiper: reveals text in place']] },
+    { id: 'entryPasses', label: 'Passes', sub: true,
+      show: function (s) { return (s.entry === 'spin' || s.entry === 'both') && s.entryStyle === 'wipe'; },
+      opts: [['1', 'One pass'], ['2-even', 'Two passes: even, then odd'], ['2-odd', 'Two passes: odd, then even']] },
     { id: 'entryDir', label: 'Direction', sub: true, show: function (s) { return s.entry === 'spin'; },
       opts: [['lr', 'Left → right'], ['rl', 'Right → left']] },
     { id: 'rows', label: 'Row pattern', sub: true, show: function (s) { return s.entry === 'rows'; }, opts: [
@@ -761,7 +764,7 @@
   ].concat(AFTER_FIELDS);
   var ALL_FIELDS = FX_FIELDS.concat(RESULT_FIELDS);
   // Answer fields carried over when pre-filling a new effect from the previous one
-  var PREFILL_IDS = ['entry', 'entryStyle', 'entryDir', 'rows', 'entrySpeed', 'old', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
+  var PREFILL_IDS = ['entry', 'entryStyle', 'entryPasses', 'entryDir', 'rows', 'entrySpeed', 'old', 'afterSpin', 'afterBlink', 'afterDir', 'afterSpeed'];
 
   var exNotes = {};
   var xp = { fam: 'fx', n: 0 };
@@ -805,6 +808,8 @@
     if (d.entry) {
       var e = optLabel('entry', d.entry), q = [];
       if ((d.entry === 'spin' || d.entry === 'both') && d.entryStyle) q.push(d.entryStyle === 'wipe' ? 'wiper' : 'banner');
+      if (d.entryStyle === 'wipe' && d.entryPasses && d.entryPasses !== '1')
+        q.push(d.entryPasses === '2-even' ? 'two passes: even then odd' : 'two passes: odd then even');
       if (d.entry === 'spin' && d.entryDir) q.push(low(optLabel('entryDir', d.entryDir)));
       if (d.entry === 'rows' && d.rows) q.push(low(optLabel('rows', d.rows)));
       if (d.entrySpeed) q.push(low(d.entrySpeed));
