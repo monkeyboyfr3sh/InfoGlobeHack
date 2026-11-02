@@ -1123,7 +1123,14 @@
   //   before 12345678 (static)   ->   test "22:ABCDE" with effect 22
   function xpDistinct() { return xp.fam === 'fx' && $('xp-distinct') && $('xp-distinct').checked; }
   function xpFramePair() {
-    if (!xpDistinct()) return { before: BLANK_FRAME, test: xpBytes() };
+    // Tests whose own frame doesn't name them get a label as the "before" frame,
+    // so every test is identifiable on video (e.g. CHR 40, CMD 07, LEN 12).
+    var LABELS = { chars: 'CHR ' + hex2(xp.n), alone: 'CMD ' + hex2(xp.n) + ' ->', len: 'LEN ' + pad2(xp.n),
+                   cmd: 'CMD ' + hex2(xp.n) + ' ->' };
+    if (!xpDistinct()) {
+      var lab = LABELS[xp.fam];
+      return { before: lab ? [0x05, 0x00].concat(txt(lab), [0x00, 0x00, 0x08]) : BLANK_FRAME, test: xpBytes() };
+    }
     var label = num(xp.n) + ':';
     var text = label + 'ABCDEFGH'.slice(0, 8 - label.length);
     return { before: [0x05, 0x00].concat(txt('12345678'), [0x00, 0x00, 0x08]),
