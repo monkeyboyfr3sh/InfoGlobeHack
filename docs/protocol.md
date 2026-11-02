@@ -68,7 +68,17 @@ From the Shift byte test (camera capture `PXL_20261102_041458653.mp4`, text `SHI
 From the Second byte test (camera capture `PXL_20261102_045819838.mp4`, text `E2 nn`, effect 0).
 
 - The byte after the command is **not a setting**: it is simply the **first character of the text**. `00` draws nothing (that is why every known frame has `00` there); values 1-15 put an extra glyph in front of the text.
-- So control codes `01`-`1F` appear to have their own glyphs. Their shapes are being captured with the *Control characters* test.
+- Control codes `01`-`1A` are **accented letters** (camera capture `PXL_20261102_050925740.mp4`, Control characters test):
+
+| Codes | Glyphs |
+|---|---|
+| `01`-`08` | à á â ä è é ê ë |
+| `09`-`10` | ì í î ï ò ó ô ö |
+| `11`-`18` | ù ú û ü Ç ñ, then two unclear symbols (`17`, `18`) |
+| `19`-`1A` | an i-like glyph (`19`), É (`1A`) |
+| `1B`-`1F` | blank |
+
+  So text in French, Spanish or German mostly works: the designer can map these letters to their codes. `00` is the only code that draws nothing, which is why it ends the text.
 - Transition and speed did not change.
 
 ## Frame formats
