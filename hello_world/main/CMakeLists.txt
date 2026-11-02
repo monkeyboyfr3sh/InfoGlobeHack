@@ -28,7 +28,27 @@ idf_component_register(SRCS
         spiffs
         infoglobe_datatype)
 
-spiffs_create_partition_image(spiffs data FLASH_IN_PROJECT)
+# Web designer (../web, Vite + Preact): rebuilt into data/designer.html.gz when
+# its sources change, if Node is installed and `npm install` has been run.
+# The built file is committed, so the firmware still builds without Node.
+set(WEB_DIR ${CMAKE_CURRENT_LIST_DIR}/../../web)
+set(DESIGNER_GZ ${CMAKE_CURRENT_LIST_DIR}/data/designer.html.gz)
+find_program(NPM_EXE NAMES npm.cmd npm)
+set(SPIFFS_EXTRA_DEPENDS "")
+if(NPM_EXE AND EXISTS ${WEB_DIR}/node_modules)
+    file(GLOB_RECURSE WEB_SOURCES CONFIGURE_DEPENDS ${WEB_DIR}/src/*)
+    add_custom_command(OUTPUT ${DESIGNER_GZ}
+        COMMAND ${NPM_EXE} run build
+        WORKING_DIRECTORY ${WEB_DIR}
+        DEPENDS ${WEB_SOURCES} ${WEB_DIR}/index.html ${WEB_DIR}/vite.config.js
+                ${CMAKE_CURRENT_LIST_DIR}/../../docs/effects.json
+        COMMENT "Building the web designer (npm run build)"
+        VERBATIM)
+    add_custom_target(web_designer DEPENDS ${DESIGNER_GZ})
+    set(SPIFFS_EXTRA_DEPENDS DEPENDS web_designer)
+endif()
+
+spiffs_create_partition_image(spiffs data FLASH_IN_PROJECT ${SPIFFS_EXTRA_DEPENDS})
 
 # set_source_files_properties(
 #     "main.c" 

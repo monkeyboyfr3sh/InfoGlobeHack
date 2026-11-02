@@ -296,6 +296,7 @@
     <button class="tab" role="tab" data-tab="ir">IR Link</button>
     <button class="tab" role="tab" data-tab="explorer">Explorer</button>
     <button class="tab" role="tab" data-tab="firmware">Firmware</button>
+    <a class="tab" href="/designer" style="text-decoration:none">Designer &#8599;</a>
   </nav>
 
   <!-- ============================ CONTROL ============================ -->
@@ -519,7 +520,7 @@
 
   // ---------------- Tabs ----------------
   function showTab(name) {
-    document.querySelectorAll('.tab').forEach(function (t) {
+    document.querySelectorAll('.tab[data-tab]').forEach(function (t) {
       var on = t.dataset.tab === name;
       t.setAttribute('aria-selected', on);
       $('tab-' + t.dataset.tab).hidden = !on;
@@ -527,7 +528,7 @@
     document.querySelector('.wrap').classList.toggle('wide', name === 'explorer');
     try { localStorage.setItem('tab', name); } catch (e) {}
   }
-  document.querySelectorAll('.tab').forEach(function (t) {
+  document.querySelectorAll('.tab[data-tab]').forEach(function (t) {
     t.onclick = function () { showTab(t.dataset.tab); };
   });
   (function () {
