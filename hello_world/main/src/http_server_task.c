@@ -17,6 +17,7 @@
 #include "infoglobe_animations.h"
 #include "frame_maker_task.h"
 #include "ir_led_task.h"
+#include "api_v1.h"
 
 static const char *TAG = "HTTP_SERVER";
 
@@ -550,7 +551,8 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     init_notes_fs();
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers    = 16;
+    config.max_uri_handlers    = 24;
+    config.uri_match_fn        = httpd_uri_match_wildcard;   // for /api/v1/* (OPTIONS)
     config.stack_size          = 8192;
     config.recv_wait_timeout   = 60; // seconds — needed for OTA uploads
     config.send_wait_timeout   = 60;
@@ -579,6 +581,8 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     for (int i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         httpd_register_uri_handler(server, &routes[i]);
     }
+
+    api_v1_register(server, display_queue);
 
     ESP_LOGI(TAG, "HTTP server started on port %d", config.server_port);
     return server;

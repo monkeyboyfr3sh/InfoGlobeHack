@@ -9,6 +9,9 @@ idf_component_register(SRCS
     "src/tcp_helpers.c"
     "src/http_server_task.c"
     "src/network.c"
+    "src/globe_frame.c"
+    "src/globe_effects.c"
+    "src/api_v1.c"
     INCLUDE_DIRS "" "inc"
     REQUIRES
         esp_driver_rmt
