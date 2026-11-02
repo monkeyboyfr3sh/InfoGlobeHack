@@ -72,10 +72,11 @@ From the Shift byte test (camera capture `PXL_20261102_041458653.mp4`, text `SHI
 | `00` | `00 00 <text> <effect>` | Show text using transition `<effect>` (see below); spins afterwards |
 | `01`, `07` | `01 00 <text> 00` | Still text, left-aligned, appears instantly, no spin |
 | `02` | `02 00 <text> 00` | Whole text flashes on/off (~1 Hz); a small underscore shows while off |
-| `03`, `04` | `04 00 <text> 00` | Show text immediately and spin it; `04` alone blanks the display (community docs) |
+| `03`, `04` | `04 00 <text> 00` | Show text immediately and spin it |
 | `05` | `05 00 <text> 00 <blink> <shift>` | Still, positioned text; used by the clock. `<blink>` = 1 + number of leading characters that blink (0/1 = none, len+1 = all); `<shift>` = horizontal position |
 | `06` | `06 00 <text> 00` | Starts the current still text spinning, then brings the new text in ("toggle scrolling") |
-| `08`–`1E` even | – | Ignored |
+| `01`–`04`, `07` alone | single byte | **Blank the display** (`04` is the clean clear-screen) |
+| `08`–`1E` even | – | Ignored (also when sent alone) |
 | `09`–`1F` odd, `FF` | – | Show text and spin it (same as `04`) |
 | `80`, `81` | – | Glitchy: stray glyphs and blank flashes; avoid |
 
@@ -132,5 +133,4 @@ Unless noted, after the transition the text spins right → left at normal speed
 - Pattern worth noting: 26–29 (drop) and 30–33 (pluck) each come as left→right, right→left, even-then-odd (both left→right), and a fixed scramble 2,4,7,6,5,8,3,1. FX 15/22/23 are in-place two-pass variants.
 - Byte 2 of effect frames (always `00` so far).
 - `05` byte 2.
-- Command bytes sent alone (no text).
 - Minimum reliable idle gap between frames.
