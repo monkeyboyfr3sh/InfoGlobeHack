@@ -743,6 +743,11 @@
                                   'left to right; mention anything that is not a normal letter, digit or symbol.'; },
       bytes: function (n) { var b = []; for (var i = 0; i < 8; i++) b.push((n + i) & 255);
                             return [0x05, 0x00].concat(b, [0x00, 0x00, 0x08]); } },
+    { id: 'ctrl', name: 'Control characters', list: [1, 9, 17, 25],
+      title: function (n) { return 'Control codes ' + hex2(n) + '–' + hex2(Math.min(n + 7, 31)); },
+      look: function (n) { return 'Eight control codes as still text (' + hex2(n) + ' to ' + hex2(Math.min(n + 7, 31)) + '). Do any show a symbol?'; },
+      bytes: function (n) { var b = []; for (var i = 0; i < 8 && n + i <= 31; i++) b.push(n + i);
+                            return [0x05, 0x00].concat(b, [0x00, 0x00, 0x08]); } },
     { id: 'len', name: 'Text length', list: [1, 4, 8, 12, 16, 20, 24, 30, 35],
       title: function (n) { return 'Text length ' + n; },
       look: function (n) { return 'Sends "' + LEN_TEXT.slice(0, n) + '" with effect 0. Does it all fit? Does it scroll, ' +
@@ -1125,7 +1130,7 @@
   function xpFramePair() {
     // Tests whose own frame doesn't name them get a label as the "before" frame,
     // so every test is identifiable on video (e.g. CHR 40, CMD 07, LEN 12).
-    var LABELS = { chars: 'CHR ' + hex2(xp.n), alone: 'CMD ' + hex2(xp.n) + ' ->', len: 'LEN ' + pad2(xp.n),
+    var LABELS = { chars: 'CHR ' + hex2(xp.n), ctrl: 'CTL ' + hex2(xp.n), alone: 'CMD ' + hex2(xp.n) + ' ->', len: 'LEN ' + pad2(xp.n),
                    cmd: 'CMD ' + hex2(xp.n) + ' ->' };
     if (!xpDistinct()) {
       var lab = LABELS[xp.fam];

@@ -63,6 +63,14 @@ From the Shift byte test (camera capture `PXL_20261102_041458653.mp4`, text `SHI
 - Each step of the shift byte moves the text **left by about one dot column** (~1/5 of a character). 0 = far right, about 8 = centred in front for 8 characters (the clock's setting), 16 = far left with the first letters off the window.
 - So `05` frames are the way to show still, precisely positioned text; effect frames (`00`) always spin.
 
+## Second byte (effect frames)
+
+From the Second byte test (camera capture `PXL_20261102_045819838.mp4`, text `E2 nn`, effect 0).
+
+- The byte after the command is **not a setting**: it is simply the **first character of the text**. `00` draws nothing (that is why every known frame has `00` there); values 1-15 put an extra glyph in front of the text.
+- So control codes `01`-`1F` appear to have their own glyphs. Their shapes are being captured with the *Control characters* test.
+- Transition and speed did not change.
+
 ## Frame formats
 
 `[command] [byte 2] [text …] [trailer …]`
