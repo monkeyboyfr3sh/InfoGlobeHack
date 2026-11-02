@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "http_server_task.h"
 
 #include <string.h>
@@ -8,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_spiffs.h"
+#include "esp_heap_caps.h"
 #include "cJSON.h"
 #include "nvs.h"
 
@@ -414,15 +416,35 @@ static bool notes_save(const cJSON *notes)
     if (out && strlen(out) <= NOTES_MAX_BYTES) {
         // Write a temp file, then swap it in, so a reset mid-write can't
         // leave a half-written notes file behind.
+        // SPIFFS only reclaims pages from deleted/overwritten files during
+        // garbage collection; rewriting a ~50 KB file over and over runs it
+        // out of free blocks (ENOSPC) long before the partition is full.
+        // Drop any half-written temp file and make room up front.
+        remove(NOTES_TMP);
+        esp_err_t gc = esp_spiffs_gc("notes", strlen(out) + 4096);
+        if (gc != ESP_OK) {
+            ESP_LOGW(TAG, "notes: gc returned %s", esp_err_to_name(gc));
+        }
         FILE *f = fopen(NOTES_TMP, "w");
-        if (f) {
+        if (!f) {
+            ESP_LOGE(TAG, "notes: fopen tmp failed, errno %d", errno);
+        } else {
             ok = fputs(out, f) >= 0;
-            ok = (fclose(f) == 0) && ok;
+            if (!ok) ESP_LOGE(TAG, "notes: write failed, errno %d", errno);
+            if (fclose(f) != 0) { ESP_LOGE(TAG, "notes: close failed, errno %d", errno); ok = false; }
         }
         if (ok) {
-            remove(NOTES_FILE);
+            if (remove(NOTES_FILE) != 0) ESP_LOGW(TAG, "notes: remove old failed, errno %d", errno);
             ok = rename(NOTES_TMP, NOTES_FILE) == 0;
+            if (!ok) ESP_LOGE(TAG, "notes: rename failed, errno %d", errno);
         }
+    }
+    if (!ok) {
+        size_t total = 0, used = 0;
+        esp_spiffs_info("notes", &total, &used);
+        ESP_LOGE(TAG, "Notes save failed: %u bytes, fs %u/%u used, largest free block %u",
+                 (unsigned)(out ? strlen(out) : 0), (unsigned)used, (unsigned)total,
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
     }
     free(out);
     return ok;
