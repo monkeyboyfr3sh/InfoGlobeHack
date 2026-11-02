@@ -47,6 +47,14 @@ From the Text length test (camera capture `PXL_20261102_040254379.mp4`, effect 0
 - **Visible front window:** about 12 characters edge to edge, about 8 comfortably readable in the middle.
 - Character widths vary (see *Character set*), so these figures are approximate.
 
+## Blink (command `05`)
+
+From the Blink byte test (camera capture `PXL_20261102_041106217.mp4`, text `BLINK nn`).
+
+- The blink byte **n** makes the **first n − 1 characters** of the text blink; the rest stay steady. 0 and 1 mean no blinking; text length + 1 (or more) blinks everything.
+- Rate is about **1 Hz** (on ~0.5 s, off ~0.5 s).
+- Blinking always covers the **start** of the text, so to blink one word, put it first (e.g. `DOWN NAS`, or the `0x80` envelope icon in front of a message).
+
 ## Frame formats
 
 `[command] [byte 2] [text …] [trailer …]`
@@ -55,7 +63,7 @@ From the Text length test (camera capture `PXL_20261102_040254379.mp4`, effect 0
 |---|---|---|
 | `00` | `00 00 <text> <effect>` | Show text using transition `<effect>` (see below) |
 | `04` | `04 <text>` | Show text immediately and scroll it; `04` alone blanks the display (community docs; not yet re-tested) |
-| `05` | `05 00 <text> 00 <blink> <shift>` | Static text; used by the clock. Blink/shift semantics under test |
+| `05` | `05 00 <text> 00 <blink> <shift>` | Static text; used by the clock. `<blink>` = 1 + number of leading characters that blink (0/1 = none, len+1 = all); `<shift>` under test |
 | `06` | `06` | Toggles scrolling (community docs; not yet re-tested) |
 | others | – | under test |
 
