@@ -55,6 +55,14 @@ From the Blink byte test (camera capture `PXL_20261102_041106217.mp4`, text `BLI
 - Rate is about **1 Hz** (on ~0.5 s, off ~0.5 s).
 - Blinking always covers the **start** of the text, so to blink one word, put it first (e.g. `DOWN NAS`, or the `0x80` envelope icon in front of a message).
 
+## Shift / position (command `05`)
+
+From the Shift byte test (camera capture `PXL_20261102_041458653.mp4`, text `SHIFT nn`).
+
+- `05` frames are **static**: the text does not spin, it stays where the shift byte puts it.
+- Each step of the shift byte moves the text **left by about one dot column** (~1/5 of a character). 0 = far right, about 8 = centred in front for 8 characters (the clock's setting), 16 = far left with the first letters off the window.
+- So `05` frames are the way to show still, precisely positioned text; effect frames (`00`) always spin.
+
 ## Frame formats
 
 `[command] [byte 2] [text …] [trailer …]`
@@ -63,7 +71,7 @@ From the Blink byte test (camera capture `PXL_20261102_041106217.mp4`, text `BLI
 |---|---|---|
 | `00` | `00 00 <text> <effect>` | Show text using transition `<effect>` (see below) |
 | `04` | `04 <text>` | Show text immediately and scroll it; `04` alone blanks the display (community docs; not yet re-tested) |
-| `05` | `05 00 <text> 00 <blink> <shift>` | Static text; used by the clock. `<blink>` = 1 + number of leading characters that blink (0/1 = none, len+1 = all); `<shift>` under test |
+| `05` | `05 00 <text> 00 <blink> <shift>` | Static text; used by the clock. `<blink>` = 1 + number of leading characters that blink (0/1 = none, len+1 = all); `<shift>` = horizontal position of the (static) text |
 | `06` | `06` | Toggles scrolling (community docs; not yet re-tested) |
 | others | – | under test |
 
@@ -119,6 +127,6 @@ Unless noted, after the transition the text spins right → left at normal speed
 
 - Pattern worth noting: 26–29 (drop) and 30–33 (pluck) each come as left→right, right→left, even-then-odd (both left→right), and a fixed scramble 2,4,7,6,5,8,3,1. FX 15/22/23 are in-place two-pass variants.
 - Byte 2 of effect frames (always `00` so far).
-- `05` blink and shift bytes; `05` byte 2.
+- `05` byte 2.
 - Unknown command bytes (`01`–`03`, `07`–`1F`, `80`, `81`, `FF`), with and without text.
 - Minimum reliable idle gap between frames.
