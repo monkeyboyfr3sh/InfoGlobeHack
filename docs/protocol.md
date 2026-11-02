@@ -37,6 +37,16 @@ The font is a cut-down 7-row ASCII set, apparently made for caller-ID style mess
 Practical notes: no `%` or `+` (write `CPU 42`, `42 pct`); `0x80` is a ready-made "message/alert" symbol.
 Glyph widths vary (e.g. `#`, `M`, `W` are wide; `!`, `i`, `l` narrow), so text width is not a fixed 8 characters.
 
+## Display geometry and text length
+
+From the Text length test (camera capture `PXL_20261102_040254379.mp4`, effect 0, 1–35 characters).
+
+- **Text is never cut off.** All lengths up to 35 characters (the frame limit) are shown in full and spin around the globe.
+- **The band holds about 37–38 character widths** around the whole circumference (at 35 characters the end meets the start with a small gap).
+- **Short text is repeated around the band** with a gap of a few characters, like a ticker: 1 character appears many times, 4 characters about twice in view, 8–12 characters repeat with a gap. A short message (e.g. the clock) can be read from any side.
+- **Visible front window:** about 12 characters edge to edge, about 8 comfortably readable in the middle.
+- Character widths vary (see *Character set*), so these figures are approximate.
+
 ## Frame formats
 
 `[command] [byte 2] [text …] [trailer …]`
@@ -100,7 +110,6 @@ Unless noted, after the transition the text spins right → left at normal speed
 ## Open questions / next tests
 
 - Pattern worth noting: 26–29 (drop) and 30–33 (pluck) each come as left→right, right→left, even-then-odd (both left→right), and a fixed scramble 2,4,7,6,5,8,3,1. FX 15/22/23 are in-place two-pass variants.
-- Text length: how many characters fit around the globe; scroll, cut off or wrap.
 - Byte 2 of effect frames (always `00` so far).
 - `05` blink and shift bytes; `05` byte 2.
 - Unknown command bytes (`01`–`03`, `07`–`1F`, `80`, `81`, `FF`), with and without text.
