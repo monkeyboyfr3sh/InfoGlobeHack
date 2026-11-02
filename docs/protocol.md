@@ -63,7 +63,7 @@ From the Shift byte test (camera capture `PXL_20261102_041458653.mp4`, text `SHI
 - Each step of the shift byte moves the text **left by about one dot column** (~1/5 of a character). 0 = far right, about 8 = centred in front for 8 characters (the clock's setting), 16 = far left with the first letters off the window.
 - So `05` frames are the way to show still, precisely positioned text; effect frames (`00`) always spin.
 
-## Second byte (effect frames)
+## Second byte (all frame types)
 
 From the Second byte test (camera capture `PXL_20261102_045819838.mp4`, text `E2 nn`, effect 0).
 
@@ -79,7 +79,8 @@ From the Second byte test (camera capture `PXL_20261102_045819838.mp4`, text `E2
 | `1B`-`1F` | blank |
 
   So text in French, Spanish or German mostly works: the designer can map these letters to their codes. `00` is the only code that draws nothing, which is why it ends the text.
-- Transition and speed did not change.
+- Transition and speed did not change. The same holds for `05` frames (camera capture `PXL_20261102_052616164.mp4`): the glyph appears in front of the still text.
+- So every frame is really `<command> <text, NUL-padded> ...`; keep byte 2 as `00` unless the first character should be one of the accented letters.
 
 ## Frame formats
 
@@ -150,5 +151,4 @@ Unless noted, after the transition the text spins right → left at normal speed
 
 - Pattern worth noting: 26–29 (drop) and 30–33 (pluck) each come as left→right, right→left, even-then-odd (both left→right), and a fixed scramble 2,4,7,6,5,8,3,1. FX 15/22/23 are in-place two-pass variants.
 - Byte 2 of effect frames (always `00` so far).
-- `05` byte 2.
 - Minimum reliable idle gap between frames.
