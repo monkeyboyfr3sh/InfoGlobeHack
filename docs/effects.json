@@ -12,7 +12,8 @@
       "exitType": "overwrite",
       "name": "Slide in →",
       "group": "Slides",
-      "durationMs": 1500
+      "durationMs": 4500,
+      "calibrated": true
     },
     "1": {
       "afterSpin": true,
@@ -24,7 +25,8 @@
       "exitType": "overwrite",
       "name": "Slide in ←",
       "group": "Slides",
-      "durationMs": 1500
+      "durationMs": 4500,
+      "calibrated": false
     },
     "2": {
       "afterSpin": true,
@@ -36,7 +38,8 @@
       "exitType": "overwrite",
       "name": "Pincer",
       "group": "Slides",
-      "durationMs": 1500
+      "durationMs": 3000,
+      "calibrated": false
     },
     "3": {
       "afterSpin": true,
@@ -47,7 +50,8 @@
       "exitType": "fade",
       "name": "Crossfade",
       "group": "Fades",
-      "durationMs": 1500
+      "durationMs": 1500,
+      "calibrated": false
     },
     "4": {
       "afterSpin": true,
@@ -59,8 +63,9 @@
       "exitType": "overwrite",
       "name": "Slide in → (B)",
       "group": "Slides",
-      "durationMs": 1500,
-      "sameAs": 0
+      "durationMs": 4500,
+      "sameAs": 0,
+      "calibrated": false
     },
     "5": {
       "afterSpin": true,
@@ -72,8 +77,9 @@
       "exitType": "overwrite",
       "name": "Slide in ← (B)",
       "group": "Slides",
-      "durationMs": 1500,
-      "sameAs": 1
+      "durationMs": 4500,
+      "sameAs": 1,
+      "calibrated": false
     },
     "6": {
       "afterSpin": true,
@@ -87,7 +93,8 @@
       "exitSpeed": "normal",
       "name": "Push →",
       "group": "Slides",
-      "durationMs": 2000
+      "durationMs": 4500,
+      "calibrated": false
     },
     "7": {
       "afterSpin": true,
@@ -101,8 +108,9 @@
       "exitSpeed": "normal",
       "name": "Push → (B)",
       "group": "Slides",
-      "durationMs": 2000,
-      "sameAs": 6
+      "durationMs": 4500,
+      "sameAs": 6,
+      "calibrated": false
     },
     "8": {
       "afterSpin": true,
@@ -114,7 +122,8 @@
       "exitType": "instant",
       "name": "Rise",
       "group": "Build-ups",
-      "durationMs": 1000
+      "durationMs": 1200,
+      "calibrated": false
     },
     "9": {
       "afterSpin": true,
@@ -126,7 +135,8 @@
       "exitType": "instant",
       "name": "Bloom",
       "group": "Build-ups",
-      "durationMs": 1000
+      "durationMs": 1200,
+      "calibrated": false
     },
     "10": {
       "afterSpin": true,
@@ -138,7 +148,8 @@
       "exitType": "instant",
       "name": "Interlace",
       "group": "Build-ups",
-      "durationMs": 1000
+      "durationMs": 1200,
+      "calibrated": false
     },
     "11": {
       "afterSpin": true,
@@ -150,7 +161,8 @@
       "exitType": "instant",
       "name": "Converge",
       "group": "Build-ups",
-      "durationMs": 1000
+      "durationMs": 1200,
+      "calibrated": false
     },
     "12": {
       "afterSpin": true,
@@ -163,7 +175,8 @@
       "exitType": "overwrite",
       "name": "Wiper reveal →",
       "group": "Wipers",
-      "durationMs": 1000
+      "durationMs": 1200,
+      "calibrated": false
     },
     "13": {
       "afterSpin": true,
@@ -176,7 +189,8 @@
       "exitType": "overwrite",
       "name": "Wiper reveal ←",
       "group": "Wipers",
-      "durationMs": 1000
+      "durationMs": 1200,
+      "calibrated": false
     },
     "14": {
       "afterSpin": true,
@@ -189,7 +203,8 @@
       "exitType": "overwrite",
       "name": "Two-pass wiper ←",
       "group": "Wipers",
-      "durationMs": 1600
+      "durationMs": 2000,
+      "calibrated": false
     },
     "15": {
       "name": "Even-odd reveal",
@@ -202,7 +217,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Letter swaps",
-      "durationMs": 4000
+      "durationMs": 3500,
+      "calibrated": true
     },
     "16": {
       "afterSpin": true,
@@ -216,7 +232,8 @@
       "exitVDir": "down",
       "name": "Elevator up",
       "group": "Vertical",
-      "durationMs": 1200
+      "durationMs": 1500,
+      "calibrated": false
     },
     "17": {
       "afterSpin": true,
@@ -230,7 +247,8 @@
       "exitVDir": "up",
       "name": "Elevator down",
       "group": "Vertical",
-      "durationMs": 1200
+      "durationMs": 1500,
+      "calibrated": false
     },
     "18": {
       "afterSpin": true,
@@ -244,7 +262,8 @@
       "exitVDir": "down",
       "name": "Drop through",
       "group": "Vertical",
-      "durationMs": 1200
+      "durationMs": 1500,
+      "calibrated": false
     },
     "19": {
       "afterSpin": true,
@@ -258,7 +277,8 @@
       "exitVDir": "up",
       "name": "Lift through",
       "group": "Vertical",
-      "durationMs": 1200
+      "durationMs": 1500,
+      "calibrated": false
     },
     "20": {
       "afterSpin": true,
@@ -271,8 +291,9 @@
       "exitType": "overwrite",
       "name": "Wiper reveal → (B)",
       "group": "Wipers",
-      "durationMs": 1000,
-      "sameAs": 12
+      "durationMs": 1200,
+      "sameAs": 12,
+      "calibrated": false
     },
     "21": {
       "afterSpin": true,
@@ -285,8 +306,9 @@
       "exitType": "overwrite",
       "name": "Wiper reveal ← (B)",
       "group": "Wipers",
-      "durationMs": 1000,
-      "sameAs": 13
+      "durationMs": 1200,
+      "sameAs": 13,
+      "calibrated": false
     },
     "22": {
       "name": "Letter shuffle",
@@ -301,7 +323,8 @@
       "afterSpeed": "normal",
       "text": "Nothing moves; letters switch off and on in place.\n- **Out:** every other dash goes dark first, then the rest disappear left to right (the rightmost one is last).\n- **Blank** for about 1 s.\n- **In:** letters appear one at a time in a scrambled order: X, the last 2, F, then the first 2.\n- Whole transition takes about 3 s.\n\n_Proposed from camera footage PXL_20261101_221913804.mp4 (frames: captures/PXL_20261101_221913804_fx22_frames.png). Check the in-order on the globe; 8 fps sampling could hide a quick step._",
       "group": "Letter swaps",
-      "durationMs": 1500
+      "durationMs": 2500,
+      "calibrated": false
     },
     "23": {
       "name": "Two-pass swap ↔",
@@ -317,7 +340,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Letter swaps",
-      "durationMs": 5000
+      "durationMs": 5500,
+      "calibrated": true
     },
     "24": {
       "name": "Bounce up",
@@ -333,7 +357,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Vertical",
-      "durationMs": 1600
+      "durationMs": 2500,
+      "calibrated": true
     },
     "25": {
       "name": "Bounce down",
@@ -350,7 +375,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Vertical",
-      "durationMs": 1600
+      "durationMs": 2500,
+      "calibrated": true
     },
     "26": {
       "name": "Drop & replace →",
@@ -365,7 +391,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 3200,
+      "calibrated": true
     },
     "27": {
       "name": "Drop & replace ←",
@@ -381,7 +408,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 3200,
+      "calibrated": true
     },
     "28": {
       "name": "Drop & replace, even then odd",
@@ -397,7 +425,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 4000,
+      "calibrated": true
     },
     "29": {
       "name": "Drop & replace, scrambled",
@@ -413,7 +442,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 3700,
+      "calibrated": true
     },
     "30": {
       "name": "Pluck & replace →",
@@ -428,7 +458,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 3100,
+      "calibrated": true
     },
     "31": {
       "name": "Pluck & replace ←",
@@ -444,7 +475,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 3100,
+      "calibrated": true
     },
     "32": {
       "name": "Pluck & replace, even then odd",
@@ -460,7 +492,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 3100,
+      "calibrated": true
     },
     "33": {
       "name": "Pluck & replace, scrambled",
@@ -476,7 +509,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Drop & pluck",
-      "durationMs": 2400
+      "durationMs": 3700,
+      "calibrated": true
     },
     "34": {
       "name": "Column dissolve (B)",
@@ -492,7 +526,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Dissolves",
-      "durationMs": 2500
+      "durationMs": 2500,
+      "calibrated": true
     },
     "35": {
       "name": "Column dissolve",
@@ -507,7 +542,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Dissolves",
-      "durationMs": 1600
+      "durationMs": 2300,
+      "calibrated": true
     },
     "36": {
       "name": "Pixel dissolve",
@@ -521,7 +557,8 @@
       "afterDir": "rl",
       "afterSpeed": "normal",
       "group": "Dissolves",
-      "durationMs": 3000
+      "durationMs": 3000,
+      "calibrated": true
     },
     "37": {
       "afterSpin": true,
@@ -536,7 +573,8 @@
       "exitDir": "rl",
       "name": "Window shade",
       "group": "Wipers",
-      "durationMs": 2000
+      "durationMs": 2500,
+      "calibrated": false
     }
   },
   "other_notes": {

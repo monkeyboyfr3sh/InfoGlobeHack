@@ -17,7 +17,7 @@ export const BAND = 38 * CHAR_W;         // columns around the globe
 export const WINDOW = 12 * CHAR_W;       // columns in the front window
 export const FRONT = BAND / 2;           // band column at the centre of the front window
 const TILE_GAP = 3 * CHAR_W;             // gap between repeated copies of short text
-export const SPIN_COLS_PER_S = 24;       // steady-state spin speed (to calibrate)
+export const SPIN_COLS_PER_S = 39;       // steady spin, measured from video: ~6.5 characters/s
 const BLINK_MS = 500;                    // blink/flash half-period (~1 Hz)
 
 /* ---------- text -> columns ---------- */
@@ -147,21 +147,27 @@ function blank() { return new Float32Array(ROWS * BAND); }
 const WIN_L = FRONT - WINDOW / 2;
 const winQ = (x) => mod(x - WIN_L, BAND);    // 0..WINDOW-1 inside the window
 
+// Slides move a banner across the whole band (FX 0 on video: ~8.5 characters/s
+// for ~4.5 s), entering at the edge of the front window, so the viewer sees
+// the new text travel the whole time. Old text is overwritten (or pushed).
 function slideEnter(fx, oldP, newP, u, dir, push) {
   const out = blank();
-  const D = WINDOW, half = WINDOW / 2;
+  const D = BAND, half = BAND / 2;
   for (let x = 0; x < BAND; x++) {
-    const q = winQ(x);
+    const q = winQ(x);                         // 0 at the window's left edge, wraps round the band
+    const r = mod(WINDOW - 1 - q, BAND);       // 0 at the window's right edge, going left
     for (let y = 0; y < ROWS; y++) {
       let v;
-      if (q >= WINDOW) v = at(newP, x, y);
-      else if (dir === 'split') {
-        if (q < half) v = q < u * half ? at(newP, x - (1 - u) * half, y) : at(oldP, x, y);
-        else v = q >= WINDOW - u * half ? at(newP, x + (1 - u) * half, y) : at(oldP, x, y);
+      if (dir === 'split') {
+        const mid = mod(q - WINDOW / 2, BAND);  // 0 at the window centre
+        const fromLeft = mid >= half;           // left half of the band (seen from the front)
+        const d = fromLeft ? BAND - mid : mid;  // distance from the centre
+        // both halves close in from the back towards the front centre
+        v = d > (1 - u) * half ? at(newP, x + (fromLeft ? -1 : 1) * (1 - u) * half, y) : at(oldP, x, y);
       } else if (dir === 'rl') {
-        v = q >= WINDOW - u * D ? at(newP, x + (1 - u) * D, y) : push ? at(oldP, x + u * D, y) : at(oldP, x, y);
+        v = r < u * D ? at(newP, x + (1 - u) * D, y) : push ? at(oldP, x - u * D, y) : at(oldP, x, y);
       } else {
-        v = q < u * D ? at(newP, x - (1 - u) * D, y) : push ? at(oldP, x - u * D, y) : at(oldP, x, y);
+        v = q < u * D ? at(newP, x - (1 - u) * D, y) : push ? at(oldP, x + u * D, y) : at(oldP, x, y);
       }
       out[y * BAND + x] = v;
     }

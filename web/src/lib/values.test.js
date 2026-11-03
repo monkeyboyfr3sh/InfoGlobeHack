@@ -31,7 +31,7 @@ describe('scenes', () => {
     expect(() => cleanScene({ name: 'nope' })).toThrow();
   });
   it('sequence plays frames in order and loops', () => {
-    const fr = (t, ms) => ({ codes: encodeText(t).codes, style: { entrance: 0, after: 'spin' }, ms });
+    const fr = (t, ms) => ({ codes: encodeText(t).codes, style: { entrance: -1, after: 'spin' }, ms });
     const seq = makeSequence([fr('ONE', 3000), fr('TWO', 4000)], doc.effects);
     expect(seq.entranceMs).toBe(7000);
     expect(seq.frameAt(100)).toBe(0);
