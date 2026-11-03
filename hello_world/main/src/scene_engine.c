@@ -12,6 +12,10 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_random.h"
+#include <math.h>
+
+#include "clock_values.h"
 
 #include "globe_frame.h"
 #include "message_type.h"
@@ -40,8 +44,10 @@ static void ip_string(char *buf, size_t len)
     }
 }
 
-/* One value; returns false for an unknown name (left in the text as typed). */
-static bool value_of(const char *name, char *out, size_t cap, bool *live)
+/* One value; returns false for an unknown name (left in the text as typed).
+ * `arg` is the part after ':' ({clock:24}, {tz:tyo}); `steady` turns off
+ * the colon blink (used to tell a real change from a blink). */
+static bool value_of(const char *name, const char *arg, char *out, size_t cap, bool *live, bool steady)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -51,8 +57,10 @@ static bool value_of(const char *name, char *out, size_t cap, bool *live)
     const char *fmt = NULL;
 
     if (!strcmp(name, "clock")) {             // the classic clock: "07:05 PM", colon blinks
-        strftime(out, cap, "%I:%M %p", &t);
-        if (tv.tv_usec >= 500000 && cap > 2) out[2] = ' ';
+        // {clock:24} 24 h, {clock:s} with seconds, {clock:n} colon doesn't blink (combinable)
+        bool h24 = arg && strchr(arg, '2'), secs = arg && strchr(arg, 's'), noblink = arg && strchr(arg, 'n');
+        strftime(out, cap, secs ? (h24 ? "%H:%M:%S" : "%I:%M:%S") : (h24 ? "%H:%M" : "%I:%M %p"), &t);
+        if (!secs && !noblink && !steady && tv.tv_usec >= 500000 && cap > 2) out[2] = ' ';
         *live = true;
         return true;
     }
@@ -81,21 +89,27 @@ static bool value_of(const char *name, char *out, size_t cap, bool *live)
         *live = true;
         return true;
     }
+    if (clock_value(name, arg, &tv, out, cap)) {
+        *live = true;
+        return true;
+    }
     return false;
 }
 
-void scene_subst(const char *tmpl, char *out, size_t cap, bool *live)
+static void subst(const char *tmpl, char *out, size_t cap, bool *live, bool steady)
 {
     size_t o = 0;
     bool lv = false;
     for (const char *p = tmpl; *p && o + 1 < cap;) {
         const char *close = (*p == '{') ? strchr(p, '}') : NULL;
-        if (close && close - p > 1 && close - p < 16) {
-            char name[16];
+        if (close && close - p > 1 && close - p < 40) {
+            char name[40];
             memcpy(name, p + 1, close - p - 1);
             name[close - p - 1] = '\0';
+            char *arg = strchr(name, ':');
+            if (arg) *arg++ = '\0';
             char val[48];
-            if (value_of(name, val, sizeof(val), &lv)) {
+            if (value_of(name, arg, val, sizeof(val), &lv, steady)) {
                 for (const char *v = val; *v && o + 1 < cap;) out[o++] = *v++;
                 p = close + 1;
                 continue;
@@ -106,6 +120,8 @@ void scene_subst(const char *tmpl, char *out, size_t cap, bool *live)
     out[o] = '\0';
     if (live) *live = lv;
 }
+
+void scene_subst(const char *tmpl, char *out, size_t cap, bool *live) { subst(tmpl, out, cap, live, false); }
 
 /* ------------------------------------------------------------------ */
 /*  Storage                                                             */
@@ -241,6 +257,35 @@ cJSON *scene_list(void)
     return arr;
 }
 
+#define SETTINGS_PATH DIR_PATH "/settings.json"
+
+cJSON *settings_load(void)
+{
+    cJSON *j = read_json(SETTINGS_PATH, 4096);
+    if (!cJSON_IsObject(j)) { cJSON_Delete(j); j = cJSON_CreateObject(); }
+    return j;
+}
+
+static void settings_apply(const cJSON *s)
+{
+    cJSON *lat = cJSON_GetObjectItem(s, "lat"), *lon = cJSON_GetObjectItem(s, "lon");
+    if (cJSON_IsNumber(lat) && cJSON_IsNumber(lon)) clock_values_set_location(lat->valuedouble, lon->valuedouble);
+}
+
+bool settings_save(const cJSON *patch)
+{
+    cJSON *s = settings_load();
+    const cJSON *it;
+    cJSON_ArrayForEach(it, patch) {
+        cJSON_DeleteItemFromObject(s, it->string);
+        cJSON_AddItemToObject(s, it->string, cJSON_Duplicate(it, true));
+    }
+    bool ok = write_json(SETTINGS_PATH, s);
+    settings_apply(s);
+    cJSON_Delete(s);
+    return ok;
+}
+
 cJSON *playlist_load(void)
 {
     cJSON *j = read_json(PLAYLIST_PATH, 8 * 1024);
@@ -262,10 +307,17 @@ bool playlist_save(const cJSON *playlist)
 /*  Engine                                                              */
 /* ------------------------------------------------------------------ */
 
+enum { MOTION_NONE = 0, MOTION_PENDULUM, MOTION_DRIFT };
+#define ON_CHANGE_NONE   (-1)
+#define ON_CHANGE_RANDOM (-2)
+
 typedef struct {
     char          text[TEXT_TMPL_MAX];
     globe_style_t style;
     uint32_t      ms;               // 0 = until the playlist moves on
+    int           on_change;        // transition when a live value changes (flip clock), -1 none, -2 random
+    uint8_t       motion;           // still text that swings (pendulum) or drifts left to right
+    uint16_t      motion_ms;        // time per one-column step
 } eng_frame_t;
 
 typedef struct {
@@ -283,9 +335,13 @@ typedef struct {
 static SemaphoreHandle_t s_lock;
 static volatile bool     s_reload = true;
 static volatile bool     s_next = false;
+static volatile bool     s_cancel_override = false;
 static eng_item_t        s_items[PLAYLIST_MAX];
 static int               s_nitems;
 static eng_scene_t      *s_scene;          // current scene (heap; large)
+static char              s_chime_scene[SCENE_ID_MAX];
+static int               s_chime_every;    // minutes (60, 30, 15), 0 = off
+static int               s_chime_last = -1;
 
 static struct {
     bool       was_active;
@@ -303,6 +359,11 @@ static struct {
     TickType_t ov_t0;
     // manual text shown while the engine is paused
     char       manual[TEXT_TMPL_MAX];
+    // live values / motion
+    char       shown_steady[TEXT_TMPL_MAX]; // shown text without blink: detects real changes
+    TickType_t busy_until;                  // a change transition is playing
+    TickType_t motion_t;
+    uint32_t   motion_k;
 } E;
 
 void scene_engine_reload(void) { s_reload = true; }
@@ -335,6 +396,17 @@ static void parse_frame(cJSON *f, eng_frame_t *out)
     if (cJSON_IsNumber(s)) out->style.shift = (int)s->valuedouble;
     cJSON *sec = cJSON_GetObjectItem(f, "seconds");
     if (cJSON_IsNumber(sec) && sec->valuedouble > 0) out->ms = (uint32_t)(sec->valuedouble * 1000);
+    out->on_change = ON_CHANGE_NONE;
+    cJSON *oc = cJSON_GetObjectItem(f, "onChange");
+    if (cJSON_IsNumber(oc) && oc->valuedouble >= 0 && oc->valuedouble < g_globe_effect_count) out->on_change = (int)oc->valuedouble;
+    else if (cJSON_IsString(oc) && !strcmp(oc->valuestring, "random")) out->on_change = ON_CHANGE_RANDOM;
+    cJSON *mo = cJSON_GetObjectItem(f, "motion");
+    if (cJSON_IsString(mo)) {
+        if (!strcmp(mo->valuestring, "pendulum")) out->motion = MOTION_PENDULUM;
+        else if (!strcmp(mo->valuestring, "drift")) out->motion = MOTION_DRIFT;
+    }
+    cJSON *ms = cJSON_GetObjectItem(f, "motionMs");
+    out->motion_ms = cJSON_IsNumber(ms) && ms->valuedouble >= 100 ? (uint16_t)ms->valuedouble : (out->motion == MOTION_DRIFT ? 160 : 250);
 }
 
 static bool load_scene(const char *id)
@@ -374,7 +446,17 @@ static void load_playlist(void)
         s_items[s_nitems].seconds = cJSON_IsNumber(se) && se->valuedouble > 0 ? (uint32_t)se->valuedouble : 0;
         s_nitems++;
     }
+    cJSON *ch = cJSON_GetObjectItem(p, "chime");
+    cJSON *cs = ch ? cJSON_GetObjectItem(ch, "scene") : NULL, *ce = ch ? cJSON_GetObjectItem(ch, "every") : NULL;
+    s_chime_every = 0;
+    if (cJSON_IsString(cs) && scene_id_valid(cs->valuestring) && cJSON_IsNumber(ce) && ce->valuedouble >= 1) {
+        snprintf(s_chime_scene, sizeof(s_chime_scene), "%s", cs->valuestring);
+        s_chime_every = (int)ce->valuedouble;
+    }
     cJSON_Delete(p);
+    cJSON *st = settings_load();
+    settings_apply(st);
+    cJSON_Delete(st);
     if (s_nitems == 0) {
         snprintf(s_items[0].scene, SCENE_ID_MAX, "clock");
         s_items[0].seconds = 0;
@@ -407,8 +489,75 @@ static void show_frame(QueueHandle_t q, bool steady)
     lock();
     snprintf(E.shown, sizeof(E.shown), "%s", text);
     unlock();
+    subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
     E.second_pending = n2 > 0;
     if (n2) E.second_at = xTaskGetTickCount() + pdMS_TO_TICKS(g_globe_effects[st.entrance].duration_ms);
+}
+
+static int random_effect(void)
+{
+    for (;;) {
+        int id = esp_random() % g_globe_effect_count;
+        if (g_globe_effects[id].same_as < 0) return id;
+    }
+}
+
+/* A live value changed (e.g. the minute): play the frame's change transition
+ * into the new text, then settle into its still/spin style (flip clock). */
+static void change_frame(QueueHandle_t q, const eng_frame_t *fr)
+{
+    char text[TEXT_TMPL_MAX];
+    scene_subst(fr->text, text, sizeof(text), NULL);
+    uint8_t enc[GLOBE_TEXT_MAX + 8];
+    size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
+    globe_style_t st = fr->style;
+    st.entrance = fr->on_change == ON_CHANGE_RANDOM ? random_effect() : fr->on_change;
+    uint8_t f1[GLOBE_FRAME_MAX], f2[GLOBE_FRAME_MAX];
+    size_t n1 = 0, n2 = 0;
+    if (!globe_frame_compile(enc, len, &st, f1, &n1, f2, &n2)) return;
+    send_bytes(q, f1, n1);
+    lock();
+    snprintf(E.shown, sizeof(E.shown), "%s", text);
+    unlock();
+    subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
+    TickType_t done = xTaskGetTickCount() + pdMS_TO_TICKS(g_globe_effects[st.entrance].duration_ms);
+    E.busy_until = done;
+    E.second_pending = n2 > 0;
+    if (n2) E.second_at = done;
+}
+
+/* Still text that moves by re-sending it at a new position (shift byte):
+ * a pendulum swing, or a left-to-right drift (the globe's own spin only
+ * goes right to left). */
+static void motion_step(QueueHandle_t q, const eng_frame_t *fr, TickType_t now)
+{
+    if (now - E.motion_t < pdMS_TO_TICKS(fr->motion_ms)) return;
+    E.motion_t = now;
+    char text[TEXT_TMPL_MAX];
+    scene_subst(fr->text, text, sizeof(text), NULL);
+    uint8_t enc[GLOBE_TEXT_MAX + 8];
+    size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
+    int span = (int)len * 2 + 1;              // shift 0 (right) .. 2*len (left)
+    int shift;
+    if (fr->motion == MOTION_PENDULUM) {
+        double ph = 2 * M_PI * (double)E.motion_k / (span * 2);
+        shift = (int)len + (int)lround(len * sin(ph));
+    } else {
+        shift = (span - 1) - (int)(E.motion_k % span);   // one column right per step, then wrap
+    }
+    E.motion_k++;
+    globe_style_t st = fr->style;
+    st.entrance = -1;
+    if (st.after != GLOBE_AFTER_FLASH) st.after = GLOBE_AFTER_HOLD;
+    st.shift = shift < 0 ? 0 : shift;
+    uint8_t f1[GLOBE_FRAME_MAX], f2[GLOBE_FRAME_MAX];
+    size_t n1 = 0, n2 = 0;
+    if (!globe_frame_compile(enc, len, &st, f1, &n1, f2, &n2)) return;
+    send_bytes(q, f1, n1);
+    lock();
+    snprintf(E.shown, sizeof(E.shown), "%s", text);
+    unlock();
+    subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
 }
 
 /* Start the playlist item E.item (or the override scene) from its first frame. */
@@ -427,6 +576,8 @@ static void start_item(QueueHandle_t q)
     E.item_t0 = E.frame_t0 = xTaskGetTickCount();
     E.frame = 0;
     E.second_pending = false;
+    E.busy_until = E.item_t0;
+    E.motion_k = 0;
     if (s_scene && s_scene->n) show_frame(q, false);
 }
 
@@ -473,12 +624,29 @@ void scene_engine_tick(QueueHandle_t q, bool active)
     }
     if (!s_scene || !s_scene->n) { vTaskDelay(pdMS_TO_TICKS(10)); return; }
 
+    if (s_cancel_override) {                        // "Resume": straight back to the playlist
+        s_cancel_override = false;
+        if (E.override) { E.override = false; start_item(q); return; }
+    }
+
     if (s_next) {                                   // "Next" from the dashboard
         s_next = false;
         if (E.override) E.override = false;
         else E.item = (E.item + 1) % s_nitems;
         start_item(q);
         return;
+    }
+
+    // Chime: play the chime scene once on the hour (or every 30/15 min).
+    if (s_chime_every && !E.override) {
+        time_t tnow = time(NULL);
+        struct tm lt;
+        localtime_r(&tnow, &lt);
+        int key = lt.tm_yday * 1440 + lt.tm_hour * 60 + lt.tm_min;
+        if (lt.tm_year > 120 && lt.tm_min % s_chime_every == 0 && lt.tm_sec < 3 && key != s_chime_last) {
+            s_chime_last = key;
+            if (scene_engine_play(s_chime_scene, 0)) return;
+        }
     }
 
     // Override finished -> back to the playlist where it was.
@@ -510,15 +678,24 @@ void scene_engine_tick(QueueHandle_t q, bool active)
 
     pending_second(q);
 
-    // Live values: re-send the steady frame when the text changes
-    // (not during an entrance animation).
-    if (E.live && !E.second_pending) {
-        uint32_t ent = fr->style.entrance >= 0 ? g_globe_effects[fr->style.entrance].duration_ms : 0;
-        if (now - E.frame_t0 >= pdMS_TO_TICKS(ent)) {
-            char text[TEXT_TMPL_MAX];
-            scene_subst(fr->text, text, sizeof(text), NULL);
-            if (strcmp(text, E.shown)) show_frame(q, true);
+    // Live values and motion (not while an entrance or change transition plays).
+    uint32_t ent = fr->style.entrance >= 0 ? g_globe_effects[fr->style.entrance].duration_ms : 0;
+    bool animating = E.second_pending || now - E.frame_t0 < pdMS_TO_TICKS(ent) || (int32_t)(E.busy_until - now) > 0;
+    if (!animating) {
+        if (E.live) {
+            char steady[TEXT_TMPL_MAX];
+            subst(fr->text, steady, sizeof(steady), NULL, true);
+            if (strcmp(steady, E.shown_steady)) {           // a real change (minute, date, ...)
+                if (fr->on_change != ON_CHANGE_NONE) change_frame(q, fr);
+                else if (!fr->motion) show_frame(q, true);
+                else subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
+            } else if (!fr->motion) {                       // only the colon blinked
+                char text[TEXT_TMPL_MAX];
+                scene_subst(fr->text, text, sizeof(text), NULL);
+                if (strcmp(text, E.shown)) show_frame(q, true);
+            }
         }
+        if (fr->motion && fr->style.after != GLOBE_AFTER_SPIN) motion_step(q, fr, now);
     }
     vTaskDelay(pdMS_TO_TICKS(10));
 }
@@ -539,6 +716,7 @@ bool scene_engine_play(const char *id, unsigned seconds)
 }
 
 void scene_engine_next(void) { s_next = true; }
+void scene_engine_resume(void) { s_cancel_override = true; }
 
 void scene_engine_note_manual(const char *text)
 {

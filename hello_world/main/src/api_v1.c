@@ -413,6 +413,7 @@ static esp_err_t play_post(httpd_req_t *req)
 static esp_err_t resume_post(httpd_req_t *req)
 {
     g_time_on = true;
+    scene_engine_resume();
     return ok_json(req);
 }
 
@@ -421,6 +422,21 @@ static esp_err_t next_post(httpd_req_t *req)
     g_time_on = true;
     scene_engine_next();
     return ok_json(req);
+}
+
+static esp_err_t settings_get(httpd_req_t *req)
+{
+    return send_json(req, NULL, settings_load());
+}
+
+static esp_err_t settings_post(httpd_req_t *req)
+{
+    cJSON *b = recv_body(req);
+    if (!cJSON_IsObject(b)) { cJSON_Delete(b); return send_error(req, "400 Bad Request", "Body must be a JSON object"); }
+    bool ok = settings_save(b);
+    cJSON_Delete(b);
+    scene_engine_reload();
+    return ok ? ok_json(req) : send_error(req, "500 Internal Server Error", "Could not save settings");
 }
 
 static esp_err_t now_get(httpd_req_t *req)
@@ -450,6 +466,8 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/resume",   .method = HTTP_POST,   .handler = resume_post   },
         { .uri = "/api/v1/now",      .method = HTTP_GET,    .handler = now_get       },
         { .uri = "/api/v1/next",     .method = HTTP_POST,   .handler = next_post     },
+        { .uri = "/api/v1/settings", .method = HTTP_GET,    .handler = settings_get  },
+        { .uri = "/api/v1/settings", .method = HTTP_POST,   .handler = settings_post },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         if (httpd_register_uri_handler(server, &routes[i]) != ESP_OK) {

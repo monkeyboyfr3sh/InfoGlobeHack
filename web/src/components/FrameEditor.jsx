@@ -77,7 +77,9 @@ export function FrameEditor({ frame, onChange, prevCodes, onHover, showSeconds =
           <select class="select" value="" onChange={(e) => { if (e.currentTarget.value) insert(`{${e.currentTarget.value}}`); e.currentTarget.value = ''; }}
             aria-label="Insert a live value">
             <option value="">Insert live value…</option>
-            {VALUES.map((v) => <option key={v.name} value={v.name}>{v.label}</option>)}
+            {[...new Set(VALUES.map((v) => v.group))].map((g) => (
+              <optgroup key={g} label={g}>{VALUES.filter((v) => v.group === g).map((v) => <option key={v.name} value={v.name}>{v.label}</option>)}</optgroup>
+            ))}
           </select>
           <details class="accents">
             <summary class="btn small">Accents &amp; ✉</summary>

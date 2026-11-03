@@ -340,7 +340,7 @@ export function effectPicture(fx, oldL, newL, u) {
 
 /* ---------- scenes ---------- */
 
-function spin(L, ms) {
+export function spin(L, ms) {
   const off = (ms / 1000) * SPIN_COLS_PER_S;
   const whole = Math.floor(off), frac = off - whole;
   const out = blank();
@@ -353,7 +353,7 @@ function spin(L, ms) {
   return out;
 }
 
-function stillAt(L, style, ms) {
+export function stillAt(L, style, ms) {
   const on = Math.floor(ms / BLINK_MS) % 2 === 0;
   if (style.after === 'flash') return on ? L.plane : blank();   // every character blinks
   if (style.after === 'hold' && style.blink > 0 && !on) {

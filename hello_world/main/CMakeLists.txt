@@ -13,6 +13,7 @@ idf_component_register(SRCS
     "src/globe_effects.c"
     "src/api_v1.c"
     "src/scene_engine.c"
+    "src/clock_values.c"
     INCLUDE_DIRS "" "inc"
     REQUIRES
         esp_driver_rmt
@@ -25,6 +26,7 @@ idf_component_register(SRCS
         nvs_flash
         lwip
         esp_http_server
+        esp_hw_support
         app_update
         spiffs
         infoglobe_datatype)

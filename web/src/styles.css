@@ -261,3 +261,19 @@ details summary { cursor: pointer; color: var(--text-muted); }
   background: var(--text-strong); color: var(--bg); padding: 10px 16px; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.25); cursor: pointer; z-index: 10;
 }
 .snack.bad { background: var(--danger); color: #fff; }
+
+/* ---- clock studio ---- */
+.style-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.style-card {
+  font: inherit; color: var(--text); text-align: left; cursor: pointer; border: 0; border-radius: 6px; padding: 8px;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); display: flex; flex-direction: column; gap: 4px;
+}
+.style-card:hover { box-shadow: inset 0 0 0 1px var(--input-border); }
+.style-card[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft); }
+.style-card b { color: var(--text-strong); font-weight: 600; margin-top: 2px; }
+.style-card .small { line-height: 1.3; }
+.extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 12px; }
+.extra { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; padding: 4px 0; }
+.extra input { margin-top: 3px; }
+.recipe { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.recipe .mono { color: var(--text-strong); }

@@ -28,6 +28,14 @@ export const getScene = (id) => call('GET', `/api/v1/scenes/${encodeURIComponent
 export const saveScene = (id, scene) => call('POST', `/api/v1/scenes/${encodeURIComponent(id)}`, scene);
 export const deleteScene = (id) => call('DELETE', `/api/v1/scenes/${encodeURIComponent(id)}`);
 export const getPlaylist = () => call('GET', '/api/v1/playlist');
-export const savePlaylist = (items) => call('POST', '/api/v1/playlist', { items });
+// Keeps other playlist settings (the clock chime) when only the items change.
+export const savePlaylist = async (items) => {
+  let cur = {};
+  try { cur = await call('GET', '/api/v1/playlist'); } catch { /* new */ }
+  return call('POST', '/api/v1/playlist', { ...cur, items });
+};
+export const savePlaylistRaw = (body) => call('POST', '/api/v1/playlist', body);
+export const getSettings = () => call('GET', '/api/v1/settings');
+export const saveSettings = (s) => call('POST', '/api/v1/settings', s);
 export const playScene = (scene, seconds = 0) => call('POST', '/api/v1/play', { scene, seconds });
 export const playFrames = (frames, seconds = 0) => call('POST', '/api/v1/play', { frames, seconds });

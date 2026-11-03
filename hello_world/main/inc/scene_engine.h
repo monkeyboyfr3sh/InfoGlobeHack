@@ -35,6 +35,9 @@ bool scene_engine_play(const char *id, unsigned seconds);
 /* Skip to the next playlist item (ends a "play now" scene). */
 void scene_engine_next(void);
 
+/* Back to the playlist now (also ends a "play now" scene). */
+void scene_engine_resume(void);
+
 /* Something outside the engine put this text up (Designer, classic page). */
 void scene_engine_note_manual(const char *text);
 
@@ -50,3 +53,5 @@ cJSON *scene_list(void);                           // [{id,name,frames}]
 cJSON *playlist_load(void);                        // never NULL
 bool   playlist_save(const cJSON *playlist);
 void   scene_engine_reload(void);                  // storage changed: re-read at next tick
+cJSON *settings_load(void);                        // {"lat":..,"lon":..}
+bool   settings_save(const cJSON *patch);          // merge and apply
