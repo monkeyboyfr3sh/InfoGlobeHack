@@ -18,6 +18,7 @@
 
 #include "tcp_server_task.h"
 #include "network.h"
+#include "scene_engine.h"
 
 /* How long a new IP address takes over the globe from the clock. */
 #define IP_SHOW_MS          20000
@@ -114,12 +115,9 @@ void frame_maker_task(void *pvParameters)
             showing_ip = false;   // clock redraws within 500 ms (colon blink)
         }
 
-        if( g_time_on && !showing_ip ) {
-            // Always run time animation
-            run_animation_time_1(display_queue);
-        } else if (showing_ip) {
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
+        // The playlist (by default the built-in Clock scene) owns the
+        // display unless someone put text up or a new IP is being shown.
+        scene_engine_tick(display_queue, g_time_on && !showing_ip);
         
         // // Occasionally run animation 1
         // if ( (xTaskGetTickCount()-ani_1_tick) > pdMS_TO_TICKS(100000) ) {

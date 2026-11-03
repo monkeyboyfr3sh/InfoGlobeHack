@@ -551,7 +551,7 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     init_notes_fs();
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers    = 24;
+    config.max_uri_handlers    = 32;
     config.uri_match_fn        = httpd_uri_match_wildcard;   // for /api/v1/* (OPTIONS)
     config.stack_size          = 8192;
     config.recv_wait_timeout   = 60; // seconds — needed for OTA uploads

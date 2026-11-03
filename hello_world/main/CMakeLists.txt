@@ -12,6 +12,7 @@ idf_component_register(SRCS
     "src/globe_frame.c"
     "src/globe_effects.c"
     "src/api_v1.c"
+    "src/scene_engine.c"
     INCLUDE_DIRS "" "inc"
     REQUIRES
         esp_driver_rmt
