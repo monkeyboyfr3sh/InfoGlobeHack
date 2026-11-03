@@ -38,7 +38,9 @@ function withText(cmd, codes) { return [cmd, 0x00, ...codes]; }
 
 function stillFrame(codes, style) {
   const len = codes.length;
-  if (style.after === 'flash') return [...withText(0x02, codes), 0x00];
+  // Flash = still text with every character blinking (blink byte len + 1);
+  // command 02 only flashed part of longer text on the real globe.
+  if (style.after === 'flash') return [...withText(0x05, codes), 0x00, len + 1, style.shift >= 0 ? Math.min(style.shift, 255) : len];
   if (style.after === 'instant') return [...withText(0x01, codes), 0x00];
   let blink = style.blink > 0 ? style.blink + 1 : 0;   // byte n blinks the first n-1 characters
   if (blink > len + 1) blink = len + 1;

@@ -157,3 +157,6 @@ a.btn { text-decoration: none; }
 .snack.bad { background: var(--danger); color: #fff; }
 details.section > summary { list-style: none; }
 details.section > summary::-webkit-details-marker { display: none; }
+
+.layout.dash { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .layout.dash { grid-template-columns: 1fr; } }

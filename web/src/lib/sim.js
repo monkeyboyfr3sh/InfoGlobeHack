@@ -81,7 +81,6 @@ export function stillLayout(codes, style) {
   const text = renderText(codes);
   let x0;
   if (style.after === 'instant') x0 = FRONT - WINDOW / 2 + 1;              // left-aligned
-  else if (style.after === 'flash') x0 = FRONT - Math.floor(text.width / 2);
   else {
     // Each shift step moves the text one column left; shift = length is centred.
     const shift = style.shift >= 0 ? style.shift : codes.length;
@@ -350,13 +349,7 @@ function spin(L, ms) {
 
 function stillAt(L, style, ms) {
   const on = Math.floor(ms / BLINK_MS) % 2 === 0;
-  if (style.after === 'flash') {
-    if (on) return L.plane;
-    const out = blank();                       // a small underscore shows while off
-    const s = L.spans && L.spans[0];
-    if (s) for (let x = s.start; x < s.end; x++) out[(ROWS - 1) * BAND + mod(x, BAND)] = 1;
-    return out;
-  }
+  if (style.after === 'flash') return on ? L.plane : blank();   // every character blinks
   if (style.after === 'hold' && style.blink > 0 && !on) {
     const out = L.plane.slice();
     const n = Math.min(style.blink, L.len);

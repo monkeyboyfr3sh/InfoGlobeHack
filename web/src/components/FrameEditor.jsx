@@ -14,13 +14,13 @@ export const AFTER_OPTIONS = [
   ['instant', 'Instant', 'Still and left-aligned, no transition'],
 ];
 
-export function WidthMeter({ codes, templated }) {
+export function WidthMeter({ codes, templated, still = false }) {
   const w = textWidth(codes);
   const n = codes.length;
   const what = templated ? 'At its longest' : '';
   let cls = 'ok', msg = `${what ? what + ': ' : ''}fits the front window (${n} characters)`;
   if (n > TEXT_MAX) { cls = 'bad'; msg = `${what ? what + ', ' : ''}${n} of ${TEXT_MAX} characters: too long for one frame`; }
-  else if (w > WINDOW) { cls = 'warn'; msg = `${what ? what + ', ' : ''}${n} characters: wider than the front window, so it reads while spinning`; }
+  else if (w > WINDOW) { cls = 'warn'; msg = `${what ? what + ', ' : ''}${n} characters: wider than the front window, ${still ? 'so the ends wrap out of view' : 'so it reads while spinning'}`; }
   const pct = Math.min(100, (w / (BAND * 0.95)) * 100);
   return (
     <div>
@@ -56,7 +56,7 @@ export function FrameEditor({ frame, onChange, prevCodes, onHover, showSeconds =
         <h2>Text</h2>
         <input ref={inputRef} class="big" type="text" value={frame.text} maxLength={95} spellcheck={false}
           onInput={(e) => set({ text: e.currentTarget.value })} aria-label="Text to show" />
-        <WidthMeter codes={longest.codes} templated={hasValues(frame.text)} />
+        <WidthMeter codes={longest.codes} templated={hasValues(frame.text)} still={frame.after !== 'spin'} />
         {bad.length > 0 && (
           <div class="problem">
             The globe can't draw {[...new Set(bad.map((b) => `“${b.ch}”`))].join(' ')}; they show as blanks.

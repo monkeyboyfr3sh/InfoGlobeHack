@@ -14,7 +14,7 @@
 typedef enum {
     GLOBE_AFTER_SPIN = 0,   // text circles the band (default after any entrance)
     GLOBE_AFTER_HOLD,       // still text at `shift`, optional blinking start
-    GLOBE_AFTER_FLASH,      // whole text flashes on/off (~1 Hz)
+    GLOBE_AFTER_FLASH,      // whole text blinks on/off (~1 Hz): 05 frame, blink = len + 1
     GLOBE_AFTER_INSTANT,    // still, left-aligned, appears with no transition
 } globe_after_t;
 

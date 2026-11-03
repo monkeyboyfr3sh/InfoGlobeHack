@@ -91,10 +91,17 @@ static size_t still_frame(uint8_t *dst, const uint8_t *text, size_t len, const g
 {
     size_t n;
     switch (st->after) {
-    case GLOBE_AFTER_FLASH:
-        n = put_text(dst, 0x02, text, len);
+    case GLOBE_AFTER_FLASH: {
+        // Whole text blinks: a still frame whose blink byte covers every
+        // character (len + 1). Command 02 only flashed part of longer text.
+        int shift = st->shift >= 0 ? st->shift : (int)len;
+        if (shift > 255) shift = 255;
+        n = put_text(dst, 0x05, text, len);
         dst[n++] = 0x00;
+        dst[n++] = (uint8_t)(len + 1);
+        dst[n++] = (uint8_t)shift;
         return n;
+    }
     case GLOBE_AFTER_INSTANT:
         n = put_text(dst, 0x01, text, len);
         dst[n++] = 0x00;

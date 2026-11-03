@@ -15,7 +15,7 @@ describe('protocol matches firmware', () => {
     expect(bad).toEqual([]);
   });
   it('flash, plain spin, unsupported characters', () => {
-    expect(hex(compileFrame(encodeText('ALERT').codes, { entrance: -1, after: 'flash' }).first)).toBe('02 00 41 4C 45 52 54 00');
+    expect(hex(compileFrame(encodeText('ALERT').codes, { entrance: -1, after: 'flash', shift: -1 }).first)).toBe('05 00 41 4C 45 52 54 00 06 05');
     const e = encodeText('50% + ok');
     expect(hex(compileFrame(e.codes, { entrance: -1, after: 'spin' }).first)).toBe('04 00 35 30 20 20 20 20 6F 6B 00');
     expect(e.bad.map((b) => b.ch)).toEqual(['%', '+']);

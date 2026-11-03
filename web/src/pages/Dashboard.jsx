@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { encodeText, TEXT_MAX } from '../lib/protocol.js';
 import { makeScene } from '../lib/sim.js';
-import { newFrame } from '../lib/scenes.js';
 import * as api from '../lib/api.js';
 import { Screen } from '../components/Screen.jsx';
-import { FrameEditor, EFFECTS } from '../components/FrameEditor.jsx';
+import { WidthMeter, EFFECTS } from '../components/FrameEditor.jsx';
 
 const MODE_LABEL = { playlist: 'Playing the playlist', scene: 'Playing a scene once', manual: 'Showing text from the designer or control page' };
 
@@ -91,23 +90,51 @@ function Playlist({ scenes, toast }) {
   );
 }
 
+const LOOKS = [
+  { key: 'scroll', label: 'Scroll', tip: 'Slides in, then circles the globe', frame: { entrance: 0, after: 'spin' } },
+  { key: 'still', label: 'Still', tip: 'Rises into the front window and stays', frame: { entrance: 16, after: 'hold' } },
+  { key: 'flash', label: 'Flashing', tip: 'Stays in front and blinks', frame: { entrance: 37, after: 'flash' } },
+  { key: 'alert', label: 'Alert ✉', tip: 'Envelope in front, whole message blinks', frame: { entrance: 37, after: 'flash' }, prefix: '✉ ' },
+];
+const DURATIONS = [[30, '30 s'], [60, '1 min'], [300, '5 min'], [900, '15 min'], [0, 'Until I resume']];
+
 function QuickMessage({ toast }) {
-  const [frame, setFrame] = useState(newFrame({ text: 'DINNER IS READY', entrance: 37, after: 'flash', seconds: 0 }));
-  const [seconds, setSeconds] = useState(60);
+  const [text, setText] = useState('DINNER IS READY');
+  const [look, setLook] = useState('flash');
+  const [secs, setSecs] = useState(60);
+  const L = LOOKS.find((l) => l.key === look);
+  const full = (L.prefix || '') + text;
+  const codes = encodeText(full).codes.slice(0, TEXT_MAX);
+  const preview = useMemo(() => makeScene({ codes: encodeText('12:00').codes, style: { entrance: -1, after: 'spin' } },
+    { codes, style: { blink: 0, shift: -1, ...L.frame } }, EFFECTS), [full, look]);
   const send = async () => {
-    try { await api.playFrames([frame], seconds); toast(true, `Showing for ${seconds} s, then back to the playlist`); }
-    catch (e) { toast(false, `Could not send: ${e.message}`); }
+    const frame = { text: full, blink: 0, shift: -1, seconds: 0, ...L.frame };
+    try {
+      if (secs) { await api.playFrames([frame], secs); toast(true, `Showing for ${DURATIONS.find((d) => d[0] === secs)[1]}, then back to the playlist`); }
+      else { await api.sendFrame({ text: full, entrance: L.frame.entrance, after: L.frame.after }); toast(true, 'Showing until you resume the playlist'); }
+    } catch (e) { toast(false, `Could not send: ${e.message}`); }
   };
   return (
-    <details class="section" open>
-      <summary><h2 style="display:inline">Quick message</h2></summary>
-      <FrameEditor frame={frame} onChange={setFrame} prevCodes={encodeText('12:00').codes} showSeconds={false} compact />
-      <div class="row actions">
-        <label class="row">Show for <input type="number" min="5" max="86400" value={seconds} onInput={(e) => setSeconds(Math.max(5, e.currentTarget.valueAsNumber || 5))} /> seconds</label>
-        <span style="flex:1" />
-        <button class="btn primary" onClick={send}>Show on globe ▶</button>
+    <div class="section">
+      <h2>Quick message</h2>
+      <input class="big" type="text" value={text} maxLength={60} onInput={(e) => setText(e.currentTarget.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') send(); }} aria-label="Message" />
+      <WidthMeter codes={codes} still={L.frame.after !== 'spin'} />
+      <div class="row" style="margin-top:10px">
+        <span class="muted" style="width:70px">Look</span>
+        <div class="chips">{LOOKS.map((l) => <button key={l.key} class="chip" title={l.tip} aria-pressed={look === l.key} onClick={() => setLook(l.key)}>{l.label}</button>)}</div>
       </div>
-    </details>
+      <div class="row" style="margin-top:8px">
+        <span class="muted" style="width:70px">Show for</span>
+        <div class="chips">{DURATIONS.map(([v, lbl]) => <button key={v} class="chip" aria-pressed={secs === v} onClick={() => setSecs(v)}>{lbl}</button>)}</div>
+      </div>
+      <div style="margin-top:12px"><Screen scene={preview} runKey={look} holdMs={4000} badge="preview" /></div>
+      <div class="row" style="margin-top:10px">
+        <span class="muted small">Want a different transition or several frames? Make a scene in the <a href="#/designer">Designer</a>.</span>
+        <span style="flex:1" />
+        <button class="btn primary" onClick={send} disabled={!text.trim()}>Show on globe ▶</button>
+      </div>
+    </div>
   );
 }
 
@@ -115,13 +142,16 @@ export function Dashboard({ toast }) {
   const [scenes, setScenes] = useState([]);
   useEffect(() => { api.getScenes().then(setScenes, () => setScenes([])); }, []);
   return (
-    <div class="layout">
+    <div class="layout dash">
       <div>
         <NowShowing toast={toast} />
+        <QuickMessage toast={toast} />
+      </div>
+      <div>
         <Playlist scenes={scenes} toast={toast} />
         <div class="section">
-          <h2>Scenes on the globe</h2>
-          {scenes.map((s) => (
+          <h2>Scenes</h2>
+          {scenes.filter((s) => s.id !== 'quick').map((s) => (
             <div class="row prow" key={s.id}>
               <span style="flex:1">{s.name} <span class="muted small">{s.frames} frame{s.frames === 1 ? '' : 's'}{s.builtin ? ' · built in' : ''}</span></span>
               <button class="btn small" onClick={() => api.playScene(s.id, 0).then(() => toast(true, `Playing “${s.name}” once`), (e) => toast(false, e.message))}>Play now</button>
@@ -130,9 +160,6 @@ export function Dashboard({ toast }) {
           ))}
           <div class="row" style="margin-top:8px"><a class="btn" href="#/designer">+ New scene</a></div>
         </div>
-      </div>
-      <div>
-        <QuickMessage toast={toast} />
       </div>
     </div>
   );
