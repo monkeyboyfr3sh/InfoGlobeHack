@@ -1,7 +1,8 @@
 // Display simulator: turns (previous frame, new frame, effect catalogue) into
 // a picture of the whole LED band at any moment.
 //
-// Model (docs/protocol.md): the band is ~38 characters around, 7 rows high;
+// Model (docs/protocol.md): the band is ~38 characters around, 8 rows high
+// (7 + a descender row);
 // the front window shows ~12 characters. A picture is a Float32Array of
 // ROWS x BAND intensities (0..1). Effects are animated from the parameters
 // recorded while mapping (enterType, exitOrder, ...), so the same catalogue
@@ -192,9 +193,9 @@ function wipe(fromP, toP, u, dir, passes) {
   return out;
 }
 
-const ROW_ORDER = {
-  'bottom-up': [6, 5, 4, 3, 2, 1, 0], 'top-down': [0, 1, 2, 3, 4, 5, 6],
-  'center-out': [3, 2, 4, 1, 5, 0, 6], 'outer-in': [0, 6, 1, 5, 2, 4, 3], 'odd-even': [0, 2, 4, 6, 1, 3, 5],
+const ROW_ORDER = {   // 8 rows: 0-6 letters, 7 = descenders
+  'bottom-up': [7, 6, 5, 4, 3, 2, 1, 0], 'top-down': [0, 1, 2, 3, 4, 5, 6, 7],
+  'center-out': [3, 4, 2, 5, 1, 6, 0, 7], 'outer-in': [0, 7, 6, 1, 5, 2, 4, 3], 'odd-even': [0, 2, 4, 6, 1, 3, 5, 7],
 };
 
 function rows(oldP, newP, u, pattern) {

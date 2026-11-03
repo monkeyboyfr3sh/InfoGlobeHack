@@ -35,7 +35,8 @@ The font is a cut-down 7-row ASCII set, apparently made for caller-ID style mess
 | `81`–`FF` | – | all |
 
 Practical notes: no `%` or `+` (write `CPU 42`, `42 pct`); `0x80` is a ready-made "message/alert" symbol.
-Glyph widths vary (e.g. `#`, `M`, `W` are wide; `!`, `i`, `l` narrow), so text width is not a fixed 8 characters.
+**The font is monospaced** (traced dot by dot from the stills, see `web/src/lib/font.js`): every character is a 5-dot cell plus a 1-dot gap, so text width is simply 6 dots per character; narrow glyphs like `!` and `i` are centred in their cell. The envelope `0x80` is double width (11 dots).
+The display has **8 rows**: 7 for capitals and digits plus a descender row used by `g j p q y`.
 
 ## Display geometry and text length
 
@@ -45,7 +46,7 @@ From the Text length test (camera capture `PXL_20261102_040254379.mp4`, effect 0
 - **The band holds about 37–38 character widths** around the whole circumference (at 35 characters the end meets the start with a small gap).
 - **Short text is repeated around the band** with a gap of a few characters, like a ticker: 1 character appears many times, 4 characters about twice in view, 8–12 characters repeat with a gap. A short message (e.g. the clock) can be read from any side.
 - **Visible front window:** about 12 characters edge to edge, about 8 comfortably readable in the middle.
-- Character widths vary (see *Character set*), so these figures are approximate.
+- With the monospaced font, 38 characters = 228 dot columns around the band; the front window is about 72 columns.
 
 ## Blink (command `05`)
 
