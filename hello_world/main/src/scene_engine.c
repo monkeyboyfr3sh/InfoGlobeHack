@@ -282,6 +282,7 @@ typedef struct {
 
 static SemaphoreHandle_t s_lock;
 static volatile bool     s_reload = true;
+static volatile bool     s_next = false;
 static eng_item_t        s_items[PLAYLIST_MAX];
 static int               s_nitems;
 static eng_scene_t      *s_scene;          // current scene (heap; large)
@@ -472,6 +473,14 @@ void scene_engine_tick(QueueHandle_t q, bool active)
     }
     if (!s_scene || !s_scene->n) { vTaskDelay(pdMS_TO_TICKS(10)); return; }
 
+    if (s_next) {                                   // "Next" from the dashboard
+        s_next = false;
+        if (E.override) E.override = false;
+        else E.item = (E.item + 1) % s_nitems;
+        start_item(q);
+        return;
+    }
+
     // Override finished -> back to the playlist where it was.
     if (E.override) {
         uint32_t total = 0;
@@ -529,6 +538,8 @@ bool scene_engine_play(const char *id, unsigned seconds)
     return true;
 }
 
+void scene_engine_next(void) { s_next = true; }
+
 void scene_engine_note_manual(const char *text)
 {
     lock();
@@ -555,6 +566,7 @@ cJSON *scene_engine_status(void)
             if (sec) {
                 uint32_t el = (xTaskGetTickCount() - E.item_t0) * portTICK_PERIOD_MS / 1000;
                 cJSON_AddNumberToObject(o, "itemRemaining", el < sec ? sec - el : 0);
+                cJSON_AddNumberToObject(o, "itemSeconds", sec);
             }
         }
     } else if (!running) {

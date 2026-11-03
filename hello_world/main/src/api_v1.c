@@ -416,6 +416,13 @@ static esp_err_t resume_post(httpd_req_t *req)
     return ok_json(req);
 }
 
+static esp_err_t next_post(httpd_req_t *req)
+{
+    g_time_on = true;
+    scene_engine_next();
+    return ok_json(req);
+}
+
 static esp_err_t now_get(httpd_req_t *req)
 {
     return send_json(req, NULL, scene_engine_status());
@@ -442,6 +449,7 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/play",     .method = HTTP_POST,   .handler = play_post     },
         { .uri = "/api/v1/resume",   .method = HTTP_POST,   .handler = resume_post   },
         { .uri = "/api/v1/now",      .method = HTTP_GET,    .handler = now_get       },
+        { .uri = "/api/v1/next",     .method = HTTP_POST,   .handler = next_post     },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         if (httpd_register_uri_handler(server, &routes[i]) != ESP_OK) {

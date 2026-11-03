@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { GLOBE } from './lib/api.js';
+import { GLOBE, getNow } from './lib/api.js';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 
@@ -31,9 +31,36 @@ function parseHash() {
   return { page: page === 'designer' ? 'designer' : 'dashboard', id: id || null };
 }
 
+// What the globe is doing, polled once for the whole app.
+function useNow() {
+  const [now, setNow] = useState(null);
+  const [online, setOnline] = useState(true);
+  useEffect(() => {
+    let stop = false, t = 0;
+    const poll = async () => {
+      try { const n = await getNow(); if (!stop) { setNow(n); setOnline(true); } }
+      catch { if (!stop) setOnline(false); }
+      if (!stop) t = setTimeout(poll, document.hidden ? 5000 : 1500);
+    };
+    poll();
+    return () => { stop = true; clearTimeout(t); };
+  }, []);
+  return { now, online };
+}
+
+const MODE = { playlist: 'Playlist', scene: 'Playing once', manual: 'Manual' };
+
+function StatusChip({ now, online }) {
+  if (!online) return <span class="status bad" title="The globe isn't answering"><span class="dot" />Offline</span>;
+  if (!now) return <span class="status"><span class="dot" />Connecting…</span>;
+  const what = now.mode === 'manual' ? (now.text ? `“${now.text}”` : 'manual text') : now.name || now.scene;
+  return <span class="status ok" title="Connected to the globe"><span class="dot" />{MODE[now.mode] || now.mode}{what ? <> · <b>{what}</b></> : null}</span>;
+}
+
 export function App() {
   const [route, setRoute] = useState(parseHash());
   const [toast, setToast] = useState(null);
+  const { now, online } = useNow();
   useEffect(() => {
     const on = () => setRoute(parseHash());
     addEventListener('hashchange', on);
@@ -51,7 +78,8 @@ export function App() {
       <header>
         <h1>InfoGlobe</h1>
         <div class="head-right">
-          {GLOBE && <span class="muted">globe: {GLOBE}</span>}
+          {GLOBE && <span class="muted small">{GLOBE}</span>}
+          <StatusChip now={now} online={online} />
           <ThemeButton />
         </div>
       </header>
@@ -60,7 +88,7 @@ export function App() {
         <a href="#/designer" aria-current={route.page === 'designer' ? 'page' : undefined}>Designer</a>
         <a href={GLOBE + '/'}>Control &amp; Explorer</a>
       </nav>
-      {route.page === 'designer' ? <Designer sceneId={route.id} toast={say} /> : <Dashboard toast={say} />}
+      {route.page === 'designer' ? <Designer sceneId={route.id} toast={say} /> : <Dashboard toast={say} now={now} online={online} />}
       {toast && <div class={`snack ${toast.ok ? 'ok' : 'bad'}`} role="status" onClick={() => setToast(null)}>{toast.msg}</div>}
     </div>
   );

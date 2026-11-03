@@ -7,6 +7,7 @@ import { useHistory } from '../lib/history.js';
 import * as api from '../lib/api.js';
 import { Screen } from '../components/Screen.jsx';
 import { FrameEditor, EFFECTS } from '../components/FrameEditor.jsx';
+import { Mini } from '../components/Mini.jsx';
 
 const toCodes = (text) => encodeText(fillValues(text)).codes.slice(0, TEXT_MAX);
 const styleOf = (f) => ({ entrance: f.entrance ?? -1, after: f.after, blink: f.blink, shift: f.shift });
@@ -95,6 +96,10 @@ export function Designer({ sceneId, toast }) {
     return makeScene(prev, { codes: toCodes(frame.text), style: st }, EFFECTS);
   }, [scene, sel, hover, whole]);
 
+  const shownFx = whole && hover === null ? scene.frames.map((f) => f.entrance) : [hover !== null ? hover : frame.entrance];
+  const estimate = shownFx.some((id) => id !== null && id !== undefined && id >= 0 && !EFFECTS[String(id)].calibrated);
+  const sceneSecs = scene.frames.reduce((a, f) => a + (f.seconds || 0), 0);
+
   let compiled = null, compileError = null;
   try { compiled = compileFrame(toCodes(frame.text), styleOf(frame)); } catch (e) { compileError = e.message; }
 
@@ -159,29 +164,40 @@ export function Designer({ sceneId, toast }) {
   return (
     <div>
       <div class="scenebar">
-        <select class="select" value={scene.id || ''} onChange={(e) => e.currentTarget.value && open(e.currentTarget.value)} aria-label="Open a scene">
-          <option value="">{scene.id ? '' : 'Unsaved scene'}</option>
-          {library.map((s) => <option key={s.id} value={s.id}>{s.name}{s.builtin ? ' (built in)' : ''}</option>)}
-        </select>
-        <select class="select" value="" onChange={(e) => { fromTemplate(e.currentTarget.value); e.currentTarget.value = ''; }} aria-label="New scene">
-          <option value="">+ New scene…</option>
-          {TEMPLATES.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-        </select>
-        <input type="text" class="name" value={scene.name} onInput={(e) => hist.set((s) => ({ ...s, name: e.currentTarget.value }))} aria-label="Scene name" />
-        <span class="muted small">{scene.id ? `id: ${scene.id}` : `will save as: ${slug(scene.name)}`}{dirty ? ' · unsaved' : ''}</span>
-        <span style="flex:1" />
-        <button class="btn icon" onClick={hist.undo} disabled={!hist.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
-        <button class="btn icon" onClick={hist.redo} disabled={!hist.canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
-        <button class="btn" onClick={exportFile} title="Download as a file">Export</button>
-        <button class="btn" onClick={() => fileRef.current.click()} title="Load a .globe.json file">Import</button>
+        <div class="scenebar-group">
+          <select class="select" value={scene.id || ''} onChange={(e) => e.currentTarget.value && open(e.currentTarget.value)} aria-label="Open a scene">
+            <option value="">{scene.id ? '' : 'Unsaved scene'}</option>
+            {library.filter((x) => x.id !== 'quick').map((x) => <option key={x.id} value={x.id}>{x.name}{x.builtin ? ' (built in)' : ''}</option>)}
+          </select>
+          <select class="select" value="" onChange={(e) => { fromTemplate(e.currentTarget.value); e.currentTarget.value = ''; }} aria-label="New scene">
+            <option value="">+ New…</option>
+            {TEMPLATES.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+          </select>
+        </div>
+        <div class="scenebar-title">
+          <input type="text" class="name" value={scene.name} onInput={(e) => hist.set((x) => ({ ...x, name: e.currentTarget.value }))} aria-label="Scene name" />
+          <span class={`save-state${dirty ? ' dirty' : ''}`}>{dirty ? 'Unsaved changes' : 'Saved'}{!scene.id && ` · saves as “${slug(scene.name)}”`}</span>
+        </div>
+        <div class="scenebar-group">
+          <button class="btn icon" onClick={hist.undo} disabled={!hist.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+          <button class="btn icon" onClick={hist.redo} disabled={!hist.canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+        </div>
+        <details class="menu">
+          <summary class="btn">More ▾</summary>
+          <div class="menu-list">
+            <button onClick={exportFile}>Export to file</button>
+            <button onClick={() => fileRef.current.click()}>Import from file…</button>
+            {scene.id && !scene.builtin && <button class="danger" onClick={remove}>Delete scene</button>}
+          </div>
+        </details>
         <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.currentTarget.files[0]; if (f) importFile(f); e.currentTarget.value = ''; }} />
-        {scene.id && !scene.builtin && <button class="btn" onClick={remove}>Delete</button>}
-        <button class="btn primary" onClick={save} disabled={busy}>{dirty || !scene.id ? 'Save' : 'Saved ✓'}</button>
+        <button class="btn primary" onClick={save} disabled={busy || (!dirty && !!scene.id)}>Save</button>
       </div>
 
       <div class="layout">
         <div class="sticky">
-          <Screen scene={preview} runKey={runKey} holdMs={whole && hover === null ? 0 : 4000} badge="≈ preview" />
+          <Screen scene={preview} runKey={runKey} holdMs={whole && hover === null ? 0 : 4000}
+            badge={estimate ? '≈ estimated transition' : null} />
           <div class="row controls">
             <button class="btn" onClick={() => setRunKey((k) => k + 1)}>↻ Replay</button>
             <div class="seg" role="group" aria-label="Preview">
@@ -191,22 +207,26 @@ export function Designer({ sceneId, toast }) {
             <span class="muted small">{hover !== null ? `Previewing ${fxName(hover)}` : ''}</span>
           </div>
 
-          <h2 style="margin-top:18px">Frames</h2>
-          <div class="strip" role="list">
+          <div class="strip-head">
+            <h2>Frames</h2>
+            <span class="muted small">{scene.frames.length} frame{scene.frames.length === 1 ? '' : 's'} · {sceneSecs ? `${sceneSecs} s, then it loops` : 'stays until the playlist moves on'}</span>
+          </div>
+          <div class="strip" role="listbox" aria-label="Frames">
             {scene.frames.map((f, i) => (
-              <button key={i} role="listitem" class="frame-card" aria-pressed={i === sel} onClick={() => setSel(i)}>
-                <span class="frame-text mono">{f.text || '(empty)'}</span>
+              <button key={i} role="option" aria-selected={i === sel} class="frame-card" aria-pressed={i === sel} onClick={() => setSel(i)}
+                style={{ flexBasis: `${Math.round(Math.min(260, Math.max(150, 110 + (f.seconds || 6) * 8)))}px` }}>
+                <Mini frame={f} height={26} dim={i !== sel} />
+                <span class="frame-text mono">{i + 1}. {f.text || '(empty)'}</span>
                 <span class="frame-meta">{fxName(f.entrance)} · {f.after}{f.seconds ? ` · ${f.seconds} s` : ''}</span>
               </button>
             ))}
-            <button class="frame-card add" onClick={addFrame} title="Add a frame after this one">+ Frame</button>
+            <button class="frame-card add" onClick={addFrame} title="Add a frame after the selected one">+ Add frame</button>
           </div>
-          <div class="row" style="margin-top:8px">
-            <button class="btn small" onClick={() => moveFrame(-1)} disabled={sel === 0}>← Move</button>
-            <button class="btn small" onClick={() => moveFrame(1)} disabled={sel >= scene.frames.length - 1}>Move →</button>
+          <div class="row strip-tools">
+            <button class="btn small" onClick={() => moveFrame(-1)} disabled={sel === 0} title="Move earlier">← Earlier</button>
+            <button class="btn small" onClick={() => moveFrame(1)} disabled={sel >= scene.frames.length - 1} title="Move later">Later →</button>
             <button class="btn small" onClick={dupFrame} title="Ctrl+D">Duplicate</button>
-            <button class="btn small" onClick={delFrame} disabled={scene.frames.length < 2}>Delete frame</button>
-            <span class="muted small">Scene length: {scene.frames.reduce((a, f) => a + (f.seconds || 0), 0)} s, then it loops</span>
+            <button class="btn small" onClick={delFrame} disabled={scene.frames.length < 2}>Delete</button>
           </div>
 
           <details style="margin-top:16px">
@@ -221,7 +241,7 @@ export function Designer({ sceneId, toast }) {
         </div>
 
         <div>
-          <p class="muted" style="margin:0 0 8px">Frame {sel + 1} of {scene.frames.length}</p>
+          <div class="inspector-head"><h2>Frame {sel + 1}</h2><span class="muted small">of {scene.frames.length} · edits apply to the selected frame</span></div>
           <FrameEditor frame={frame} onChange={setFrame} prevCodes={prev.codes} onHover={setHover} />
           <div class="actions">
             <div class="row">

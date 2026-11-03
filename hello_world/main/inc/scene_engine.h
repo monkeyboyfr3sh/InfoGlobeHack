@@ -32,6 +32,9 @@ void scene_subst(const char *tmpl, char *out, size_t cap, bool *live);
  * its frames), then return to the playlist. Returns false if it doesn't exist. */
 bool scene_engine_play(const char *id, unsigned seconds);
 
+/* Skip to the next playlist item (ends a "play now" scene). */
+void scene_engine_next(void);
+
 /* Something outside the engine put this text up (Designer, classic page). */
 void scene_engine_note_manual(const char *text);
 

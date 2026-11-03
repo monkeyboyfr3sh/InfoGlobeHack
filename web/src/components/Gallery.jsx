@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { makeScene, BAND, ROWS, WINDOW, FRONT } from '../lib/sim.js';
 
-const GROUP_ORDER = ['Slides', 'Wipers', 'Vertical', 'Build-ups', 'Fades', 'Letter swaps', 'Drop & pluck', 'Dissolves'];
+export const GROUP_ORDER = ['Slides', 'Wipers', 'Vertical', 'Build-ups', 'Fades', 'Letter swaps', 'Drop & pluck', 'Dissolves'];
 
 function drawMini(canvas, pic) {
   const dpr = window.devicePixelRatio || 1;
@@ -27,7 +27,7 @@ function drawMini(canvas, pic) {
  * Transition picker: one animated tile per distinct effect, grouped.
  * Tiles loop the effect with the user's own text.
  */
-export function Gallery({ effects, codes, prevCodes, selected, onSelect, onHover }) {
+export function Gallery({ effects, codes, prevCodes, selected, onSelect, onHover, filter = 'All' }) {
   const canvases = useRef({});
   const list = useMemo(() => Object.entries(effects)
     .map(([id, e]) => ({ id: Number(id), ...e }))
@@ -63,16 +63,13 @@ export function Gallery({ effects, codes, prevCodes, selected, onSelect, onHover
     return () => cancelAnimationFrame(raf);
   }, [list, scenes]);
 
-  const groups = GROUP_ORDER.map((g) => [g, list.filter((e) => e.group === g)]).filter(([, l]) => l.length);
+  const groups = GROUP_ORDER.filter((g) => filter === 'All' || g === filter)
+    .map((g) => [g, list.filter((e) => e.group === g)]).filter(([, l]) => l.length);
   return (
     <div>
-      <div class="chips">
-        <button class="chip" aria-pressed={selected === -1} onClick={() => onSelect(-1)}
-          onMouseEnter={() => onHover(-1)} onMouseLeave={() => onHover(null)}>None (appear at once)</button>
-      </div>
       {groups.map(([g, items]) => (
         <div class="gallery-group" key={g}>
-          <h3>{g}</h3>
+          {filter === 'All' && <h3>{g}</h3>}
           <div class="tiles">
             {items.map((e) => (
               <button key={e.id} class="tile" aria-pressed={selected === e.id || (twins[e.id] || []).includes(selected)}
@@ -80,7 +77,8 @@ export function Gallery({ effects, codes, prevCodes, selected, onSelect, onHover
                 onClick={() => onSelect(e.id)} onMouseEnter={() => onHover(e.id)} onMouseLeave={() => onHover(null)}
                 onFocus={() => onHover(e.id)} onBlur={() => onHover(null)}>
                 <canvas ref={(el) => { canvases.current[e.id] = el; }} />
-                <span class="name">{e.name} <span class="num">FX {e.id}</span></span>
+                <span class="name">{e.name}</span>
+                <span class="num">FX {e.id} · {(e.durationMs / 1000).toFixed(1)} s{e.calibrated ? '' : ' ≈'}</span>
               </button>
             ))}
           </div>

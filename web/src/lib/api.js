@@ -21,6 +21,7 @@ async function call(method, path, body) {
 export const sendFrame = (frame) => call('POST', '/api/v1/frame', frame);
 export const clearGlobe = () => call('POST', '/api/v1/clear', {});
 export const resume = () => call('POST', '/api/v1/resume', {});
+export const next = () => call('POST', '/api/v1/next', {});
 export const getNow = () => call('GET', '/api/v1/now');
 export const getScenes = () => call('GET', '/api/v1/scenes');
 export const getScene = (id) => call('GET', `/api/v1/scenes/${encodeURIComponent(id)}`);
