@@ -1,0 +1,240 @@
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { encodeText, compileFrame, hex, TEXT_MAX } from '../lib/protocol.js';
+import { makeScene, makeSequence } from '../lib/sim.js';
+import { fillValues } from '../lib/values.js';
+import { TEMPLATES, newFrame, slug, cleanScene, toStored } from '../lib/scenes.js';
+import { useHistory } from '../lib/history.js';
+import * as api from '../lib/api.js';
+import { Screen } from '../components/Screen.jsx';
+import { FrameEditor, EFFECTS } from '../components/FrameEditor.jsx';
+
+const toCodes = (text) => encodeText(fillValues(text)).codes.slice(0, TEXT_MAX);
+const styleOf = (f) => ({ entrance: f.entrance ?? -1, after: f.after, blink: f.blink, shift: f.shift });
+const fxName = (id) => (id === null || id === undefined || id < 0 ? 'Appears' : EFFECTS[id].name);
+
+function loadDraft() {
+  try { const d = JSON.parse(localStorage.getItem('scene-draft')); if (d && d.scene) return d; } catch { /* ignore */ }
+  return { scene: { id: '', name: 'My scene', frames: [newFrame({ text: 'SERVER OK' })] }, sel: 0 };
+}
+
+export function Designer({ sceneId, toast }) {
+  const draft = useMemo(loadDraft, []);
+  const hist = useHistory(draft.scene);
+  const scene = hist.value;
+  const [sel, setSel] = useState(Math.min(draft.sel || 0, scene.frames.length - 1));
+  const [savedJson, setSavedJson] = useState(null);
+  const [library, setLibrary] = useState([]);
+  const [hover, setHover] = useState(null);
+  const [whole, setWhole] = useState(false);
+  const [runKey, setRunKey] = useState(0);
+  const [live, setLive] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+  const frame = scene.frames[Math.min(sel, scene.frames.length - 1)];
+  const dirty = savedJson !== JSON.stringify(toStored(scene));
+
+  const refreshLibrary = () => api.getScenes().then(setLibrary, () => setLibrary([]));
+  useEffect(() => { refreshLibrary(); }, []);
+  useEffect(() => { try { localStorage.setItem('scene-draft', JSON.stringify({ scene, sel })); } catch { /* ignore */ } }, [scene, sel]);
+
+  const open = async (id) => {
+    if (dirty && !confirm('Discard unsaved changes to this scene?')) return;
+    try {
+      const s = cleanScene(await api.getScene(id));
+      hist.set(s, { replace: true });
+      setSel(0);
+      setSavedJson(JSON.stringify(toStored(s)));
+      location.hash = `#/designer/${id}`;
+    } catch (e) { toast(false, `Could not open: ${e.message}`); }
+  };
+  useEffect(() => { if (sceneId && sceneId !== scene.id) open(sceneId); }, [sceneId]);
+
+  const fromTemplate = (key) => {
+    const t = TEMPLATES.find((x) => x.key === key);
+    if (!t || (dirty && !confirm('Discard unsaved changes to this scene?'))) return;
+    hist.set({ id: '', name: t.key === 'blank' ? 'My scene' : t.name, frames: t.frames.map((f) => ({ ...f })) }, { replace: true });
+    setSel(0);
+    setSavedJson(null);
+    location.hash = '#/designer';
+  };
+
+  // ---- scene edits ----
+  const setFrame = (f) => hist.set((s) => ({ ...s, frames: s.frames.map((x, i) => (i === sel ? f : x)) }));
+  const addFrame = () => { hist.set((s) => ({ ...s, frames: [...s.frames.slice(0, sel + 1), newFrame({ text: 'NEXT' }), ...s.frames.slice(sel + 1)] })); setSel(sel + 1); };
+  const dupFrame = () => { hist.set((s) => ({ ...s, frames: [...s.frames.slice(0, sel + 1), { ...frame }, ...s.frames.slice(sel + 1)] })); setSel(sel + 1); };
+  const delFrame = () => { if (scene.frames.length < 2) return; hist.set((s) => ({ ...s, frames: s.frames.filter((_, i) => i !== sel) })); setSel(Math.max(0, sel - 1)); };
+  const moveFrame = (d) => {
+    const j = sel + d;
+    if (j < 0 || j >= scene.frames.length) return;
+    hist.set((s) => { const fr = [...s.frames]; [fr[sel], fr[j]] = [fr[j], fr[sel]]; return { ...s, frames: fr }; });
+    setSel(j);
+  };
+
+  // keyboard: undo/redo, duplicate
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); hist.undo(); }
+      else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); hist.redo(); }
+      else if (k === 'd') { e.preventDefault(); dupFrame(); }
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  });
+
+  // ---- preview ----
+  const prevFrame = scene.frames.length > 1 ? scene.frames[(sel + scene.frames.length - 1) % scene.frames.length] : null;
+  const prev = prevFrame ? { codes: toCodes(prevFrame.text), style: styleOf(prevFrame) } : { codes: encodeText('12:00').codes, style: { entrance: -1, after: 'spin' } };
+  const preview = useMemo(() => {
+    if (whole && hover === null) {
+      return makeSequence(scene.frames.map((f) => ({ codes: toCodes(f.text), style: styleOf(f), ms: (f.seconds || 6) * 1000 })), EFFECTS);
+    }
+    const st = styleOf(frame);
+    if (hover !== null) st.entrance = hover;
+    return makeScene(prev, { codes: toCodes(frame.text), style: st }, EFFECTS);
+  }, [scene, sel, hover, whole]);
+
+  let compiled = null, compileError = null;
+  try { compiled = compileFrame(toCodes(frame.text), styleOf(frame)); } catch (e) { compileError = e.message; }
+
+  // ---- globe actions ----
+  const frameBody = (f) => {
+    const b = { text: fillValues(f.text), entrance: f.entrance ?? null, after: f.after };
+    if (f.after === 'hold') { b.blink = f.blink; b.shift = f.shift; }
+    return b;
+  };
+  const sendThis = async (quiet) => {
+    try { await api.sendFrame(frameBody(frame)); if (!quiet) toast(true, 'Frame sent; the playlist is paused until you resume it'); }
+    catch (e) { toast(false, `Could not send: ${e.message}`); }
+  };
+  useEffect(() => {
+    if (!live) return undefined;
+    const t = setTimeout(() => sendThis(true), 400);
+    return () => clearTimeout(t);
+  }, [live, frame]);
+
+  const save = async () => {
+    const id = scene.id || slug(scene.name);
+    if (!scene.id && library.some((s) => s.id === id) && !confirm(`A scene called “${id}” exists. Replace it?`)) return null;
+    setBusy(true);
+    try {
+      await api.saveScene(id, toStored(scene));
+      hist.set((s) => ({ ...s, id }), { replace: true });
+      setSavedJson(JSON.stringify(toStored(scene)));
+      location.hash = `#/designer/${id}`;
+      refreshLibrary();
+      toast(true, `Saved “${scene.name}” on the globe`);
+      return id;
+    } catch (e) { toast(false, `Could not save: ${e.message}`); return null; }
+    finally { setBusy(false); }
+  };
+  const playOnGlobe = async () => {
+    try { await api.playFrames(toStored(scene).frames, 0); toast(true, 'Playing once on the globe, then back to the playlist'); }
+    catch (e) { toast(false, `Could not play: ${e.message}`); }
+  };
+  const remove = async () => {
+    if (!scene.id || !confirm(`Delete “${scene.name}” from the globe?`)) return;
+    try { await api.deleteScene(scene.id); toast(true, 'Deleted'); refreshLibrary(); fromTemplate('blank'); }
+    catch (e) { toast(false, e.message); }
+  };
+  const exportFile = () => {
+    const blob = new Blob([JSON.stringify({ ...toStored(scene), id: scene.id || slug(scene.name) }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${scene.id || slug(scene.name)}.globe.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  const importFile = async (file) => {
+    try {
+      const s = cleanScene(JSON.parse(await file.text()));
+      hist.set({ ...s, id: '' }, { replace: true });
+      setSel(0);
+      setSavedJson(null);
+      toast(true, `Imported “${s.name}”; save it to keep it on the globe`);
+    } catch (e) { toast(false, `Could not import: ${e.message}`); }
+  };
+
+  return (
+    <div>
+      <div class="scenebar">
+        <select class="select" value={scene.id || ''} onChange={(e) => e.currentTarget.value && open(e.currentTarget.value)} aria-label="Open a scene">
+          <option value="">{scene.id ? '' : 'Unsaved scene'}</option>
+          {library.map((s) => <option key={s.id} value={s.id}>{s.name}{s.builtin ? ' (built in)' : ''}</option>)}
+        </select>
+        <select class="select" value="" onChange={(e) => { fromTemplate(e.currentTarget.value); e.currentTarget.value = ''; }} aria-label="New scene">
+          <option value="">+ New scene…</option>
+          {TEMPLATES.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+        </select>
+        <input type="text" class="name" value={scene.name} onInput={(e) => hist.set((s) => ({ ...s, name: e.currentTarget.value }))} aria-label="Scene name" />
+        <span class="muted small">{scene.id ? `id: ${scene.id}` : `will save as: ${slug(scene.name)}`}{dirty ? ' · unsaved' : ''}</span>
+        <span style="flex:1" />
+        <button class="btn icon" onClick={hist.undo} disabled={!hist.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+        <button class="btn icon" onClick={hist.redo} disabled={!hist.canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+        <button class="btn" onClick={exportFile} title="Download as a file">Export</button>
+        <button class="btn" onClick={() => fileRef.current.click()} title="Load a .globe.json file">Import</button>
+        <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.currentTarget.files[0]; if (f) importFile(f); e.currentTarget.value = ''; }} />
+        {scene.id && !scene.builtin && <button class="btn" onClick={remove}>Delete</button>}
+        <button class="btn primary" onClick={save} disabled={busy}>{dirty || !scene.id ? 'Save' : 'Saved ✓'}</button>
+      </div>
+
+      <div class="layout">
+        <div class="sticky">
+          <Screen scene={preview} runKey={runKey} holdMs={whole && hover === null ? 0 : 4000} badge="≈ preview" />
+          <div class="row controls">
+            <button class="btn" onClick={() => setRunKey((k) => k + 1)}>↻ Replay</button>
+            <div class="seg" role="group" aria-label="Preview">
+              <button aria-pressed={!whole} onClick={() => setWhole(false)}>This frame</button>
+              <button aria-pressed={whole} onClick={() => setWhole(true)}>Whole scene</button>
+            </div>
+            <span class="muted small">{hover !== null ? `Previewing ${fxName(hover)}` : ''}</span>
+          </div>
+
+          <h2 style="margin-top:18px">Frames</h2>
+          <div class="strip" role="list">
+            {scene.frames.map((f, i) => (
+              <button key={i} role="listitem" class="frame-card" aria-pressed={i === sel} onClick={() => setSel(i)}>
+                <span class="frame-text mono">{f.text || '(empty)'}</span>
+                <span class="frame-meta">{fxName(f.entrance)} · {f.after}{f.seconds ? ` · ${f.seconds} s` : ''}</span>
+              </button>
+            ))}
+            <button class="frame-card add" onClick={addFrame} title="Add a frame after this one">+ Frame</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn small" onClick={() => moveFrame(-1)} disabled={sel === 0}>← Move</button>
+            <button class="btn small" onClick={() => moveFrame(1)} disabled={sel >= scene.frames.length - 1}>Move →</button>
+            <button class="btn small" onClick={dupFrame} title="Ctrl+D">Duplicate</button>
+            <button class="btn small" onClick={delFrame} disabled={scene.frames.length < 2}>Delete frame</button>
+            <span class="muted small">Scene length: {scene.frames.reduce((a, f) => a + (f.seconds || 0), 0)} s, then it loops</span>
+          </div>
+
+          <details style="margin-top:16px">
+            <summary>Show commands (advanced)</summary>
+            {compiled && (
+              <div style="margin-top:8px">
+                <div class="bytes">{hex(compiled.first)}</div>
+                {compiled.then && <div class="bytes" style="margin-top:6px">then {hex(compiled.then)}</div>}
+              </div>
+            )}
+          </details>
+        </div>
+
+        <div>
+          <p class="muted" style="margin:0 0 8px">Frame {sel + 1} of {scene.frames.length}</p>
+          <FrameEditor frame={frame} onChange={setFrame} prevCodes={prev.codes} onHover={setHover} />
+          <div class="actions">
+            <div class="row">
+              <button class="btn primary" onClick={playOnGlobe}>Play scene on globe ▶</button>
+              <button class="btn" onClick={() => sendThis(false)} disabled={!!compileError}>Send this frame</button>
+              <label class="check"><input type="checkbox" checked={live} onChange={(e) => setLive(e.currentTarget.checked)} />Live</label>
+              <span style="flex:1" />
+              <button class="btn" onClick={() => api.resume().then(() => toast(true, 'Playlist resumed'), (e) => toast(false, e.message))}>Resume playlist</button>
+            </div>
+            {compileError && <div class="toast bad">{compileError}</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

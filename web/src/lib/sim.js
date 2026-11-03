@@ -401,3 +401,36 @@ export function makeScene(prev, next, effects) {
 export function frontWindow() {
   return { start: FRONT - WINDOW / 2, end: FRONT + WINDOW / 2 };
 }
+
+/**
+ * A whole scene: frames play in order, each entering from the one before
+ * (the first from the last, as when the scene loops).
+ * frames = [{codes, style, ms}]; ms = how long the frame stays (entrance included).
+ * Returns {entranceMs: total length, pictureAt(ms), frameAt(ms)}.
+ */
+export function makeSequence(frames, effects) {
+  const segs = [];
+  let t = 0;
+  frames.forEach((f, i) => {
+    const prev = frames.length > 1 ? frames[(i + frames.length - 1) % frames.length] : null;
+    const sc = makeScene(prev, f, effects);
+    const ms = Math.max(f.ms || 6000, sc.entranceMs + 500);
+    segs.push({ t0: t, ms, sc });
+    t += ms;
+  });
+  const find = (ms) => {
+    const m = t > 0 ? ((ms % t) + t) % t : 0;
+    let k = segs.length - 1;
+    while (k > 0 && segs[k].t0 > m) k--;
+    return { k, local: m - segs[k].t0 };
+  };
+  return {
+    entranceMs: t,
+    pictureAt(ms) {
+      if (!segs.length) return new Float32Array(ROWS * BAND);
+      const { k, local } = find(ms);
+      return segs[k].sc.pictureAt(local);
+    },
+    frameAt(ms) { return segs.length ? find(ms).k : 0; },
+  };
+}
