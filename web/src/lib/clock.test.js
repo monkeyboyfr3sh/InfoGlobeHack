@@ -12,9 +12,17 @@ describe('clock values match the globe', () => {
     expect(fillValues('{words}', d)).toBe('TEN THIRTY EIGHT');
     expect(fillValues('{roman}', d)).toBe('X:XXXVIII');
     expect(fillValues('{binary}', d)).toBe('10110:100110');
-    expect(fillValues('{clock:24} {clock:s}', d)).toBe('22:38 10:38:55');
+    expect(fillValues('{clock:24} {clock:sx}', d)).toBe('22:38 10:38:55');
     expect(fillValues('{until:12-25}', d)).toBe('53');
     expect(fillValues('{doy} {week}', d)).toBe('306 45');
+  });
+  it('clock options: no AM/PM, colon blink rates', () => {
+    expect(fillValues('{clock:x}', new Date(2026, 0, 1, 9, 5, 0, 100))).toBe('09:05');
+    expect(fillValues('{clock:s}', new Date(2026, 0, 1, 21, 5, 7, 100))).toBe('09:05:07 PM');
+    const off = new Date(2026, 0, 1, 9, 5, 1, 0);   // second half of a 2 s cycle
+    expect(fillValues('{time}', off, '', false, { period: 2000, look: 'dot' })).toBe('9.05');
+    expect(fillValues('{time}', off, '', false, { period: 0 })).toBe('9:05');
+    expect(fillValues('{time}', off, '', true, { period: 2000 })).toBe('9:05');
   });
   it('fuzzy edge cases', () => {
     expect(fillValues('{fuzzy}', new Date(2026, 0, 1, 11, 58))).toBe('NOON');

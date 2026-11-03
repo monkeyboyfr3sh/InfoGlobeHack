@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import effectsDoc from '../../../docs/effects.json';
-import { STYLES, EXTRAS, CHIMES, DEFAULT_CLOCK, compileClock } from '../lib/clockstyles.js';
+import { STYLES, EXTRAS, CHIMES, DEFAULT_CLOCK, BLINK_RATES, compileClock, upgradeClock } from '../lib/clockstyles.js';
 import { makeClockSim } from '../lib/clocksim.js';
 import { fillValues, setLocation, CITIES } from '../lib/values.js';
 import { encodeText, TEXT_MAX } from '../lib/protocol.js';
@@ -54,7 +54,7 @@ export function Clock({ toast }) {
 
   // load the current clock and location from the globe
   useEffect(() => {
-    api.getScene('clock').then((s) => { if (s && s.clock) { const cfg = { ...DEFAULT_CLOCK, ...s.clock }; setC(cfg); setSaved(JSON.stringify(cfg)); } }, () => {});
+    api.getScene('clock').then((s) => { if (s && s.clock) { const cfg = upgradeClock({ ...DEFAULT_CLOCK, ...s.clock }); setC(cfg); setSaved(JSON.stringify(cfg)); } }, () => {});
     api.getSettings().then((s) => {
       if (Number.isFinite(s.lat)) { setLoc({ lat: String(s.lat), lon: String(s.lon) }); setLocation({ lat: s.lat, lon: s.lon }); }
     }, () => {});
@@ -174,8 +174,24 @@ export function Clock({ toast }) {
                 <button aria-pressed={!c.h24} onClick={() => set({ h24: false })}>12 h</button>
                 <button aria-pressed={c.h24} onClick={() => set({ h24: true })}>24 h</button>
               </div>
+              {!c.h24 && <label class="check"><input type="checkbox" checked={c.ampm !== false} onChange={(e) => set({ ampm: e.currentTarget.checked })} />AM / PM</label>}
               <label class="check"><input type="checkbox" checked={c.seconds} onChange={(e) => set({ seconds: e.currentTarget.checked })} />Seconds</label>
-              {st.uses === 'clock' && !c.seconds && <label class="check"><input type="checkbox" checked={c.blink} onChange={(e) => set({ blink: e.currentTarget.checked })} />Blinking colon</label>}
+            </div>
+            <div class="form-grid">
+              <span class="label">Blinking colon</span>
+              <div class="seg" role="radiogroup" aria-label="Blinking colon">
+                {BLINK_RATES.map(([v, l]) => (
+                  <button key={v} role="radio" aria-checked={c.colon.period === v} aria-pressed={c.colon.period === v}
+                    title={v ? `${v / 1000} s per blink` : 'Colon always on'} onClick={() => set({ colon: { ...c.colon, period: v } })}>{l}</button>
+                ))}
+              </div>
+              {c.colon.period > 0 && <>
+                <span class="label">Blinks to</span>
+                <div class="seg" role="radiogroup" aria-label="Blink look">
+                  <button aria-pressed={c.colon.look !== 'dot'} onClick={() => set({ colon: { ...c.colon, look: 'hide' } })}>Nothing (12 30)</button>
+                  <button aria-pressed={c.colon.look === 'dot'} onClick={() => set({ colon: { ...c.colon, look: 'dot' } })}>A dot (12.30)</button>
+                </div>
+              </>}
             </div>
           </Section>
         )}
@@ -194,16 +210,15 @@ export function Clock({ toast }) {
           )}
         </Section>
 
-        <Section title="Motion" hint="Still text can move: the globe re-sends it a dot further along, several times a second.">
+        <Section title="Motion" hint="Pendulum swings still text gently left and right.">
           <div class="seg" role="radiogroup" aria-label="Motion">
-            <button aria-pressed={!motion} onClick={() => set({ motion: null })}>{st.after === 'spin' && !st.motion ? 'Spin (native)' : 'Still'}</button>
+            <button aria-pressed={!motion} onClick={() => set({ motion: null })}>{st.after === 'spin' && !st.motion ? 'Spin' : 'Still'}</button>
             <button aria-pressed={motion === 'pendulum'} onClick={() => set({ motion: 'pendulum' })}>Pendulum</button>
-            <button aria-pressed={motion === 'drift'} onClick={() => set({ motion: 'drift' })}>Drift left → right</button>
           </div>
           {motion && (
             <div class="row" style="margin-top:10px">
               <span class="muted small">slow</span>
-              <input type="range" min="100" max="500" step="20" value={600 - (c.motionMs || (motion === 'drift' ? 160 : 250))}
+              <input type="range" min="100" max="500" step="20" value={600 - (c.motionMs || 250)}
                 onInput={(e) => set({ motionMs: 600 - e.currentTarget.valueAsNumber })} aria-label="Motion speed" />
               <span class="muted small">fast</span>
             </div>

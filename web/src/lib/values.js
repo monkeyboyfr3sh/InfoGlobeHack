@@ -144,19 +144,27 @@ function until(arg, d) {
   return null;
 }
 
-function value(name, arg, d, ip, steady) {
+// Colon blink: period = full on+off cycle in ms (0 = none); off half swaps ':' for ' ' or '.'.
+function colonBlink(s, d, period, look) {
+  if (!period) return s;
+  const ms = (Math.floor(d.getTime() / 1000) % 3600) * 1000 + d.getMilliseconds();
+  return ms % period < period / 2 ? s : s.replace(/:/g, look === 'dot' ? '.' : ' ');
+}
+
+function value(name, arg, d, ip, steady, colon) {
   const hr = d.getHours(), mi = d.getMinutes();
   const ampm = hr < 12 ? 'AM' : 'PM';
   switch (name) {
     case 'clock': {
       const a = arg || '', h24 = a.includes('2'), secs = a.includes('s'), noblink = a.includes('n');
+      const showAmpm = !h24 && !a.includes('x');
       const hh = p2(h24 ? hr : h12(hr));
-      let s = secs ? `${hh}:${p2(mi)}:${p2(d.getSeconds())}` : h24 ? `${hh}:${p2(mi)}` : `${hh}:${p2(mi)} ${ampm}`;
-      if (!secs && !noblink && !steady && d.getMilliseconds() >= 500) s = s.slice(0, 2) + ' ' + s.slice(3);
+      let s = `${hh}:${p2(mi)}${secs ? `:${p2(d.getSeconds())}` : ''}${showAmpm ? ` ${ampm}` : ''}`;
+      if (!steady) s = colon ? colonBlink(s, d, colon.period, colon.look) : colonBlink(s, d, noblink || secs ? 0 : 1000, 'hide');
       return s;
     }
-    case 'time': return `${h12(hr)}:${p2(mi)}`;
-    case 'time24': return `${p2(hr)}:${p2(mi)}`;
+    case 'time': return steady || !colon ? `${h12(hr)}:${p2(mi)}` : colonBlink(`${h12(hr)}:${p2(mi)}`, d, colon.period, colon.look);
+    case 'time24': return steady || !colon ? `${p2(hr)}:${p2(mi)}` : colonBlink(`${p2(hr)}:${p2(mi)}`, d, colon.period, colon.look);
     case 'ampm': return ampm;
     case 'sec': return p2(d.getSeconds());
     case 'date': return `${DAYS[d.getDay()].slice(0, 3)} ${p2(d.getDate())} ${MONTHS[d.getMonth()].slice(0, 3)}`;
@@ -206,9 +214,9 @@ function value(name, arg, d, ip, steady) {
 const RE = /\{([a-z0-9]{1,14})(?::([^{}]{1,24}))?\}/g;
 
 /** Fill in {values}; unknown names stay as typed (as on the globe). `steady` = no colon blink. */
-export function fillValues(text, d = new Date(), ip = (typeof location !== 'undefined' && location.hostname) || '192.168.0.71', steady = false) {
+export function fillValues(text, d = new Date(), ip = (typeof location !== 'undefined' && location.hostname) || '192.168.0.71', steady = false, colon = null) {
   return text.replace(RE, (m, name, arg) => {
-    const v = value(name, arg, d, ip, steady);
+    const v = value(name, arg, d, ip, steady, colon);
     return v === null || v === undefined ? m : v;
   });
 }

@@ -44,6 +44,21 @@ static void ip_string(char *buf, size_t len)
     }
 }
 
+/* Colon blink of the frame being rendered (set by frame_subst). Period is the
+ * full on+off cycle in ms; 0 = no blink. Without a frame setting, {clock}
+ * keeps its classic one-second blink. */
+static bool     s_colon_set;
+static uint16_t s_colon_period;
+static char     s_colon_look = ' ';
+
+static void colon_blink(char *out, const struct timeval *tv, uint16_t period)
+{
+    if (!period) return;
+    uint32_t ms = (uint32_t)(tv->tv_sec % 3600) * 1000 + tv->tv_usec / 1000;
+    if (ms % period < period / 2) return;              // "on" half
+    for (char *c = out; *c; c++) if (*c == ':') *c = s_colon_look;
+}
+
 /* One value; returns false for an unknown name (left in the text as typed).
  * `arg` is the part after ':' ({clock:24}, {tz:tyo}); `steady` turns off
  * the colon blink (used to tell a real change from a blink). */
@@ -58,15 +73,18 @@ static bool value_of(const char *name, const char *arg, char *out, size_t cap, b
 
     if (!strcmp(name, "clock")) {             // the classic clock: "07:05 PM", colon blinks
         // {clock:24} 24 h, {clock:s} with seconds, {clock:n} colon doesn't blink (combinable)
+        // {clock:24} 24 h, {clock:s} seconds, {clock:x} no AM/PM, {clock:n} no blink (combinable)
         bool h24 = arg && strchr(arg, '2'), secs = arg && strchr(arg, 's'), noblink = arg && strchr(arg, 'n');
-        strftime(out, cap, secs ? (h24 ? "%H:%M:%S" : "%I:%M:%S") : (h24 ? "%H:%M" : "%I:%M %p"), &t);
-        if (!secs && !noblink && !steady && tv.tv_usec >= 500000 && cap > 2) out[2] = ' ';
+        bool ampm = !h24 && !(arg && strchr(arg, 'x'));
+        strftime(out, cap, h24 ? (secs ? "%H:%M:%S" : "%H:%M") : secs ? (ampm ? "%I:%M:%S %p" : "%I:%M:%S") : (ampm ? "%I:%M %p" : "%I:%M"), &t);
+        if (!steady) colon_blink(out, &tv, s_colon_set ? s_colon_period : (noblink || secs ? 0 : 1000));
         *live = true;
         return true;
     }
     if (!strcmp(name, "time")) {              // "7:05"
         int h = t.tm_hour % 12 ? t.tm_hour % 12 : 12;
         snprintf(out, cap, "%d:%02d", h, t.tm_min);
+        if (!steady && s_colon_set) colon_blink(out, &tv, s_colon_period);
         *live = true;
         return true;
     }
@@ -81,6 +99,7 @@ static bool value_of(const char *name, const char *arg, char *out, size_t cap, b
     else if (!strcmp(name, "year"))   fmt = "%Y";
     if (fmt) {
         strftime(out, cap, fmt, &t);
+        if (!steady && s_colon_set && !strcmp(name, "time24")) colon_blink(out, &tv, s_colon_period);
         *live = true;
         return true;
     }
@@ -318,7 +337,20 @@ typedef struct {
     int           on_change;        // transition when a live value changes (flip clock), -1 none, -2 random
     uint8_t       motion;           // still text that swings (pendulum) or drifts left to right
     uint16_t      motion_ms;        // time per one-column step
+    bool          colon_set;        // "blinkColon": {"period": ms, "look": "hide"|"dot"}
+    uint16_t      colon_period;
+    char          colon_look;
 } eng_frame_t;
+
+/* Substitute a frame's text with its own colon blink. */
+static void frame_subst(const eng_frame_t *fr, char *out, size_t cap, bool *live, bool steady)
+{
+    s_colon_set = fr->colon_set;
+    s_colon_period = fr->colon_period;
+    s_colon_look = fr->colon_look ? fr->colon_look : ' ';
+    subst(fr->text, out, cap, live, steady);
+    s_colon_set = false;
+}
 
 typedef struct {
     char        id[SCENE_ID_MAX];
@@ -405,6 +437,13 @@ static void parse_frame(cJSON *f, eng_frame_t *out)
         if (!strcmp(mo->valuestring, "pendulum")) out->motion = MOTION_PENDULUM;
         else if (!strcmp(mo->valuestring, "drift")) out->motion = MOTION_DRIFT;
     }
+    cJSON *bc = cJSON_GetObjectItem(f, "blinkColon");
+    if (cJSON_IsObject(bc)) {
+        cJSON *per = cJSON_GetObjectItem(bc, "period"), *look = cJSON_GetObjectItem(bc, "look");
+        out->colon_set = true;
+        out->colon_period = cJSON_IsNumber(per) && per->valuedouble >= 200 ? (uint16_t)per->valuedouble : 0;
+        out->colon_look = cJSON_IsString(look) && !strcmp(look->valuestring, "dot") ? '.' : ' ';
+    }
     cJSON *ms = cJSON_GetObjectItem(f, "motionMs");
     out->motion_ms = cJSON_IsNumber(ms) && ms->valuedouble >= 100 ? (uint16_t)ms->valuedouble : (out->motion == MOTION_DRIFT ? 160 : 250);
 }
@@ -477,7 +516,7 @@ static void show_frame(QueueHandle_t q, bool steady)
 {
     const eng_frame_t *fr = &s_scene->frames[E.frame];
     char text[TEXT_TMPL_MAX];
-    scene_subst(fr->text, text, sizeof(text), &E.live);
+    frame_subst(fr, text, sizeof(text), &E.live, false);
     uint8_t enc[GLOBE_TEXT_MAX + 8];
     size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
     globe_style_t st = fr->style;
@@ -489,7 +528,7 @@ static void show_frame(QueueHandle_t q, bool steady)
     lock();
     snprintf(E.shown, sizeof(E.shown), "%s", text);
     unlock();
-    subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
+    frame_subst(fr, E.shown_steady, sizeof(E.shown_steady), NULL, true);
     E.second_pending = n2 > 0;
     if (n2) E.second_at = xTaskGetTickCount() + pdMS_TO_TICKS(g_globe_effects[st.entrance].duration_ms);
 }
@@ -507,7 +546,7 @@ static int random_effect(void)
 static void change_frame(QueueHandle_t q, const eng_frame_t *fr)
 {
     char text[TEXT_TMPL_MAX];
-    scene_subst(fr->text, text, sizeof(text), NULL);
+    frame_subst(fr, text, sizeof(text), NULL, false);
     uint8_t enc[GLOBE_TEXT_MAX + 8];
     size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
     globe_style_t st = fr->style;
@@ -519,7 +558,7 @@ static void change_frame(QueueHandle_t q, const eng_frame_t *fr)
     lock();
     snprintf(E.shown, sizeof(E.shown), "%s", text);
     unlock();
-    subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
+    frame_subst(fr, E.shown_steady, sizeof(E.shown_steady), NULL, true);
     TickType_t done = xTaskGetTickCount() + pdMS_TO_TICKS(g_globe_effects[st.entrance].duration_ms);
     E.busy_until = done;
     E.second_pending = n2 > 0;
@@ -534,7 +573,7 @@ static void motion_step(QueueHandle_t q, const eng_frame_t *fr, TickType_t now)
     if (now - E.motion_t < pdMS_TO_TICKS(fr->motion_ms)) return;
     E.motion_t = now;
     char text[TEXT_TMPL_MAX];
-    scene_subst(fr->text, text, sizeof(text), NULL);
+    frame_subst(fr, text, sizeof(text), NULL, false);
     uint8_t enc[GLOBE_TEXT_MAX + 8];
     size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
     int span = (int)len * 2 + 1;              // shift 0 (right) .. 2*len (left)
@@ -557,7 +596,7 @@ static void motion_step(QueueHandle_t q, const eng_frame_t *fr, TickType_t now)
     lock();
     snprintf(E.shown, sizeof(E.shown), "%s", text);
     unlock();
-    subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
+    frame_subst(fr, E.shown_steady, sizeof(E.shown_steady), NULL, true);
 }
 
 /* Start the playlist item E.item (or the override scene) from its first frame. */
@@ -588,7 +627,7 @@ static void pending_second(QueueHandle_t q)
     // the frame's still part (hold/flash) after its entrance
     const eng_frame_t *fr = &s_scene->frames[E.frame];
     char text[TEXT_TMPL_MAX];
-    scene_subst(fr->text, text, sizeof(text), NULL);
+    frame_subst(fr, text, sizeof(text), NULL, false);
     uint8_t enc[GLOBE_TEXT_MAX + 8];
     size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
     globe_style_t st = fr->style;
@@ -684,14 +723,14 @@ void scene_engine_tick(QueueHandle_t q, bool active)
     if (!animating) {
         if (E.live) {
             char steady[TEXT_TMPL_MAX];
-            subst(fr->text, steady, sizeof(steady), NULL, true);
+            frame_subst(fr, steady, sizeof(steady), NULL, true);
             if (strcmp(steady, E.shown_steady)) {           // a real change (minute, date, ...)
                 if (fr->on_change != ON_CHANGE_NONE) change_frame(q, fr);
                 else if (!fr->motion) show_frame(q, true);
-                else subst(fr->text, E.shown_steady, sizeof(E.shown_steady), NULL, true);
+                else frame_subst(fr, E.shown_steady, sizeof(E.shown_steady), NULL, true);
             } else if (!fr->motion) {                       // only the colon blinked
                 char text[TEXT_TMPL_MAX];
-                scene_subst(fr->text, text, sizeof(text), NULL);
+                frame_subst(fr, text, sizeof(text), NULL, false);
                 if (strcmp(text, E.shown)) show_frame(q, true);
             }
         }

@@ -28,7 +28,7 @@ export function makeClockSim(frames, effects, opts = {}) {
   function show(list, idx, ms, { entrance, frameT0, chimeEnd } = {}) {
     const f = list[idx];
     const d = dateAt(ms);
-    const codes = codesOf(fillValues(f.text, d));
+    const codes = codesOf(fillValues(f.text, d, undefined, false, f.blinkColon));
     const prev = cur ? { codes: cur.codes, style: { entrance: -1, after: 'spin' } } : null;
     const style = { entrance: entrance ?? (f.entrance ?? -1), after: f.after, blink: f.blink || 0, shift: f.shift ?? -1 };
     const sc = makeScene(prev, { codes, style }, effects);
@@ -80,7 +80,7 @@ export function makeClockSim(frames, effects, opts = {}) {
 
       // steady state: current text (colon blink), spinning or still (with motion)
       const g = cur.f;
-      const codes = codesOf(fillValues(g.text, d));
+      const codes = codesOf(fillValues(g.text, d, undefined, false, g.blinkColon));
       cur.codes = codes;
       const after = local - cur.sc.entranceMs;
       if (g.after === 'spin' && !g.motion) return spin(tiledLayout(codes), after);

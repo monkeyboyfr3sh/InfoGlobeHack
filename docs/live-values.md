@@ -5,7 +5,7 @@ Implemented in `hello_world/main/src/scene_engine.c` + `clock_values.c`, mirrore
 
 | Value | Example | Notes |
 |---|---|---|
-| `{clock}` | `07:05 PM` | colon blinks; `{clock:24}` 24 h, `{clock:s}` with seconds, `{clock:n}` no blink (combinable: `{clock:24s}`) |
+| `{clock}` | `07:05 PM` | colon blinks; `{clock:24}` 24 h, `{clock:s}` with seconds, `{clock:x}` no AM/PM, `{clock:n}` no blink (combinable: `{clock:24s}`) |
 | `{time}` `{time24}` `{ampm}` `{sec}` | `7:05` `19:05` `PM` `42` | |
 | `{date}` `{day}` `{dd}` `{month}` `{mon}` `{year}` | `Mon 02 Nov` `Monday` `02` `November` `Nov` `2026` | |
 | `{doy}` `{week}` | `306` `45` | day of year, ISO week |
@@ -24,6 +24,6 @@ Implemented in `hello_world/main/src/scene_engine.c` + `clock_values.c`, mirrore
 | `{until:12-25}` / `{until:17:00}` | `53` / `1:23` | days to a date, or time to a time of day |
 | `{ip}` | `192.168.0.71` | |
 
-Frame options for clocks (scene JSON): `"onChange": <effect> | "random"` plays a transition when a value
+Frame options for clocks (scene JSON): `"blinkColon": {"period": 1000, "look": "hide"|"dot"}` blinks the colon of `{clock}` `{time}` `{time24}` (period = full cycle in ms, 0 = steady); `"onChange": <effect> | "random"` plays a transition when a value
 changes (flip clock); `"motion": "pendulum" | "drift"` with `"motionMs"` moves still text by re-sending it at
 a new position. Playlist `"chime": {"scene": id, "every": 60|30|15}` plays a scene on the hour.

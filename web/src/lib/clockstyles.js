@@ -6,7 +6,6 @@ export const STYLES = [
   { key: 'flip', name: 'Split-flap', desc: 'Digits drop and change like a flip clock.', uses: 'time', change: 26 },
   { key: 'surprise', name: 'Surprise me', desc: 'A different transition every minute.', uses: 'time', change: 'random' },
   { key: 'pendulum', name: 'Pendulum', desc: 'The time swings gently left and right.', uses: 'time', motion: 'pendulum' },
-  { key: 'drift', name: 'Drift →', desc: 'Glides left to right, the way the globe can’t spin.', uses: 'time', motion: 'drift' },
   { key: 'ticker', name: 'Ticker', desc: 'Time and date circling the globe.', text: '{time} {ampm}  {date}', after: 'spin' },
   { key: 'fuzzy', name: 'Word clock', desc: '“QUARTER PAST TEN”, letters shuffle as it changes.', text: '{fuzzy}', after: 'spin', change: 22 },
   { key: 'spoken', name: 'Spoken', desc: '“TEN TWENTY EIGHT”.', text: '{words}', after: 'spin', change: 0 },
@@ -34,7 +33,8 @@ export const CHIMES = [
 ];
 
 export const DEFAULT_CLOCK = {
-  style: 'classic', h24: false, seconds: false, blink: true, change: undefined, motion: undefined, motionMs: undefined,
+  style: 'classic', h24: false, seconds: false, ampm: true, colon: { period: 1000, look: 'hide' },
+  change: undefined, motion: undefined, motionMs: undefined,
   extras: [], clockSeconds: 20, extraSeconds: 6,
   world: ['nyc', 'lon', 'tyo'], countdown: { label: 'XMAS', target: '12-25' },
   chime: { every: 0, look: 'words' },
@@ -45,13 +45,27 @@ const blankFrame = (f) => ({ entrance: null, after: 'hold', blink: 0, shift: -1,
 /** The clock's main frame text for a style. */
 function mainText(c, st) {
   if (st.text) return st.text;
+  const ampm = !c.h24 && c.ampm !== false;
   if (st.uses === 'clock') {
-    const a = `${c.h24 ? '24' : ''}${c.seconds ? 's' : ''}${c.blink ? '' : 'n'}`;
+    const a = `${c.h24 ? '24' : ''}${c.seconds ? 's' : ''}${!c.h24 && !ampm ? 'x' : ''}`;
     return a ? `{clock:${a}}` : '{clock}';
   }
-  // flip / surprise / pendulum / drift use the plain time
-  if (c.seconds) return c.h24 ? '{time24}:{sec}' : '{time}:{sec}';
-  return c.h24 ? '{time24}' : '{time}';
+  // flip / surprise / pendulum use the plain time
+  const base = c.h24 ? '{time24}' : '{time}';
+  return `${base}${c.seconds ? ':{sec}' : ''}${ampm ? ' {ampm}' : ''}`;
+}
+
+export const BLINK_RATES = [[0, 'Off'], [500, 'Fast'], [1000, 'Normal'], [2000, 'Slow']];
+
+/** Older saved configs had blink: true/false. */
+export function upgradeClock(c) {
+  const out = { ...c };
+  if (!out.colon) out.colon = { period: c.blink === false ? 0 : 1000, look: 'hide' };
+  if (out.ampm === undefined) out.ampm = true;
+  if (out.style === 'drift') { out.style = 'pendulum'; out.motion = undefined; }
+  if (out.motion === 'drift') out.motion = undefined;
+  delete out.blink;
+  return out;
 }
 
 /** Compile a clock config to {frames, chimeFrames}. */
@@ -61,6 +75,7 @@ export function compileClock(c) {
   const motion = c.motion !== undefined ? c.motion : st.motion;
   const after = motion ? 'hold' : st.after || 'hold';
   const main = blankFrame({ text: mainText(c, st), after });
+  if (st.uses) main.blinkColon = { period: (c.colon && c.colon.period) || 0, look: (c.colon && c.colon.look) || 'hide' };
   if (change !== undefined && change !== null) main.onChange = change;
   if (motion) { main.motion = motion; main.motionMs = c.motionMs || (motion === 'drift' ? 160 : 250); }
 
