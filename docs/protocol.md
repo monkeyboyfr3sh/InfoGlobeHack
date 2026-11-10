@@ -153,3 +153,33 @@ Unless noted, after the transition the text spins right → left at normal speed
 - Pattern worth noting: 26–29 (drop) and 30–33 (pluck) each come as left→right, right→left, even-then-odd (both left→right), and a fixed scramble 2,4,7,6,5,8,3,1. FX 15/22/23 are in-place two-pass variants.
 - Byte 2 of effect frames (always `00` so far).
 - Minimum reliable idle gap between frames.
+- Are FX 4, 5 and 19 really duplicates (of 0, 1 and one of 16-18)? The same question applies to 7, 20 and 21.
+
+### Filming the two camera tests
+
+Both scripts drive the globe over the HTTP API from a PC on the same network (Python 3, no extra packages).
+Each takes `--token` (or `INFOGLOBE_TOKEN`) if the globe requires one, `--dry-run` to read the globe's state and print the plan without changing anything, and can be stopped with Ctrl+C at any time: they put the gap back and return the globe to its playlist.
+Film at 60 fps or more with the front of the globe filling the frame; both print a timestamp for every step so the video can be lined up afterwards.
+
+**Minimum frame gap** (`tools/ir_gap_sweep.py`):
+
+```
+python tools/ir_gap_sweep.py --globe http://192.168.0.71 --gaps 10,8,6,5,4,3,2,1,0 --seconds 12
+```
+
+For each gap it shows `GAP nn`, then runs the firmware's IR test pattern (`TEST 000`, `TEST 001`, ... as still `05` frames sent back to back, 104 ms of bits plus the gap each).
+On the video, a gap works when the numbers count up one by one; skipped numbers, stray glyphs, stuck text or a blank globe mean it is too short.
+The console's frame rate is what the ESP32 sent, not what the globe understood, so only the video answers the question. Take the smallest gap that never drops a number and add a few ms of margin.
+This measures still frames only: an effect frame may need more time before the next frame, so check the result with an animation before relying on it.
+
+**Duplicate effects** (`tools/effect_twins.py`):
+
+```
+python tools/effect_twins.py --globe http://192.168.0.71            # 0 vs 4, 1 vs 5, 16 17 18 19
+python tools/effect_twins.py --globe http://192.168.0.71 --all-twins # also 6/7, 12/20, 13/21
+```
+
+Each group starts with a title (`SAME? 00 04`); then every effect plays twice from the same still old text (`FX04 ABCDEFG`) to the same new text (`FX04 1234567`), so the only difference on video is the transition and the number on screen names it.
+Compare: which way the new text arrives, what happens to the old text (overwritten letter by letter, wiped, pushed, dropped), the speed, and how it ends.
+For 16-19 note the direction of both the old and the new text: the table above has 16 in up / out down, 17 in down / out up, 18 in down / out down, and 19 (unsure) in up / out up.
+If a pair really is identical, keep its `sameAs` in `tools/gen_effects.py` (it already lists 4→0, 5→1, 7→6, 20→12, 21→13); if not, remove it, fix the row above and run `python tools/gen_effects.py --annotate`.
