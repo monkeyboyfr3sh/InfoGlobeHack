@@ -20,6 +20,9 @@
 
 #include "globe_frame.h"
 #include "message_type.h"
+#include "globe_anim.h"
+#include "ir_led_task.h"
+#include "esp_heap_caps.h"
 
 static const char *TAG = "SCENES";
 
@@ -379,27 +382,36 @@ bool playlist_save(const cJSON *playlist)
 enum { MOTION_NONE = 0, MOTION_PENDULUM, MOTION_DRIFT };
 #define ON_CHANGE_NONE   (-1)
 #define ON_CHANGE_RANDOM (-2)
+#define ON_CHANGE_ANIM   (-3)       // a finite custom animation (change_anim) into the new text
+#define ENG_SEQ_POOL     4096       // bytes for all "sequence" texts of one scene
 
 typedef struct {
     char          text[TEXT_TMPL_MAX];
     globe_style_t style;
     uint32_t      ms;               // 0 = until the playlist moves on
-    int           on_change;        // transition when a live value changes (flip clock), -1 none, -2 random
+    int           on_change;        // transition when a live value changes (flip clock), -1 none, -2 random, -3 anim
     uint8_t       motion;           // still text that swings (pendulum) or drifts left to right
     uint16_t      motion_ms;        // time per one-column step
     bool          colon_set;        // "blinkColon": {"period": ms, "look": "hide"|"dot"}
     uint16_t      colon_period;
     char          colon_look;
+    ga_anim_t     anim;             // "anim": custom animation (docs/animations.md), GA_NONE = none
+    ga_anim_t     change_anim;      // "onChange": "decode" or an anim object
 } eng_frame_t;
 
-/* Substitute a frame's text with its own colon blink. */
-static void frame_subst(const eng_frame_t *fr, char *out, size_t cap, bool *live, bool steady)
+/* Substitute a template (the frame's text, or a sequence step) with the frame's own colon blink. */
+static void frame_subst_text(const eng_frame_t *fr, const char *tmpl, char *out, size_t cap, bool *live, bool steady)
 {
     s_colon_set = fr->colon_set;
     s_colon_period = fr->colon_period;
     s_colon_look = fr->colon_look ? fr->colon_look : ' ';
-    subst(fr->text, out, cap, live, steady);
+    subst(tmpl, out, cap, live, steady);
     s_colon_set = false;
+}
+
+static void frame_subst(const eng_frame_t *fr, char *out, size_t cap, bool *live, bool steady)
+{
+    frame_subst_text(fr, fr->text, out, cap, live, steady);
 }
 
 typedef struct {
@@ -407,6 +419,8 @@ typedef struct {
     char        name[40];
     eng_frame_t frames[SCENE_MAX_FRAMES];
     int         n;
+    size_t      seq_used;
+    char        seq_pool[ENG_SEQ_POOL];     // sequence texts, NUL-separated (ga_anim_t.texts points here)
 } eng_scene_t;
 
 typedef struct {
@@ -446,7 +460,16 @@ static struct {
     TickType_t busy_until;                  // a change transition is playing
     TickType_t motion_t;
     uint32_t   motion_k;
+    // custom animation (globe_anim): one still frame per step, on a clock
+    bool       anim_on;
+    bool       anim_settle;                 // the last step is up: the frame's own style follows when due
+    ga_anim_t  anim;                        // what plays: the frame's anim, or its onChange one
+    uint32_t   anim_k;
+    TickType_t anim_due;
+    char       anim_from[TEXT_TMPL_MAX];    // the text before a change (count)
 } E;
+
+static uint16_t s_anim_min_ms;              // settings "animMinMs": floor for every step, 0 = airtime only
 
 void scene_engine_reload(void) { s_reload = true; }
 
@@ -455,7 +478,34 @@ __attribute__((constructor)) static void engine_lock_init(void) { s_lock = xSema
 static void lock(void)   { xSemaphoreTake(s_lock, portMAX_DELAY); }
 static void unlock(void) { xSemaphoreGive(s_lock); }
 
-static void parse_frame(cJSON *f, eng_frame_t *out)
+/* "anim": {"type":"decode", ...} -> *a (options validated by globe_anim). Sequence
+ * texts go into the scene's pool; once it is full the rest are dropped.
+ * Returns false (and GA_NONE) when there is no valid animation. */
+static bool parse_anim(const cJSON *j, ga_anim_t *a, eng_scene_t *sc)
+{
+    memset(a, 0, sizeof(*a));
+    if (!cJSON_IsObject(j)) return false;
+    const cJSON *t = cJSON_GetObjectItem(j, "type");
+    if (!cJSON_IsString(t) || !ga_init(a, t->valuestring)) return false;
+    const cJSON *it;
+    cJSON_ArrayForEach(it, j) {
+        if (cJSON_IsNumber(it)) ga_set_num(a, it->string, it->valuedouble);
+        else if (cJSON_IsBool(it)) ga_set_num(a, it->string, cJSON_IsTrue(it) ? 1 : 0);
+        else if (cJSON_IsString(it)) { if (strcmp(it->string, "type")) ga_set_str(a, it->string, it->valuestring); }
+        else if (cJSON_IsArray(it) && !strcmp(it->string, "texts")) {
+            const cJSON *s;
+            cJSON_ArrayForEach(s, it) {
+                if (!cJSON_IsString(s) || a->ntexts >= GA_SEQ_MAX) continue;
+                size_t n = ga_add_text(a, sc->seq_pool + sc->seq_used, sizeof(sc->seq_pool) - sc->seq_used, s->valuestring);
+                if (!n) { ESP_LOGW(TAG, "Scene '%s': sequence texts over %d bytes, the rest dropped", sc->id, ENG_SEQ_POOL); break; }
+                sc->seq_used += n;
+            }
+        }
+    }
+    return true;
+}
+
+static void parse_frame(cJSON *f, eng_frame_t *out, eng_scene_t *sc)
 {
     memset(out, 0, sizeof(*out));
     out->style.entrance = -1;
@@ -478,10 +528,19 @@ static void parse_frame(cJSON *f, eng_frame_t *out)
     if (cJSON_IsNumber(s)) out->style.shift = (int)s->valuedouble;
     cJSON *sec = cJSON_GetObjectItem(f, "seconds");
     if (cJSON_IsNumber(sec) && sec->valuedouble > 0) out->ms = (uint32_t)(sec->valuedouble * 1000);
+    if (parse_anim(cJSON_GetObjectItem(f, "anim"), &out->anim, sc)) out->style.entrance = -1;   // the animation is the entrance
     out->on_change = ON_CHANGE_NONE;
     cJSON *oc = cJSON_GetObjectItem(f, "onChange");
     if (cJSON_IsNumber(oc) && oc->valuedouble >= 0 && oc->valuedouble < g_globe_effect_count) out->on_change = (int)oc->valuedouble;
     else if (cJSON_IsString(oc) && !strcmp(oc->valuestring, "random")) out->on_change = ON_CHANGE_RANDOM;
+    else if (cJSON_IsString(oc) || cJSON_IsObject(oc)) {        // a finite animation: "decode", {"type":"count",...}
+        ga_anim_t *ca = &out->change_anim;
+        if (cJSON_IsObject(oc)) parse_anim(oc, ca, sc);
+        else if (out->anim.type && !strcmp(oc->valuestring, ga_type_name(out->anim.type))) *ca = out->anim;   // with the frame's options
+        else ga_init(ca, oc->valuestring);
+        if (ca->type && ga_finite(ca)) out->on_change = ON_CHANGE_ANIM;
+        else ca->type = GA_NONE;
+    }
     cJSON *mo = cJSON_GetObjectItem(f, "motion");
     if (cJSON_IsString(mo)) {
         if (!strcmp(mo->valuestring, "pendulum")) out->motion = MOTION_PENDULUM;
@@ -506,7 +565,10 @@ static bool load_scene(const char *id)
         cJSON_Delete(j);
         return false;
     }
-    if (!s_scene) s_scene = calloc(1, sizeof(eng_scene_t));
+    if (!s_scene) {   // ~10 KB with the sequence pool: PSRAM if there is any, speed doesn't matter here
+        s_scene = heap_caps_calloc(1, sizeof(eng_scene_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!s_scene) s_scene = calloc(1, sizeof(eng_scene_t));
+    }
     if (!s_scene) { cJSON_Delete(j); return false; }
     memset(s_scene, 0, sizeof(*s_scene));
     snprintf(s_scene->id, sizeof(s_scene->id), "%s", id);
@@ -515,7 +577,7 @@ static bool load_scene(const char *id)
     cJSON *f;
     cJSON_ArrayForEach(f, frames) {
         if (s_scene->n >= SCENE_MAX_FRAMES) break;
-        parse_frame(f, &s_scene->frames[s_scene->n++]);
+        parse_frame(f, &s_scene->frames[s_scene->n++], s_scene);
     }
     cJSON_Delete(j);
     return true;
@@ -545,6 +607,8 @@ static void load_playlist(void)
     cJSON_Delete(p);
     cJSON *st = settings_load();
     settings_apply(st);
+    cJSON *am = cJSON_GetObjectItem(st, "animMinMs");   // tune animation pacing on the device without editing scenes
+    s_anim_min_ms = cJSON_IsNumber(am) && am->valuedouble > 0 ? (uint16_t)(am->valuedouble < 5000 ? am->valuedouble : 5000) : 0;
     cJSON_Delete(st);
     if (s_nitems == 0) {
         snprintf(s_items[0].scene, SCENE_ID_MAX, "clock");
@@ -561,12 +625,48 @@ static void send_bytes(QueueHandle_t q, const uint8_t *b, size_t n)
     push_buffer_to_queue(q, copy, n);
 }
 
+/* ms -> ticks, rounded up: an animation step must never come round sooner than its airtime. */
+static TickType_t ms_ticks(uint32_t ms) { return (TickType_t)((ms + portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS); }
+
+/* Copy UTF-8 text, cut on a character boundary if it doesn't fit. */
+static void copy_text(char *dst, size_t cap, const char *src)
+{
+    size_t n = strlen(src);
+    if (n >= cap) {
+        n = cap - 1;
+        while (n && ((unsigned char)src[n] & 0xC0) == 0x80) n--;
+    }
+    memcpy(dst, src, n);
+    dst[n] = '\0';
+}
+
+/* Play an animation on the current frame from the next tick: the frame's own
+ * (its entrance, or a loop) or its onChange one, `from` the text that was up. */
+static void anim_start(const ga_anim_t *a, const char *from)
+{
+    E.anim = *a;
+    E.anim_k = 0;
+    E.anim_due = xTaskGetTickCount();
+    E.anim_on = true;
+    E.anim_settle = false;
+    copy_text(E.anim_from, sizeof(E.anim_from), from ? from : "");
+}
+
 /* Compile and send the current frame; `steady` skips the entrance (value refresh). */
 static void show_frame(QueueHandle_t q, bool steady)
 {
     const eng_frame_t *fr = &s_scene->frames[E.frame];
     char text[TEXT_TMPL_MAX];
     frame_subst(fr, text, sizeof(text), &E.live, false);
+    if (!steady) {
+        E.anim_on = E.anim_settle = false;          // a new frame ends any animation...
+        if (fr->anim.type) {                        // ...or starts its own instead of an entrance
+            anim_start(&fr->anim, NULL);
+            frame_subst(fr, E.shown_steady, sizeof(E.shown_steady), NULL, true);
+            E.second_pending = false;
+            return;
+        }
+    }
     uint8_t enc[GLOBE_TEXT_MAX + 8];
     size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
     globe_style_t st = fr->style;
@@ -649,6 +749,61 @@ static void motion_step(QueueHandle_t q, const eng_frame_t *fr, TickType_t now)
     frame_subst(fr, E.shown_steady, sizeof(E.shown_steady), NULL, true);
 }
 
+/* One custom animation step, when it is due: still text (05) at the step's
+ * position. Steps run on a clock (E.anim_due) and each stays up for at least
+ * its frame's airtime, so the display queue never backs up and this never
+ * blocks; more than a whole step behind (a slow tick, a blocked send), steps
+ * are dropped rather than sent in a burst. After a finite animation's last
+ * step has had its time, the frame settles into its own style. */
+static void anim_tick(QueueHandle_t q, const eng_frame_t *fr, TickType_t now)
+{
+    if ((int32_t)(now - E.anim_due) < 0) return;
+    if (E.anim_settle) {
+        E.anim_on = E.anim_settle = false;
+        show_frame(q, true);                        // spin / hold / flash, with live values
+        return;
+    }
+    char target[TEXT_TMPL_MAX], text[TEXT_TMPL_MAX];
+    frame_subst(fr, target, sizeof(target), NULL, false);   // live values stay live during the animation
+    uint32_t gap = ir_get_frame_gap_ms();
+    ga_input_t in = {
+        .target = target, .from = E.anim_from,
+        .shift = fr->style.after == GLOBE_AFTER_HOLD ? fr->style.shift : -1,
+        .gap_ms = (uint16_t)gap, .min_ms = s_anim_min_ms,
+    };
+    ga_step_t st;
+    ga_step(&E.anim, &in, E.anim_k, &st);
+    for (int skip = 0; skip < 16 && !st.done && (int32_t)(now - (E.anim_due + ms_ticks(st.ms))) >= 0; skip++) {
+        E.anim_due += ms_ticks(st.ms);
+        ga_step(&E.anim, &in, ++E.anim_k, &st);
+    }
+    if (st.tmpl) frame_subst_text(fr, st.text, text, sizeof(text), NULL, false);   // a sequence text
+    else copy_text(text, sizeof(text), st.text);
+
+    uint8_t enc[GLOBE_TEXT_MAX + 8];
+    size_t len = globe_text_encode(text, enc, GLOBE_TEXT_MAX, NULL);
+    bool loops = !ga_finite(&E.anim);
+    globe_style_t s = { .entrance = -1, .after = GLOBE_AFTER_HOLD, .blink_chars = 0, .shift = in.shift };
+    if (st.shift >= 0) s.shift = st.shift;
+    if (st.blink >= 0) s.blink_chars = st.blink;
+    else if (loops && fr->style.after == GLOBE_AFTER_FLASH) s.after = GLOBE_AFTER_FLASH;      // a loop keeps the frame's blinking
+    else if (loops && fr->style.after == GLOBE_AFTER_HOLD) s.blink_chars = fr->style.blink_chars;
+    uint8_t f1[GLOBE_FRAME_MAX], f2[GLOBE_FRAME_MAX];
+    size_t n1 = 0, n2 = 0;
+    if (globe_frame_compile(enc, len, &s, f1, &n1, f2, &n2)) send_bytes(q, f1, n1);
+    lock();
+    copy_text(E.shown, sizeof(E.shown), text);
+    unlock();
+
+    uint32_t hold = st.ms, air = (uint32_t)n1 * 8 + gap;    // the real frame, after live values
+    if (hold < air) hold = air;
+    E.anim_due += ms_ticks(hold);
+    TickType_t sent = xTaskGetTickCount();
+    if ((int32_t)(E.anim_due - sent) <= 0) E.anim_due = sent + ms_ticks(hold);   // still behind: start the clock again
+    E.anim_k++;
+    if (st.done) E.anim_settle = true;
+}
+
 /* Start the playlist item E.item (or the override scene) from its first frame. */
 static void start_item(QueueHandle_t q)
 {
@@ -667,6 +822,7 @@ static void start_item(QueueHandle_t q)
     E.second_pending = false;
     E.busy_until = E.item_t0;
     E.motion_k = 0;
+    E.anim_on = E.anim_settle = false;
     if (s_scene && s_scene->n) show_frame(q, false);
 }
 
@@ -767,6 +923,12 @@ void scene_engine_tick(QueueHandle_t q, bool active)
 
     pending_second(q);
 
+    if (E.anim_on) {                                // a custom animation has the frame for now
+        anim_tick(q, fr, now);
+        vTaskDelay(pdMS_TO_TICKS(10));
+        return;
+    }
+
     // Live values and motion (not while an entrance or change transition plays).
     uint32_t ent = fr->style.entrance >= 0 ? g_globe_effects[fr->style.entrance].duration_ms : 0;
     bool animating = E.second_pending || now - E.frame_t0 < pdMS_TO_TICKS(ent) || (int32_t)(E.busy_until - now) > 0;
@@ -775,7 +937,11 @@ void scene_engine_tick(QueueHandle_t q, bool active)
             char steady[TEXT_TMPL_MAX];
             frame_subst(fr, steady, sizeof(steady), NULL, true);
             if (strcmp(steady, E.shown_steady)) {           // a real change (minute, date, ...)
-                if (fr->on_change != ON_CHANGE_NONE) change_frame(q, fr);
+                if (fr->on_change == ON_CHANGE_ANIM) {      // e.g. decode into the new minute
+                    anim_start(&fr->change_anim, E.shown_steady);
+                    copy_text(E.shown_steady, sizeof(E.shown_steady), steady);
+                }
+                else if (fr->on_change != ON_CHANGE_NONE) change_frame(q, fr);
                 else if (!fr->motion) show_frame(q, true);
                 else frame_subst(fr, E.shown_steady, sizeof(E.shown_steady), NULL, true);
             } else if (!fr->motion) {                       // only the colon blinked
@@ -784,7 +950,7 @@ void scene_engine_tick(QueueHandle_t q, bool active)
                 if (strcmp(text, E.shown)) show_frame(q, true);
             }
         }
-        if (fr->motion && fr->style.after != GLOBE_AFTER_SPIN) motion_step(q, fr, now);
+        if (fr->motion && fr->style.after != GLOBE_AFTER_SPIN && !E.anim_on) motion_step(q, fr, now);
     }
     vTaskDelay(pdMS_TO_TICKS(10));
 }
