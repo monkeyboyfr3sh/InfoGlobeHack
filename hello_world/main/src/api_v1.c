@@ -6,8 +6,11 @@
  *        -> {"ok":true,"bytes":"00 00 ...","then":"05 ...","thenAfterMs":1500,"unsupported":0}
  *   POST /api/v1/clear   blank the display
  *   GET  /api/v1/effects the effect table (id, name, group, durationMs, sameAs)
+ *   GET  /api/v1/auth    {"required":bool,"valid":bool,...}; POST {"token":".."} sets it ("" removes)
  *   GET  /api/v1/ws      WebSocket live mirror (live.c)
  *   GET  /designer       the Vite-built designer (designer.html.gz on SPIFFS)
+ * Full list: docs/api.md. When an access token is set (auth.c), every POST and
+ * DELETE here needs it; GETs stay open.
  *
  * All API responses allow cross-origin requests so the designer can be
  * developed on a PC (vite dev server) against the real globe. */
@@ -29,6 +32,7 @@
 #include "scene_engine.h"
 #include "value_store.h"
 #include "feeds.h"
+#include "auth.h"
 #include "live.h"
 
 static const char *TAG = "API_V1";
@@ -95,7 +99,7 @@ static void cors(httpd_req_t *req)
 {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", AUTH_CORS_HEADERS);
 }
 
 static esp_err_t send_json(httpd_req_t *req, const char *status, cJSON *obj)
@@ -151,6 +155,7 @@ static void hex_of(const uint8_t *b, size_t n, char *out, size_t cap)
 
 static esp_err_t frame_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *root = recv_body(req);
     if (!root) return send_error(req, "400 Bad Request", "Body must be JSON (up to 2 KB)");
 
@@ -229,6 +234,7 @@ static esp_err_t frame_post(httpd_req_t *req)
 
 static esp_err_t clear_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     set_pending(NULL, 0, 0);
     g_time_on = false;
     uint8_t b = GLOBE_CMD_CLEAR;
@@ -257,6 +263,7 @@ static esp_err_t effects_get(httpd_req_t *req)
 static esp_err_t options_any(httpd_req_t *req)
 {
     cors(req);
+    httpd_resp_set_hdr(req, "Access-Control-Max-Age", "600");    // fewer preflights from a dev server
     httpd_resp_set_status(req, "204 No Content");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
@@ -339,6 +346,7 @@ static esp_err_t scene_get(httpd_req_t *req)
 
 static esp_err_t scene_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     char id[SCENE_ID_MAX];
     if (!uri_id(req, "/api/v1/scenes/", id, sizeof(id))) return send_error(req, "400 Bad Request", "Scene ids use a-z, 0-9 and - (up to 23)");
     cJSON *sc = recv_body_max(req, 16 * 1024);
@@ -355,6 +363,7 @@ static esp_err_t scene_post(httpd_req_t *req)
 
 static esp_err_t scene_del(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     char id[SCENE_ID_MAX];
     if (!uri_id(req, "/api/v1/scenes/", id, sizeof(id))) return send_error(req, "400 Bad Request", "Bad scene id");
     scene_delete(id);
@@ -368,6 +377,7 @@ static esp_err_t playlist_get(httpd_req_t *req)
 
 static esp_err_t playlist_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *p = recv_body_max(req, 4096);
     cJSON *items = p ? cJSON_GetObjectItem(p, "items") : NULL;
     if (!cJSON_IsArray(items)) { cJSON_Delete(p); return send_error(req, "400 Bad Request", "Need {items:[{scene,seconds}]}"); }
@@ -386,6 +396,7 @@ static esp_err_t playlist_post(httpd_req_t *req)
 /* {"scene":"id","seconds":30}  or  {"frames":[...],"seconds":30} (a quick message, saved as scene "quick") */
 static esp_err_t play_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *b = recv_body_max(req, 16 * 1024);
     if (!b) return send_error(req, "400 Bad Request", "Body must be JSON");
     cJSON *sc = cJSON_GetObjectItem(b, "scene");
@@ -416,6 +427,7 @@ static esp_err_t play_post(httpd_req_t *req)
 
 static esp_err_t resume_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     g_time_on = true;
     scene_engine_resume();
     return ok_json(req);
@@ -423,6 +435,7 @@ static esp_err_t resume_post(httpd_req_t *req)
 
 static esp_err_t next_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     g_time_on = true;
     scene_engine_next();
     return ok_json(req);
@@ -435,6 +448,7 @@ static esp_err_t settings_get(httpd_req_t *req)
 
 static esp_err_t settings_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *b = recv_body(req);
     if (!cJSON_IsObject(b)) { cJSON_Delete(b); return send_error(req, "400 Bad Request", "Body must be a JSON object"); }
     bool ok = settings_save(b);
@@ -457,6 +471,7 @@ static esp_err_t values_get(httpd_req_t *req)
 
 static esp_err_t values_post(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *b = recv_body_max(req, 4096);
     if (!cJSON_IsObject(b)) { cJSON_Delete(b); return send_error(req, "400 Bad Request", "Body must be a JSON object such as {\"cpu\":42}"); }
 
@@ -503,6 +518,39 @@ static esp_err_t now_get(httpd_req_t *req)
     return send_json(req, NULL, scene_engine_status());
 }
 
+/* ---- access token (auth.c) ----
+ *   GET  /api/v1/auth   {"required":true,"valid":false,"minLength":8,"maxLength":64}
+ *                       valid: this request carries the right token (or none is needed)
+ *   POST /api/v1/auth   {"token":"new-token"}; "" removes it. Needs the current token when one is set.
+ * The token itself is never returned. */
+
+static esp_err_t auth_get(httpd_req_t *req)
+{
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddBoolToObject(o, "required", auth_required());
+    cJSON_AddBoolToObject(o, "valid", auth_request_ok(req));
+    cJSON_AddNumberToObject(o, "minLength", AUTH_TOKEN_MIN);
+    cJSON_AddNumberToObject(o, "maxLength", AUTH_TOKEN_MAX);
+    return send_json(req, NULL, o);
+}
+
+static esp_err_t auth_post(httpd_req_t *req)
+{
+    if (!auth_check(req)) return ESP_OK;
+    cJSON *b = recv_body(req);
+    cJSON *t = b ? cJSON_GetObjectItem(b, "token") : NULL;
+    const char *err = NULL, *status = "400 Bad Request";
+    if (!cJSON_IsString(t)) err = "Need {\"token\":\"...\"} (an empty string removes the token)";
+    else if (!auth_token_valid(t->valuestring)) err = "Tokens are 8-64 characters: A-Z, a-z, 0-9 and . _ ~ -";
+    else if (!auth_set(t->valuestring)) { err = "Could not save the token"; status = "500 Internal Server Error"; }
+    cJSON_Delete(b);
+    if (err) return send_error(req, status, err);
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddBoolToObject(o, "ok", true);
+    cJSON_AddBoolToObject(o, "required", auth_required());
+    return send_json(req, NULL, o);
+}
+
 void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
 {
     s_queue = display_queue;
@@ -529,6 +577,8 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/settings", .method = HTTP_POST,   .handler = settings_post },
         { .uri = "/api/v1/values",   .method = HTTP_GET,    .handler = values_get    },
         { .uri = "/api/v1/values",   .method = HTTP_POST,   .handler = values_post   },
+        { .uri = "/api/v1/auth",     .method = HTTP_GET,    .handler = auth_get      },
+        { .uri = "/api/v1/auth",     .method = HTTP_POST,   .handler = auth_post     },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         if (httpd_register_uri_handler(server, &routes[i]) != ESP_OK) {

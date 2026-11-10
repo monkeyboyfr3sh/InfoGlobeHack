@@ -284,3 +284,19 @@ table.values { width: 100%; border-collapse: collapse; }
 table.values th { text-align: left; font-weight: 600; color: var(--text-muted); font-size: 12px; padding: 4px 8px 4px 0; }
 table.values td { padding: 6px 8px 6px 0; border-top: 1px solid var(--border); }
 table.values td:last-child { text-align: right; padding-right: 0; }
+
+/* Settings and token dialog */
+.settings-page { max-width: 760px; }
+.token-state { margin: 8px 0; color: var(--text-muted); }
+.token-state.ok { color: var(--ok); }
+.token-form { margin-top: 12px; }
+.token-form input[type=password], .modal input[type=password] {
+  width: 100%; font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--input-border); border-radius: 4px; padding: 0 12px; height: 34px;
+}
+.token-form input { flex: 1 1 220px; width: auto; font-family: var(--mono); }
+.token-sub { margin: 18px 0 4px; font-size: .9rem; font-weight: 600; color: var(--text-strong); }
+.modal-back { position: fixed; inset: 0; z-index: 20; background: rgba(5, 5, 6, .45); display: flex; align-items: flex-start;
+  justify-content: center; padding: 12vh 16px 16px; }
+.modal { width: min(440px, 100%); box-shadow: 0 8px 28px rgba(0, 0, 0, .3); }
+.modal input[type=password], .modal input[type=text] { font-family: var(--mono); }

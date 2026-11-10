@@ -20,10 +20,13 @@
 #include "network.h"
 #include "scene_engine.h"
 #include "feeds.h"
+#include "auth.h"
 
 /* How long a new IP address takes over the globe from the clock. */
 #define IP_SHOW_MS          20000
 #define IP_POLL_MS          1000
+/* Holding the button this long clears the web access token (lost-token recovery). */
+#define TOKEN_RESET_HOLD_MS 10000
 
 #if CONFIG_INFOGLOBE_ETHERNET && (CONFIG_INFOGLOBE_BUTTON_GPIO == 0)
 #error "GPIO0 is the Ethernet RMII clock input; pick another button GPIO in menuconfig (e.g. 32)"
@@ -63,6 +66,8 @@ void frame_maker_task(void *pvParameters)
     TickType_t ip_poll_tick = xTaskGetTickCount();
     TickType_t ip_show_until = 0;
     bool showing_ip = false;
+    TickType_t press_tick = 0;
+    bool token_reset_armed = false;
     const gpio_config_t button_conf = {
         .pin_bit_mask = 1ULL << CONFIG_INFOGLOBE_BUTTON_GPIO,
         .mode = GPIO_MODE_INPUT,
@@ -79,12 +84,26 @@ void frame_maker_task(void *pvParameters)
         curr_io_level = gpio_get_level(CONFIG_INFOGLOBE_BUTTON_GPIO);
         if( (curr_io_level==0) && (prev_io_level==true) ){
             g_time_on = !g_time_on;
+            press_tick = xTaskGetTickCount();
+            token_reset_armed = true;
 
             if(g_time_on){
                 ESP_LOGI(TAG,"Time display is now enabled!");
             } else {
                 ESP_LOGI(TAG,"Time display is now disabled!");
             }
+        }
+        // Still held after 10 s: clear the access token and say so on the
+        // globe (manual mode; a short press goes back to the clock).
+        if (curr_io_level == 0 && token_reset_armed &&
+            (xTaskGetTickCount() - press_tick) >= pdMS_TO_TICKS(TOKEN_RESET_HOLD_MS)) {
+            token_reset_armed = false;
+            auth_clear();
+            ESP_LOGW(TAG, "Button held 10 s: web access token cleared");
+            const char *msg = "TOKEN CLEARED";
+            g_time_on = false;
+            scene_engine_note_manual(msg);
+            string_with_blink_shift(display_queue, msg, strlen(msg), 0, strlen(msg));
         }
         prev_io_level = curr_io_level;
 

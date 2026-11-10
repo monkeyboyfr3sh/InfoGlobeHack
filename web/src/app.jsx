@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'preact/hooks';
-import { GLOBE, subscribeNow } from './lib/api.js';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { GLOBE, subscribeNow, onTokenNeeded } from './lib/api.js';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Clock } from './pages/Clock.jsx';
 import { Data } from './pages/Data.jsx';
+import { Settings } from './pages/Settings.jsx';
 
 function ThemeButton() {
   const isDark = () => {
@@ -30,7 +31,7 @@ function ThemeButton() {
 // #/dashboard, #/designer, #/designer/<scene id>
 function parseHash() {
   const [, page, id] = (location.hash || '').replace(/^#/, '').split('/');
-  return { page: ['designer', 'clock', 'data'].includes(page) ? page : 'dashboard', id: id || null };
+  return { page: ['designer', 'clock', 'data', 'settings'].includes(page) ? page : 'dashboard', id: id || null };
 }
 
 // What the globe is doing, for the whole app: pushed over a WebSocket when
@@ -52,10 +53,43 @@ function StatusChip({ now, online, via }) {
   return <span class="status ok" title={how}><span class="dot" />{MODE[now.mode] || now.mode}{what ? <> · <b>{what}</b></> : null}</span>;
 }
 
+// Asked for by lib/api.js when a change gets a 401; resolves with the token or null.
+function TokenDialog({ reason, onDone }) {
+  const [value, setValue] = useState('');
+  const [show, setShow] = useState(false);
+  const input = useRef(null);
+  useEffect(() => { if (input.current) input.current.focus(); }, []);
+  const submit = (e) => { e.preventDefault(); if (value.trim()) onDone(value.trim()); };
+  return (
+    <div class="modal-back" onClick={(e) => { if (e.target === e.currentTarget) onDone(null); }}>
+      <form class="modal card" role="dialog" aria-modal="true" aria-labelledby="token-title" onSubmit={submit}
+        onKeyDown={(e) => { if (e.key === 'Escape') onDone(null); }}>
+        <h2 id="token-title">Access token</h2>
+        <p class="hint">
+          {reason === 'wrong'
+            ? 'The token saved in this browser was not accepted. Enter the current one.'
+            : 'This globe asks for its access token before it changes anything. Once it works, this browser remembers it.'}
+        </p>
+        <input ref={input} type={show ? 'text' : 'password'} value={value} onInput={(e) => setValue(e.currentTarget.value)}
+          autocomplete="current-password" aria-label="Access token" placeholder="Access token" />
+        <label class="check" style="margin-top:8px"><input type="checkbox" checked={show} onChange={(e) => setShow(e.currentTarget.checked)} /> Show</label>
+        <div class="card-foot">
+          <a class="btn link" href="#/settings" onClick={() => onDone(null)}>Lost it?</a>
+          <span style="flex:1" />
+          <button type="button" class="btn" onClick={() => onDone(null)}>Cancel</button>
+          <button type="submit" class="btn primary" disabled={!value.trim()}>Continue</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function App() {
   const [route, setRoute] = useState(parseHash());
   const [toast, setToast] = useState(null);
+  const [asking, setAsking] = useState(null);       // {reason, resolve} while the token dialog is open
   const { now, online, via } = useNow();
+  useEffect(() => onTokenNeeded((reason) => new Promise((resolve) => setAsking({ reason, resolve }))), []);
   useEffect(() => {
     const on = () => setRoute(parseHash());
     addEventListener('hashchange', on);
@@ -83,13 +117,16 @@ export function App() {
         <a href="#/clock" aria-current={route.page === 'clock' ? 'page' : undefined}>Clock</a>
         <a href="#/designer" aria-current={route.page === 'designer' ? 'page' : undefined}>Designer</a>
         <a href="#/data" aria-current={route.page === 'data' ? 'page' : undefined}>Data</a>
+        <a href="#/settings" aria-current={route.page === 'settings' ? 'page' : undefined}>Settings</a>
         <a href={GLOBE + '/'}>Control &amp; Explorer</a>
       </nav>
       {route.page === 'designer' ? <Designer sceneId={route.id} toast={say} />
         : route.page === 'clock' ? <Clock toast={say} />
         : route.page === 'data' ? <Data toast={say} />
+        : route.page === 'settings' ? <Settings toast={say} />
         : <Dashboard toast={say} now={now} online={online} />}
       {toast && <div class={`snack ${toast.ok ? 'ok' : 'bad'}`} role="status" onClick={() => setToast(null)}>{toast.msg}</div>}
+      {asking && <TokenDialog reason={asking.reason} onDone={(t) => { asking.resolve(t); setAsking(null); }} />}
     </div>
   );
 }

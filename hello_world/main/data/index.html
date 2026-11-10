@@ -549,9 +549,30 @@
   }
   async function post(url, data) {
     try {
-      var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      var r = await authFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
       return r.ok;
     } catch (e) { return false; }
+  }
+
+  // ---------------- Access token (only when the globe has one; /designer shares it) ----------------
+  function token() { try { return localStorage.getItem('globe-token') || ''; } catch (e) { return ''; } }
+  function setToken(t) { try { if (t) localStorage.setItem('globe-token', t); else localStorage.removeItem('globe-token'); } catch (e) {} }
+  function authHeaders(t, h) { h = Object.assign({}, h); if (t) h.Authorization = 'Bearer ' + t; return h; }
+  function askToken() {
+    return (prompt(token() ? 'The saved access token was not accepted. Enter the globe\'s access token:'
+                           : 'This globe is protected. Enter its access token:') || '').trim();
+  }
+  // fetch() for changes: sends the token; on a 401 asks for it once, retries, remembers it.
+  async function authFetch(url, opts) {
+    var send = function (t) { return fetch(url, Object.assign({}, opts, { headers: authHeaders(t, opts.headers) })); };
+    var r = await send(token());
+    if (r.status !== 401) return r;
+    var t = askToken();
+    if (!t) return r;
+    r = await send(t);
+    if (r.status === 401) { setToken(''); alert('That access token was not accepted.'); }
+    else setToken(t);
+    return r;
   }
 
   // ---------------- Status line ----------------
@@ -634,7 +655,7 @@
   }
   async function postIr(body) {
     try {
-      var r = await fetch('/ir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var r = await authFetch('/ir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (r.ok) { showIr(await r.json()); return true; }
     } catch (e) {}
     return false;
@@ -1180,7 +1201,7 @@
       toast('Pick a choice or write a note', false); return;
     }
     try {
-      var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      var r = await authFetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ key: key, note: JSON.stringify(d) }) });
       if (!r.ok) throw 0;
       exNotes = await r.json();
@@ -1201,7 +1222,7 @@
   }
   async function xpDelete(key) {
     try {
-      var r = await fetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      var r = await authFetch('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ key: key, note: '' }) });
       if (!r.ok) throw 0;
       exNotes = await r.json(); xpRender(); toast('Answer cleared', true);
@@ -1317,9 +1338,27 @@
   })();
 
   // ---------------- Firmware (OTA) ----------------
-  function doOTA() {
+  // Check the token before sending a whole image: '' = none needed, null = cancelled.
+  async function otaToken() {
+    var check = async function (t) {
+      var r = await fetch('/api/v1/auth', { headers: authHeaders(t) });
+      return r.ok ? r.json() : { required: false, valid: true };     // older firmware: no tokens
+    };
+    try {
+      var a = await check(token());
+      if (!a.required || a.valid) return token();
+      var t = askToken();
+      if (!t) return null;
+      if (!(await check(t)).valid) { setToken(''); alert('That access token was not accepted.'); return null; }
+      setToken(t);
+      return t;
+    } catch (e) { return token(); }
+  }
+  async function doOTA() {
     var f = $('bin').files[0];
     if (!f) { toast('Choose a .bin file first', false); return; }
+    var tok = await otaToken();
+    if (tok === null) { toast('Update needs the access token', false); return; }
     var prog = $('prog'), msg = $('ota-msg');
     var reader = new FileReader();
     reader.onload = function (e) {
@@ -1329,11 +1368,13 @@
       xhr.upload.onprogress = function (ev) { if (ev.lengthComputable) prog.value = Math.round(ev.loaded / ev.total * 100); };
       xhr.onload = function () {
         if (xhr.status === 200) { msg.textContent = 'Flash complete. The globe is rebooting.'; toast('Firmware updated', true); }
+        else if (xhr.status === 401) { setToken(''); msg.textContent = 'Update refused: the access token is missing or wrong.'; toast('Update refused', false); }
         else { msg.textContent = 'Update failed: ' + xhr.responseText; toast('Update failed', false); }
       };
       xhr.onerror = function () { msg.textContent = 'Connection error'; toast('Connection error', false); };
       xhr.open('POST', '/ota');
       xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      if (tok) xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
       xhr.send(e.target.result);
     };
     reader.readAsArrayBuffer(f);

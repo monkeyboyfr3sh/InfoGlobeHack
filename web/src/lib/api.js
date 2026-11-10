@@ -2,23 +2,35 @@
 // origin; during development (npm run dev) pass ?globe=http://192.168.0.71
 // or set VITE_GLOBE.
 
+import { createCall } from './request.js';
 import { createLive, wsUrl } from './live.js';
 
 const params = new URLSearchParams(location.search);
 export const GLOBE = (params.get('globe') || import.meta.env.VITE_GLOBE || '').replace(/\/$/, '');
 
-async function call(method, path, body) {
-  const r = await fetch(GLOBE + path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await r.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { ok: r.ok, text }; }
-  if (!r.ok || (data && data.ok === false)) throw new Error((data && data.error) || text || `HTTP ${r.status}`);
-  return data;
+// ---- access token (optional; see Settings) ----
+// Kept per globe in this browser. On the globe itself the key is plain
+// 'globe-token', which the classic page at / shares.
+const TOKEN_KEY = `globe-token${GLOBE ? `:${GLOBE}` : ''}`;
+export function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
 }
+export function saveToken(token) {
+  try { if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ }
+}
+// The app shows its token dialog through this: fn(reason) -> Promise<token | null>.
+let askToken = null;
+export function onTokenNeeded(fn) {
+  askToken = fn;
+  return () => { if (askToken === fn) askToken = null; };
+}
+
+const call = createCall({
+  base: GLOBE,
+  fetch: (...a) => fetch(...a),
+  tokens: { get: getToken, set: saveToken },
+  ask: (reason) => (askToken ? askToken(reason) : null),
+});
 
 export const sendFrame = (frame) => call('POST', '/api/v1/frame', frame);
 export const clearGlobe = () => call('POST', '/api/v1/clear', {});
@@ -44,6 +56,17 @@ export const playFrames = (frames, seconds = 0) => call('POST', '/api/v1/play', 
 // Pushed values: {cpu: 42, build: 'PASS', old: null}; ttl = seconds until they expire (0 = never)
 export const getValues = () => call('GET', '/api/v1/values');
 export const setValues = (values, ttl = 0) => call('POST', `/api/v1/values${ttl ? `?ttl=${ttl}` : ''}`, values);
+
+// {required, valid, minLength, maxLength}. valid: the token (this browser's,
+// or the one given) is accepted, or none is needed. Older firmware: throws (404).
+export const getAuth = (token) => call('GET', '/api/v1/auth', undefined, { auth: true, token: token ?? getToken() });
+// Set, change ('new-token') or remove ('') the globe's token. Needs the current
+// one when set (asks for it on a 401); this browser then keeps the new one.
+export const setAuthToken = async (token) => {
+  const r = await call('POST', '/api/v1/auth', { token });
+  saveToken(token);
+  return r;
+};
 
 // ---- live: one WebSocket per tab, polling when it can't be used ----
 let live = null;
