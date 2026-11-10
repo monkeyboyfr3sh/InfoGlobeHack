@@ -14,6 +14,11 @@ idf_component_register(SRCS
     "src/api_v1.c"
     "src/scene_engine.c"
     "src/clock_values.c"
+    "src/value_store.c"
+    "src/http_fetch.c"
+    "src/feeds.c"
+    "src/feed_weather.c"
+    "src/feed_aircraft.c"
     INCLUDE_DIRS "" "inc"
     REQUIRES
         esp_driver_rmt
@@ -26,6 +31,8 @@ idf_component_register(SRCS
         nvs_flash
         lwip
         esp_http_server
+        esp_http_client
+        mbedtls
         esp_hw_support
         app_update
         spiffs

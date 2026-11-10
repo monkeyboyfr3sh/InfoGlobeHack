@@ -277,3 +277,10 @@ details summary { cursor: pointer; color: var(--text-muted); }
 .extra input { margin-top: 3px; }
 .recipe { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 .recipe .mono { color: var(--text-strong); }
+
+/* Data page */
+.data-page { max-width: 760px; }
+table.values { width: 100%; border-collapse: collapse; }
+table.values th { text-align: left; font-weight: 600; color: var(--text-muted); font-size: 12px; padding: 4px 8px 4px 0; }
+table.values td { padding: 6px 8px 6px 0; border-top: 1px solid var(--border); }
+table.values td:last-child { text-align: right; padding-right: 0; }

@@ -16,6 +16,7 @@
 #include <math.h>
 
 #include "clock_values.h"
+#include "value_store.h"
 
 #include "globe_frame.h"
 #include "message_type.h"
@@ -57,6 +58,47 @@ static void colon_blink(char *out, const struct timeval *tv, uint16_t period)
     uint32_t ms = (uint32_t)(tv->tv_sec % 3600) * 1000 + tv->tv_usec / 1000;
     if (ms % period < period / 2) return;              // "on" half
     for (char *c = out; *c; c++) if (*c == ':') *c = s_colon_look;
+}
+
+/* Pushed values (value_store): {var:cpu}; {bar:cpu} and {pct:cpu} for a 0-100
+ * number, {bar:print:250} / {pct:print:250} for one out of 250. The clock's
+ * own periods ({bar:day} ...) are left to clock_value(). */
+static bool pushed_value(const char *name, const char *arg, char *out, size_t cap)
+{
+    if (!arg || !*arg) return false;
+    if (!strcmp(name, "var")) {
+        if (!value_store_get(arg, out, cap)) snprintf(out, cap, "--");
+        return true;
+    }
+    bool is_bar = !strcmp(name, "bar");
+    if (!is_bar && strcmp(name, "pct")) return false;
+    static const char *periods[] = { "min", "hour", "day", "week", "month", "year" };
+    for (size_t i = 0; i < sizeof(periods) / sizeof(periods[0]); i++) {
+        if (!strcmp(arg, periods[i])) return false;
+    }
+    char key[VALUE_KEY_MAX];
+    double max = 100, v = 0;
+    const char *colon = strchr(arg, ':');
+    size_t klen = colon ? (size_t)(colon - arg) : strlen(arg);
+    if (klen >= sizeof(key)) return false;
+    memcpy(key, arg, klen);
+    key[klen] = '\0';
+    if (colon) max = atof(colon + 1);
+    if (max <= 0) max = 100;
+    bool have = value_store_get_number(key, &v);
+    double frac = have ? v / max : 0;
+    if (frac < 0) frac = 0;
+    if (frac > 1) frac = 1;
+    if (is_bar) {
+        int width = cap > 10 ? 10 : (int)cap - 1, full = (int)(frac * width + 0.0001);
+        for (int i = 0; i < width; i++) out[i] = i < full ? '#' : '-';
+        out[width] = '\0';
+    } else if (have) {
+        snprintf(out, cap, "%d", (int)(frac * 100 + 0.0001));
+    } else {
+        snprintf(out, cap, "--");
+    }
+    return true;
 }
 
 /* One value; returns false for an unknown name (left in the text as typed).
@@ -108,7 +150,15 @@ static bool value_of(const char *name, const char *arg, char *out, size_t cap, b
         *live = true;
         return true;
     }
+    if (pushed_value(name, arg, out, cap)) {     // before clock_value: {bar:cpu} is a pushed bar, {bar:day} a clock one
+        *live = true;
+        return true;
+    }
     if (clock_value(name, arg, &tv, out, cap)) {
+        *live = true;
+        return true;
+    }
+    if (!arg && value_store_get(name, out, cap)) {  // {cpu}: any pushed value by its bare name
         *live = true;
         return true;
     }

@@ -2,6 +2,9 @@
 // scene_engine.c and clock_value() in clock_values.c, so the preview shows
 // what the globe will.
 
+import * as weather from './feeds/weather.js';
+import * as aircraft from './feeds/aircraft.js';
+
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const p2 = (n) => String(n).padStart(2, '0');
@@ -55,7 +58,28 @@ export const VALUES = [
   { group: 'Countdown', name: 'until:12-25', label: 'Days until 25 Dec' },
   { group: 'Countdown', name: 'until:17:00', label: 'Time until 17:00' },
   { group: 'Other', name: 'ip', label: "Globe's IP address" },
+  ...weather.VALUES,
+  ...aircraft.VALUES,
+  { group: 'Pushed values', name: 'var:name', label: 'A value you push (change "name")' },
+  { group: 'Pushed values', name: 'bar:name', label: 'Bar of a pushed 0-100 number' },
+  { group: 'Pushed values', name: 'bar:name:250', label: 'Bar of a pushed number out of 250' },
+  { group: 'Pushed values', name: 'pct:name:250', label: 'Percent of a pushed number out of 250' },
 ];
+
+// Pushed values (value_store.c): what the globe holds now (GET /api/v1/values),
+// with the feeds' samples behind them so previews aren't empty.
+const SAMPLES = { ...weather.SAMPLES, ...aircraft.SAMPLES };
+let VARS = {};
+export function setVars(v) { VARS = v && typeof v === 'object' ? v : {}; }
+const pushed = (key) => (VARS[key] !== undefined ? String(VARS[key]) : SAMPLES[key] !== undefined ? String(SAMPLES[key]) : null);
+const PERIODS = ['min', 'hour', 'day', 'week', 'month', 'year'];
+// {bar:key} / {bar:key:max}: fraction of a pushed number, or null when it isn't set
+function pushedFraction(arg) {
+  const [key, maxText] = arg.split(':');
+  const max = parseFloat(maxText) > 0 ? parseFloat(maxText) : 100;
+  const v = parseFloat(pushed(key));
+  return Number.isFinite(v) ? Math.min(1, Math.max(0, v / max)) : null;
+}
 
 let LOCATION = null;   // {lat, lon} from the globe's settings
 export function setLocation(loc) { LOCATION = loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lon) ? loc : null; }
@@ -199,19 +223,27 @@ function value(name, arg, d, ip, steady, colon) {
     case 'unix': return String(Math.floor(d.getTime() / 1000));
     case 'doy': return String(dayOfYear(d) + 1);
     case 'week': return isoWeek(d);
-    case 'bar': return bar(fraction(arg || 'day', d));
-    case 'pct': return String(Math.floor(fraction(arg || 'day', d) * 100));
+    case 'var': return arg ? pushed(arg) ?? '--' : null;
+    case 'bar': {
+      if (!arg || PERIODS.includes(arg)) return bar(fraction(arg || 'day', d));
+      return bar(pushedFraction(arg) ?? 0);
+    }
+    case 'pct': {
+      if (!arg || PERIODS.includes(arg)) return String(Math.floor(fraction(arg || 'day', d) * 100));
+      const f = pushedFraction(arg);
+      return f === null ? '--' : String(Math.floor(f * 100 + 1e-4));
+    }
     case 'moon': return MOON[Math.floor(moonAge(d) / 29.530588853 * 8 + 0.5) % 8];
     case 'moonpct': return String(Math.round((1 - Math.cos(2 * Math.PI * moonAge(d) / 29.530588853)) / 2 * 100));
     case 'sunrise': return hm12(sunEvent(d, true));
     case 'sunset': return hm12(sunEvent(d, false));
     case 'tz': return arg ? cityTime(arg, d) : null;
     case 'until': return arg ? until(arg, d) : null;
-    default: return null;
+    default: return arg ? null : pushed(name);   // {cpu}: a pushed value by its bare name
   }
 }
 
-const RE = /\{([a-z0-9]{1,14})(?::([^{}]{1,24}))?\}/g;
+const RE = /\{([a-z0-9_]{1,15})(?::([^{}]{1,24}))?\}/g;
 
 /** Fill in {values}; unknown names stay as typed (as on the globe). `steady` = no colon blink. */
 export function fillValues(text, d = new Date(), ip = (typeof location !== 'undefined' && location.hostname) || '192.168.0.71', steady = false, colon = null) {
@@ -227,4 +259,4 @@ export function worstCase(text) {
   return fillValues(text, wide, '192.168.100.100', true);
 }
 
-export const hasValues = (text) => /\{[a-z0-9]{1,14}(?::[^{}]{1,24})?\}/.test(text);
+export const hasValues = (text) => /\{[a-z0-9_]{1,15}(?::[^{}]{1,24})?\}/.test(text);

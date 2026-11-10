@@ -3,6 +3,7 @@ import { GLOBE, getNow } from './lib/api.js';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Clock } from './pages/Clock.jsx';
+import { Data } from './pages/Data.jsx';
 
 function ThemeButton() {
   const isDark = () => {
@@ -29,7 +30,7 @@ function ThemeButton() {
 // #/dashboard, #/designer, #/designer/<scene id>
 function parseHash() {
   const [, page, id] = (location.hash || '').replace(/^#/, '').split('/');
-  return { page: ['designer', 'clock'].includes(page) ? page : 'dashboard', id: id || null };
+  return { page: ['designer', 'clock', 'data'].includes(page) ? page : 'dashboard', id: id || null };
 }
 
 // What the globe is doing, polled once for the whole app.
@@ -88,10 +89,12 @@ export function App() {
         <a href="#/dashboard" aria-current={route.page === 'dashboard' ? 'page' : undefined}>Dashboard</a>
         <a href="#/clock" aria-current={route.page === 'clock' ? 'page' : undefined}>Clock</a>
         <a href="#/designer" aria-current={route.page === 'designer' ? 'page' : undefined}>Designer</a>
+        <a href="#/data" aria-current={route.page === 'data' ? 'page' : undefined}>Data</a>
         <a href={GLOBE + '/'}>Control &amp; Explorer</a>
       </nav>
       {route.page === 'designer' ? <Designer sceneId={route.id} toast={say} />
         : route.page === 'clock' ? <Clock toast={say} />
+        : route.page === 'data' ? <Data toast={say} />
         : <Dashboard toast={say} now={now} online={online} />}
       {toast && <div class={`snack ${toast.ok ? 'ok' : 'bad'}`} role="status" onClick={() => setToast(null)}>{toast.msg}</div>}
     </div>

@@ -19,6 +19,7 @@
 #include "tcp_server_task.h"
 #include "network.h"
 #include "scene_engine.h"
+#include "feeds.h"
 
 /* How long a new IP address takes over the globe from the clock. */
 #define IP_SHOW_MS          20000
@@ -48,6 +49,9 @@ void frame_maker_task(void *pvParameters)
     
     // Once time sync completes, can start
     wait_for_time_sync();
+
+    // Weather, aircraft, ...: background fetchers that publish live values
+    feeds_start();
 
     // OTA and button commands are now handled by the HTTP server
     

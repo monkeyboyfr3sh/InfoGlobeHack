@@ -26,6 +26,7 @@
 #include "message_type.h"
 #include "frame_maker_task.h"
 #include "scene_engine.h"
+#include "value_store.h"
 
 static const char *TAG = "API_V1";
 
@@ -439,6 +440,60 @@ static esp_err_t settings_post(httpd_req_t *req)
     return ok ? ok_json(req) : send_error(req, "500 Internal Server Error", "Could not save settings");
 }
 
+/* ---- pushed values ----
+ *   GET  /api/v1/values            {"cpu":"42","build":"PASS"}
+ *   POST /api/v1/values[?ttl=600]  {"cpu":42,"build":"PASS","old":null}
+ * Strings and numbers set a value, null removes it. With ?ttl=N the values
+ * expire N seconds after the last update. Show them with {var:cpu} or {cpu}. */
+
+static esp_err_t values_get(httpd_req_t *req)
+{
+    return send_json(req, NULL, value_store_json());
+}
+
+static esp_err_t values_post(httpd_req_t *req)
+{
+    cJSON *b = recv_body_max(req, 4096);
+    if (!cJSON_IsObject(b)) { cJSON_Delete(b); return send_error(req, "400 Bad Request", "Body must be a JSON object such as {\"cpu\":42}"); }
+
+    uint32_t ttl = 0;
+    char query[48], num[12];
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "ttl", num, sizeof(num)) == ESP_OK) {
+        long t = atol(num);
+        if (t > 0) ttl = (uint32_t)t;
+    }
+
+    const char *err = NULL;
+    const cJSON *it;
+    cJSON_ArrayForEach(it, b) {                         // check everything before changing anything
+        if (!value_key_valid(it->string)) err = "Value names use a-z, 0-9 and _ (up to 15 characters)";
+        else if (!cJSON_IsString(it) && !cJSON_IsNumber(it) && !cJSON_IsNull(it) && !cJSON_IsBool(it)) err = "Values must be text, numbers, true/false or null";
+        else if (cJSON_IsString(it) && strlen(it->valuestring) >= VALUE_TEXT_MAX) err = "Values can be up to 47 characters";
+    }
+    if (!err) {
+        cJSON_ArrayForEach(it, b) {
+            bool ok = true;
+            char text[32];
+            if (cJSON_IsNull(it)) {
+                value_store_delete(it->string);
+            } else if (cJSON_IsString(it)) {
+                ok = value_store_set(it->string, it->valuestring, ttl);
+            } else if (cJSON_IsBool(it)) {
+                ok = value_store_set(it->string, cJSON_IsTrue(it) ? "YES" : "NO", ttl);
+            } else {
+                double v = it->valuedouble;
+                if (v == (double)(long long)v && v > -1e15 && v < 1e15) snprintf(text, sizeof(text), "%lld", (long long)v);
+                else snprintf(text, sizeof(text), "%.6g", v);
+                ok = value_store_set(it->string, text, ttl);
+            }
+            if (!ok) err = "The globe is holding too many values (max 64)";
+        }
+    }
+    cJSON_Delete(b);
+    return err ? send_error(req, "400 Bad Request", err) : ok_json(req);
+}
+
 static esp_err_t now_get(httpd_req_t *req)
 {
     return send_json(req, NULL, scene_engine_status());
@@ -468,6 +523,8 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/next",     .method = HTTP_POST,   .handler = next_post     },
         { .uri = "/api/v1/settings", .method = HTTP_GET,    .handler = settings_get  },
         { .uri = "/api/v1/settings", .method = HTTP_POST,   .handler = settings_post },
+        { .uri = "/api/v1/values",   .method = HTTP_GET,    .handler = values_get    },
+        { .uri = "/api/v1/values",   .method = HTTP_POST,   .handler = values_post   },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         if (httpd_register_uri_handler(server, &routes[i]) != ESP_OK) {

@@ -39,3 +39,17 @@ describe('scenes', () => {
     expect(seq.frameAt(7100)).toBe(0);
   });
 });
+
+import { setVars } from './values.js';
+describe('pushed values (same rules as scene_engine.c pushed_value)', () => {
+  it('shows pushed values by {var:name} and by bare name', () => {
+    setVars({ cpu: '42', print: '125', build_ok: 'PASS' });
+    expect(fillValues('CPU {var:cpu} {cpu} {build_ok}', d)).toBe('CPU 42 42 PASS');
+    expect(fillValues('{var:nope} {nope}', d)).toBe('-- {nope}');
+    expect(fillValues('{bar:cpu}|{pct:cpu}', d)).toBe('####------|42');
+    expect(fillValues('{bar:print:250}|{pct:print:250}', d)).toBe('#####-----|50');
+    expect(fillValues('{bar:nope}|{pct:nope}', d)).toBe('----------|--');
+    expect(fillValues('{bar:day}', d)).toMatch(/^#+-*$/);   // clock periods still work
+    setVars({});
+  });
+});

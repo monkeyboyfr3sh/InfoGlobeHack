@@ -39,3 +39,6 @@ export const getSettings = () => call('GET', '/api/v1/settings');
 export const saveSettings = (s) => call('POST', '/api/v1/settings', s);
 export const playScene = (scene, seconds = 0) => call('POST', '/api/v1/play', { scene, seconds });
 export const playFrames = (frames, seconds = 0) => call('POST', '/api/v1/play', { frames, seconds });
+// Pushed values: {cpu: 42, build: 'PASS', old: null}; ttl = seconds until they expire (0 = never)
+export const getValues = () => call('GET', '/api/v1/values');
+export const setValues = (values, ttl = 0) => call('POST', `/api/v1/values${ttl ? `?ttl=${ttl}` : ''}`, values);
