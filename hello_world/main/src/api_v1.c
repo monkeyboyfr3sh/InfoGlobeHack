@@ -27,6 +27,7 @@
 #include "frame_maker_task.h"
 #include "scene_engine.h"
 #include "value_store.h"
+#include "feeds.h"
 
 static const char *TAG = "API_V1";
 
@@ -437,6 +438,7 @@ static esp_err_t settings_post(httpd_req_t *req)
     bool ok = settings_save(b);
     cJSON_Delete(b);
     scene_engine_reload();
+    feeds_settings_changed();
     return ok ? ok_json(req) : send_error(req, "500 Internal Server Error", "Could not save settings");
 }
 
