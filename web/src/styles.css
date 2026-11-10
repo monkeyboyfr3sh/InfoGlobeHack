@@ -284,3 +284,20 @@ table.values { width: 100%; border-collapse: collapse; }
 table.values th { text-align: left; font-weight: 600; color: var(--text-muted); font-size: 12px; padding: 4px 8px 4px 0; }
 table.values td { padding: 6px 8px 6px 0; border-top: 1px solid var(--border); }
 table.values td:last-child { text-align: right; padding-right: 0; }
+
+/* Weather card */
+.pill.wx-ok { background: var(--ok-soft); color: var(--ok); }
+.pill.wx-warn { background: var(--warn-soft); color: var(--warn); }
+.wx-card .form-grid .seg { justify-self: start; }
+.wx-card .form-grid .wx-top { align-self: start; padding-top: 1px; }
+.wx-now { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; }
+.wx-now canvas.mini { width: 180px; flex: none; }
+.wx-now b { display: block; font-size: 1.1rem; color: var(--text-strong); }
+.wx-loc { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.wx-search { flex-wrap: nowrap; }
+.wx-search input[type=text] { flex: 1; min-width: 0; }
+.wx-places { display: flex; flex-wrap: wrap; gap: 6px; }
+.wx-coords input[type=text] { width: 100px; }
+.wx-values { margin-top: 14px; }
+.wx-values table { margin-top: 8px; }
+.wx-recipe { margin: 14px 0 0; overflow-wrap: anywhere; }

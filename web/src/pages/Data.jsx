@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import * as api from '../lib/api.js';
 import { setVars } from '../lib/values.js';
+import { WeatherCard } from '../components/WeatherCard.jsx';
 
 // Data: what the globe knows beyond the clock. Pushed values first; the
 // feeds (weather, aircraft) add their own cards here.
@@ -73,6 +74,7 @@ export function Data({ toast }) {
   return (
     <div class="data-page">
       <PushedValues toast={toast} />
+      <WeatherCard toast={toast} />
     </div>
   );
 }

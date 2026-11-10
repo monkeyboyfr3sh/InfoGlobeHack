@@ -20,6 +20,7 @@ export const EXTRAS = [
   { key: 'daybar', name: 'Day progress', desc: 'DAY ######----', frame: { text: 'DAY {bar:day}', entrance: 12, after: 'spin' } },
   { key: 'moon', name: 'Moon phase', desc: 'WAXING GIBBOUS', frame: { text: '{moon}', entrance: 3, after: 'spin' } },
   { key: 'sun', name: 'Sunrise and sunset', desc: 'needs your location', frame: { text: 'RISE {sunrise} SET {sunset}', entrance: 17, after: 'spin' } },
+  { key: 'weather', name: 'Weather', desc: '61 CLOUDY, set up on the Data page', frame: { text: '{var:weather}', entrance: 16, after: 'hold' } },
   { key: 'world', name: 'World clock', desc: 'other cities', frame: null },
   { key: 'countdown', name: 'Countdown', desc: 'days or time until…', frame: null },
 ];
