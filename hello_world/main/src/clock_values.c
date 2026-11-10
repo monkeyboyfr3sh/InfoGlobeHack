@@ -135,33 +135,115 @@ static void hm12(double hours, char *out, size_t cap)
     snprintf(out, cap, "%d:%02d", h12(m / 60), m % 60);
 }
 
-/* World clock cities -> POSIX TZ (the web app uses the matching IANA names). */
-static const struct { const char *key, *tz; } CITIES[] = {
-    { "nyc", "EST5EDT,M3.2.0,M11.1.0" }, { "chi", "CST6CDT,M3.2.0,M11.1.0" }, { "den", "MST7MDT,M3.2.0,M11.1.0" },
-    { "la", "PST8PDT,M3.2.0,M11.1.0" },  { "hnl", "HST10" },               { "lon", "GMT0BST,M3.5.0/1,M10.5.0" },
-    { "par", "CET-1CEST,M3.5.0,M10.5.0/3" }, { "ber", "CET-1CEST,M3.5.0,M10.5.0/3" }, { "ath", "EET-2EEST,M3.5.0/3,M10.5.0/4" },
-    { "dxb", "<+04>-4" }, { "del", "IST-5:30" }, { "sgp", "<+08>-8" }, { "hkg", "HKT-8" }, { "tyo", "JST-9" },
-    { "syd", "AEST-10AEDT,M10.1.0,M4.1.0/3" }, { "akl", "NZST-12NZDT,M9.5.0,M4.1.0/3" }, { "utc", "UTC0" },
+/* ---- calendar arithmetic (proleptic Gregorian, no time zones involved) ---- */
+
+static int64_t floor_div(int64_t a, int64_t b) { return a / b - (a % b != 0 && (a < 0) != (b < 0)); }
+
+/* Days since 1970-01-01 of y-m-d (m 1-12). A day past the month's end rolls
+ * into the next month, as mktime() and JavaScript's Date do. */
+static int64_t days_from_civil(int64_t y, int m, int d)
+{
+    y -= m <= 2;
+    int64_t era = floor_div(y, 400), yoe = y - era * 400;
+    int64_t doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
+    return era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+}
+
+static void civil_from_days(int64_t z, int *y, int *m, int *d)
+{
+    z += 719468;
+    int64_t era = floor_div(z, 146097), doe = z - era * 146097;
+    int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
+    *d = (int)(doy - (153 * mp + 2) / 5 + 1);
+    *m = (int)(mp < 10 ? mp + 3 : mp - 9);
+    *y = (int)(yoe + era * 400 + (*m <= 2));
+}
+
+static int weekday(int64_t days) { return (int)((days % 7 + 11) % 7); }   // 1970-01-01 was a Thursday
+
+static bool leap(int y) { return (y % 4 == 0 && y % 100) || y % 400 == 0; }
+
+static int month_days(int y, int m)
+{
+    static const int dm[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    return dm[m - 1] + (m == 2 && leap(y));
+}
+
+/* ---- world clock ----
+ * Each city's standard offset and daylight-saving rule, evaluated from UTC.
+ * (Swapping the process-wide TZ and calling tzset() would give every other
+ * task the wrong zone for that moment, and setenv() allocates each time.)
+ * Rules are those of the POSIX TZ strings in the comments; the web app uses
+ * the matching IANA zones. If a country changes its rules, update both. */
+
+#define HR 3600
+
+/* "Mm.w.d/time": month, week of the month (5 = last), weekday (0 = Sunday),
+ * local time of the change (standard time when DST starts, DST when it ends). */
+typedef struct { int8_t mon, week, wday; int32_t at; } dst_rule_t;
+#define NO_DST { 0, 0, 0, 0 }
+
+static const struct {
+    const char *key;
+    int32_t     std;            // standard offset east of UTC, seconds
+    dst_rule_t  start, end;     // start.mon == 0: no DST; DST is std + 1 h
+} CITIES[] = {
+    { "nyc", -5 * HR, { 3, 2, 0, 2 * HR }, { 11, 1, 0, 2 * HR } },     // EST5EDT,M3.2.0,M11.1.0
+    { "chi", -6 * HR, { 3, 2, 0, 2 * HR }, { 11, 1, 0, 2 * HR } },     // CST6CDT,M3.2.0,M11.1.0
+    { "den", -7 * HR, { 3, 2, 0, 2 * HR }, { 11, 1, 0, 2 * HR } },     // MST7MDT,M3.2.0,M11.1.0
+    { "la",  -8 * HR, { 3, 2, 0, 2 * HR }, { 11, 1, 0, 2 * HR } },     // PST8PDT,M3.2.0,M11.1.0
+    { "hnl", -10 * HR, NO_DST, NO_DST },                               // HST10
+    { "lon", 0,       { 3, 5, 0, 1 * HR }, { 10, 5, 0, 2 * HR } },     // GMT0BST,M3.5.0/1,M10.5.0
+    { "par", 1 * HR,  { 3, 5, 0, 2 * HR }, { 10, 5, 0, 3 * HR } },     // CET-1CEST,M3.5.0,M10.5.0/3
+    { "ber", 1 * HR,  { 3, 5, 0, 2 * HR }, { 10, 5, 0, 3 * HR } },     // CET-1CEST,M3.5.0,M10.5.0/3
+    { "ath", 2 * HR,  { 3, 5, 0, 3 * HR }, { 10, 5, 0, 4 * HR } },     // EET-2EEST,M3.5.0/3,M10.5.0/4
+    { "dxb", 4 * HR,   NO_DST, NO_DST },                               // <+04>-4
+    { "del", 5 * HR + 30 * 60, NO_DST, NO_DST },                       // IST-5:30
+    { "sgp", 8 * HR,   NO_DST, NO_DST },                               // <+08>-8
+    { "hkg", 8 * HR,   NO_DST, NO_DST },                               // HKT-8
+    { "tyo", 9 * HR,   NO_DST, NO_DST },                               // JST-9
+    { "syd", 10 * HR, { 10, 1, 0, 2 * HR }, { 4, 1, 0, 3 * HR } },     // AEST-10AEDT,M10.1.0,M4.1.0/3
+    { "akl", 12 * HR, { 9, 5, 0, 2 * HR },  { 4, 1, 0, 3 * HR } },     // NZST-12NZDT,M9.5.0,M4.1.0/3
+    { "utc", 0,        NO_DST, NO_DST },                               // UTC0
 };
 
-static bool city_time(const char *key, time_t now, char *out, size_t cap)
+/* Day number of the rule's date in year y. */
+static int64_t rule_day(int y, const dst_rule_t *r)
+{
+    int64_t first = days_from_civil(y, r->mon, 1);
+    int64_t day = first + (r->wday - weekday(first) + 7) % 7 + 7 * (r->week - 1);
+    while (day >= first + month_days(y, r->mon)) day -= 7;     // week 5 = the last one
+    return day;
+}
+
+bool clock_city_offset(const char *key, int64_t utc, int32_t *offset)
 {
     for (size_t i = 0; i < sizeof(CITIES) / sizeof(CITIES[0]); i++) {
         if (strcmp(key, CITIES[i].key)) continue;
-        // Swap TZ briefly; only the display task formats local time.
-        const char *old = getenv("TZ");
-        char saved[64] = "";
-        if (old) snprintf(saved, sizeof(saved), "%s", old);
-        setenv("TZ", CITIES[i].tz, 1);
-        tzset();
-        struct tm t;
-        localtime_r(&now, &t);
-        if (saved[0]) setenv("TZ", saved, 1); else unsetenv("TZ");
-        tzset();
-        snprintf(out, cap, "%d:%02d", h12(t.tm_hour), t.tm_min);
+        int32_t std = CITIES[i].std;
+        const dst_rule_t *on = &CITIES[i].start, *off = &CITIES[i].end;
+        *offset = std;
+        if (!on->mon) return true;
+        int y, m, d;                        // the year in local standard time (no change is near New Year)
+        civil_from_days(floor_div(utc + std, 86400), &y, &m, &d);
+        int64_t t_on  = rule_day(y, on) * 86400 + on->at - std;
+        int64_t t_off = rule_day(y, off) * 86400 + off->at - (std + HR);
+        bool dst = t_on < t_off ? (utc >= t_on && utc < t_off)      // northern summer
+                                : !(utc >= t_off && utc < t_on);    // southern: DST spans New Year
+        if (dst) *offset += HR;
         return true;
     }
     return false;
+}
+
+static bool city_time(const char *key, time_t now, char *out, size_t cap)
+{
+    int32_t off;
+    if (!clock_city_offset(key, now, &off)) return false;
+    int64_t s = (int64_t)now + off, sod = s - floor_div(s, 86400) * 86400;
+    snprintf(out, cap, "%d:%02d", h12((int)(sod / 3600)), (int)(sod / 60 % 60));
+    return true;
 }
 
 /* {until:HH:MM} -> "h:mm" to the next such time; {until:MM-DD} -> days to the next such date. */
