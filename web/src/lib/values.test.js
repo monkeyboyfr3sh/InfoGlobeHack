@@ -6,7 +6,7 @@ import { makeSequence } from './sim.js';
 import { encodeText } from './protocol.js';
 
 const d = new Date(2026, 10, 2, 21, 58, 7, 100);   // Mon 2 Nov 2026, 9:58:07.100 PM
-describe('live values (same formats as scene_engine.c)', () => {
+describe('live values (same formats as clock_values.c)', () => {
   it('fills known values, keeps unknown ones', () => {
     expect(fillValues('{clock}', d)).toBe('09:58 PM');
     expect(fillValues('{clock}', new Date(2026, 10, 2, 21, 58, 7, 700))).toBe('09 58 PM');
@@ -41,7 +41,7 @@ describe('scenes', () => {
 });
 
 import { setVars } from './values.js';
-describe('pushed values (same rules as scene_engine.c pushed_value)', () => {
+describe('pushed values (same rules as live_values.c pushed_value)', () => {
   it('shows pushed values by {var:name} and by bare name', () => {
     setVars({ cpu: '42', print: '125', build_ok: 'PASS' });
     expect(fillValues('CPU {var:cpu} {cpu} {build_ok}', d)).toBe('CPU 42 42 PASS');

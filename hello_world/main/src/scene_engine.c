@@ -16,6 +16,7 @@
 #include <math.h>
 
 #include "clock_values.h"
+#include "live_values.h"
 #include "value_store.h"
 
 #include "globe_frame.h"
@@ -33,6 +34,12 @@ static const char *TAG = "SCENES";
 /* ------------------------------------------------------------------ */
 /*  Live values                                                         */
 /* ------------------------------------------------------------------ */
+
+/* The substitution itself is pure C in live_values.c and clock_values.c,
+ * compiled and checked against the designer's preview on a PC (npm test in
+ * web/). This part only hands it the globe's clock, IP address and value store. */
+
+_Static_assert(LIVE_KEY_MAX == VALUE_KEY_MAX, "pushed value names: live_values.h and value_store.h disagree");
 
 static void ip_string(char *buf, size_t len)
 {
@@ -55,142 +62,19 @@ static bool     s_colon_set;
 static uint16_t s_colon_period;
 static char     s_colon_look = ' ';
 
-static void colon_blink(char *out, const struct timeval *tv, uint16_t period)
-{
-    if (!period) return;
-    uint32_t ms = (uint32_t)(tv->tv_sec % 3600) * 1000 + tv->tv_usec / 1000;
-    if (ms % period < period / 2) return;              // "on" half
-    for (char *c = out; *c; c++) if (*c == ':') *c = s_colon_look;
-}
-
-/* Pushed values (value_store): {var:cpu}; {bar:cpu} and {pct:cpu} for a 0-100
- * number, {bar:print:250} / {pct:print:250} for one out of 250. The clock's
- * own periods ({bar:day} ...) are left to clock_value(). */
-static bool pushed_value(const char *name, const char *arg, char *out, size_t cap)
-{
-    if (!arg || !*arg) return false;
-    if (!strcmp(name, "var")) {
-        if (!value_store_get(arg, out, cap)) snprintf(out, cap, "--");
-        return true;
-    }
-    bool is_bar = !strcmp(name, "bar");
-    if (!is_bar && strcmp(name, "pct")) return false;
-    static const char *periods[] = { "min", "hour", "day", "week", "month", "year" };
-    for (size_t i = 0; i < sizeof(periods) / sizeof(periods[0]); i++) {
-        if (!strcmp(arg, periods[i])) return false;
-    }
-    char key[VALUE_KEY_MAX];
-    double max = 100, v = 0;
-    const char *colon = strchr(arg, ':');
-    size_t klen = colon ? (size_t)(colon - arg) : strlen(arg);
-    if (klen >= sizeof(key)) return false;
-    memcpy(key, arg, klen);
-    key[klen] = '\0';
-    if (colon) max = atof(colon + 1);
-    if (max <= 0) max = 100;
-    bool have = value_store_get_number(key, &v);
-    double frac = have ? v / max : 0;
-    if (frac < 0) frac = 0;
-    if (frac > 1) frac = 1;
-    if (is_bar) {
-        int width = cap > 10 ? 10 : (int)cap - 1, full = (int)(frac * width + 0.0001);
-        for (int i = 0; i < width; i++) out[i] = i < full ? '#' : '-';
-        out[width] = '\0';
-    } else if (have) {
-        snprintf(out, cap, "%d", (int)(frac * 100 + 0.0001));
-    } else {
-        snprintf(out, cap, "--");
-    }
-    return true;
-}
-
-/* One value; returns false for an unknown name (left in the text as typed).
- * `arg` is the part after ':' ({clock:24}, {tz:tyo}); `steady` turns off
- * the colon blink (used to tell a real change from a blink). */
-static bool value_of(const char *name, const char *arg, char *out, size_t cap, bool *live, bool steady)
+/* One clock reading per template, so "{time}:{sec}" can't straddle a second.
+ * newlib applies the TZ rule; the pure code only needs the resulting offset. */
+static void subst(const char *tmpl, char *out, size_t cap, bool *live, bool steady)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     time_t now = tv.tv_sec;
-    struct tm t;
-    localtime_r(&now, &t);
-    const char *fmt = NULL;
-
-    if (!strcmp(name, "clock")) {             // the classic clock: "07:05 PM", colon blinks
-        // {clock:24} 24 h, {clock:s} with seconds, {clock:n} colon doesn't blink (combinable)
-        // {clock:24} 24 h, {clock:s} seconds, {clock:x} no AM/PM, {clock:n} no blink (combinable)
-        bool h24 = arg && strchr(arg, '2'), secs = arg && strchr(arg, 's'), noblink = arg && strchr(arg, 'n');
-        bool ampm = !h24 && !(arg && strchr(arg, 'x'));
-        strftime(out, cap, h24 ? (secs ? "%H:%M:%S" : "%H:%M") : secs ? (ampm ? "%I:%M:%S %p" : "%I:%M:%S") : (ampm ? "%I:%M %p" : "%I:%M"), &t);
-        if (!steady) colon_blink(out, &tv, s_colon_set ? s_colon_period : (noblink || secs ? 0 : 1000));
-        *live = true;
-        return true;
-    }
-    if (!strcmp(name, "time")) {              // "7:05"
-        int h = t.tm_hour % 12 ? t.tm_hour % 12 : 12;
-        snprintf(out, cap, "%d:%02d", h, t.tm_min);
-        if (!steady && s_colon_set) colon_blink(out, &tv, s_colon_period);
-        *live = true;
-        return true;
-    }
-    if      (!strcmp(name, "time24")) fmt = "%H:%M";
-    else if (!strcmp(name, "ampm"))   fmt = "%p";
-    else if (!strcmp(name, "sec"))    fmt = "%S";
-    else if (!strcmp(name, "date"))   fmt = "%a %d %b";   // "Mon 02 Nov"
-    else if (!strcmp(name, "day"))    fmt = "%A";
-    else if (!strcmp(name, "dd"))     fmt = "%d";
-    else if (!strcmp(name, "month"))  fmt = "%B";
-    else if (!strcmp(name, "mon"))    fmt = "%b";
-    else if (!strcmp(name, "year"))   fmt = "%Y";
-    if (fmt) {
-        strftime(out, cap, fmt, &t);
-        if (!steady && s_colon_set && !strcmp(name, "time24")) colon_blink(out, &tv, s_colon_period);
-        *live = true;
-        return true;
-    }
-    if (!strcmp(name, "ip")) {
-        ip_string(out, cap);
-        *live = true;
-        return true;
-    }
-    if (pushed_value(name, arg, out, cap)) {     // before clock_value: {bar:cpu} is a pushed bar, {bar:day} a clock one
-        *live = true;
-        return true;
-    }
-    if (clock_value(name, arg, &tv, out, cap)) {
-        *live = true;
-        return true;
-    }
-    if (!arg && value_store_get(name, out, cap)) {  // {cpu}: any pushed value by its bare name
-        *live = true;
-        return true;
-    }
-    return false;
-}
-
-static void subst(const char *tmpl, char *out, size_t cap, bool *live, bool steady)
-{
-    size_t o = 0;
-    bool lv = false;
-    for (const char *p = tmpl; *p && o + 1 < cap;) {
-        const char *close = (*p == '{') ? strchr(p, '}') : NULL;
-        if (close && close - p > 1 && close - p < 40) {
-            char name[40];
-            memcpy(name, p + 1, close - p - 1);
-            name[close - p - 1] = '\0';
-            char *arg = strchr(name, ':');
-            if (arg) *arg++ = '\0';
-            char val[48];
-            if (value_of(name, arg, val, sizeof(val), &lv, steady)) {
-                for (const char *v = val; *v && o + 1 < cap;) out[o++] = *v++;
-                p = close + 1;
-                continue;
-            }
-        }
-        out[o++] = *p++;
-    }
-    out[o] = '\0';
-    if (live) *live = lv;
+    struct tm lt;
+    localtime_r(&now, &lt);
+    clock_now_t c = { .steady = steady, .colon_set = s_colon_set, .colon_period = s_colon_period, .colon_look = s_colon_look };
+    clock_now_set(&c, now, (int32_t)tv.tv_usec, (int32_t)(clock_tm_seconds(&lt) - now));
+    live_env_t env = { .now = &c, .get = value_store_get, .ip = ip_string };
+    live_subst(tmpl, &env, out, cap, live);
 }
 
 void scene_subst(const char *tmpl, char *out, size_t cap, bool *live) { subst(tmpl, out, cap, live, false); }

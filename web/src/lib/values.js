@@ -1,6 +1,7 @@
-// Live values in frame text, e.g. "SERVER {time}". Mirrors scene_subst() in
-// scene_engine.c and clock_value() in clock_values.c, so the preview shows
-// what the globe will.
+// Live values in frame text, e.g. "SERVER {time}". Mirrors the globe's
+// live_values.c (syntax, lookup order, pushed values) and clock_values.c, so
+// the preview shows what the globe will. values.vectors.test.js compiles that
+// C code and checks both against values.vectors.json: change them together.
 
 import * as weather from './feeds/weather.js';
 import * as aircraft from './feeds/aircraft.js';
@@ -145,10 +146,15 @@ function hm12(h) {
   const m = Math.round(h * 60) % 1440;
   return `${h12(Math.floor(m / 60))}:${p2(m % 60)}`;
 }
+// The globe computes these from fixed DST rules (clock_values.c); the vector
+// test checks both agree at every transition. Own keys only: {tz:constructor}
+// is not a city.
+const cityFormat = {};
 function cityTime(key, d) {
+  if (!Object.prototype.hasOwnProperty.call(CITIES, key)) return null;
   const c = CITIES[key];
-  if (!c) return null;
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: c[1], hour: 'numeric', minute: '2-digit', hour12: false }).formatToParts(d);
+  cityFormat[key] ??= new Intl.DateTimeFormat('en-US', { timeZone: c[1], hour: 'numeric', minute: '2-digit', hour12: false });
+  const parts = cityFormat[key].formatToParts(d);
   const h = +parts.find((p) => p.type === 'hour').value % 24, m = parts.find((p) => p.type === 'minute').value;
   return `${h12(h)}:${m}`;
 }
@@ -168,9 +174,10 @@ function until(arg, d) {
   return null;
 }
 
-// Colon blink: period = full on+off cycle in ms (0 = none); off half swaps ':' for ' ' or '.'.
+// Colon blink: period = full on+off cycle in ms; off half swaps ':' for ' ' or '.'.
+// Under 200 ms (or 0) it is steady, as the engine reads "blinkColon".
 function colonBlink(s, d, period, look) {
-  if (!period) return s;
+  if (!(period >= 200)) return s;
   const ms = (Math.floor(d.getTime() / 1000) % 3600) * 1000 + d.getMilliseconds();
   return ms % period < period / 2 ? s : s.replace(/:/g, look === 'dot' ? '.' : ' ');
 }

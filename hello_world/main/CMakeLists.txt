@@ -18,6 +18,7 @@ idf_component_register(SRCS
     "src/clock_values.c"
     "src/globe_anim.c"
     "src/value_store.c"
+    "src/live_values.c"
     "src/http_fetch.c"
     "src/feeds.c"
     "src/feed_weather.c"
