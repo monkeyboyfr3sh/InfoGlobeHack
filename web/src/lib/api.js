@@ -2,6 +2,8 @@
 // origin; during development (npm run dev) pass ?globe=http://192.168.0.71
 // or set VITE_GLOBE.
 
+import { createLive, wsUrl } from './live.js';
+
 const params = new URLSearchParams(location.search);
 export const GLOBE = (params.get('globe') || import.meta.env.VITE_GLOBE || '').replace(/\/$/, '');
 
@@ -42,3 +44,23 @@ export const playFrames = (frames, seconds = 0) => call('POST', '/api/v1/play', 
 // Pushed values: {cpu: 42, build: 'PASS', old: null}; ttl = seconds until they expire (0 = never)
 export const getValues = () => call('GET', '/api/v1/values');
 export const setValues = (values, ttl = 0) => call('POST', `/api/v1/values${ttl ? `?ttl=${ttl}` : ''}`, values);
+
+// ---- live: one WebSocket per tab, polling when it can't be used ----
+let live = null;
+const liveLink = () => live || (live = createLive({
+  url: wsUrl(GLOBE, location),
+  WS: typeof WebSocket === 'function' ? WebSocket : null,
+  getNow, getValues,
+  timers: { setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (t) => clearTimeout(t) },
+  doc: typeof document === 'object' ? document : null,
+}));
+// fn(now) whenever "now showing" changes; onStatus({online, via: 'ws'|'poll'}).
+// Returns a function that unsubscribes.
+export function subscribeNow(fn, onStatus) {
+  const offNow = liveLink().subscribe('now', fn);
+  const offStatus = onStatus ? liveLink().subscribe('status', onStatus) : () => {};
+  return () => { offNow(); offStatus(); };
+}
+// fn(values) with the pushed values ({cpu: '42', ...}) as they change: pushed
+// over the WebSocket, or polled every 3 s without one. Returns unsubscribe.
+export const subscribeValues = (fn) => liveLink().subscribe('values', fn);

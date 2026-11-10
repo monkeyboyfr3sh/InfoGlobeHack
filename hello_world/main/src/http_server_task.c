@@ -552,6 +552,12 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers    = 48;
+    // Sockets: LWIP_MAX_SOCKETS is 10 for the whole system. The server takes
+    // these sessions + 3 of its own; the default 7 left nothing, so the feeds'
+    // HTTPS fetches failed while a browser held idle keep-alive connections.
+    // 5 + 3 leaves 2 for the feeds. Up to LIVE_MAX_CLIENTS of the 5 can be
+    // WebSockets; LRU purging recycles idle HTTP ones.
+    config.max_open_sockets    = 5;
     config.uri_match_fn        = httpd_uri_match_wildcard;   // for /api/v1/* (OPTIONS)
     config.stack_size          = 8192;
     config.recv_wait_timeout   = 60; // seconds — needed for OTA uploads

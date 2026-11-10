@@ -6,6 +6,7 @@
  *        -> {"ok":true,"bytes":"00 00 ...","then":"05 ...","thenAfterMs":1500,"unsupported":0}
  *   POST /api/v1/clear   blank the display
  *   GET  /api/v1/effects the effect table (id, name, group, durationMs, sameAs)
+ *   GET  /api/v1/ws      WebSocket live mirror (live.c)
  *   GET  /designer       the Vite-built designer (designer.html.gz on SPIFFS)
  *
  * All API responses allow cross-origin requests so the designer can be
@@ -28,6 +29,7 @@
 #include "scene_engine.h"
 #include "value_store.h"
 #include "feeds.h"
+#include "live.h"
 
 static const char *TAG = "API_V1";
 
@@ -533,4 +535,5 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
             ESP_LOGE(TAG, "Could not register %s", routes[i].uri);
         }
     }
+    live_register(server);                    // GET /api/v1/ws
 }

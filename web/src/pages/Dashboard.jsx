@@ -38,7 +38,8 @@ function NowShowing({ now, online, toast, canNext }) {
       </div>
       {progress !== null && (
         <div class="progress" title={`Next item in ${now.itemRemaining} s`}>
-          <div class="bar"><div style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }} /></div>
+          {/* the countdown arrives every second over the live link */}
+          <div class="bar"><div style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%`, transitionDuration: '1s' }} /></div>
           <span class="muted small">next in {now.itemRemaining} s</span>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { GLOBE, getNow } from './lib/api.js';
+import { GLOBE, subscribeNow } from './lib/api.js';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Clock } from './pages/Clock.jsx';
@@ -33,36 +33,29 @@ function parseHash() {
   return { page: ['designer', 'clock', 'data'].includes(page) ? page : 'dashboard', id: id || null };
 }
 
-// What the globe is doing, polled once for the whole app.
+// What the globe is doing, for the whole app: pushed over a WebSocket when
+// the globe allows one, polled otherwise (lib/live.js).
 function useNow() {
   const [now, setNow] = useState(null);
-  const [online, setOnline] = useState(true);
-  useEffect(() => {
-    let stop = false, t = 0;
-    const poll = async () => {
-      try { const n = await getNow(); if (!stop) { setNow(n); setOnline(true); } }
-      catch { if (!stop) setOnline(false); }
-      if (!stop) t = setTimeout(poll, document.hidden ? 5000 : 1500);
-    };
-    poll();
-    return () => { stop = true; clearTimeout(t); };
-  }, []);
-  return { now, online };
+  const [link, setLink] = useState({ online: true, via: null });
+  useEffect(() => subscribeNow(setNow, setLink), []);
+  return { now, online: link.online, via: link.via };
 }
 
 const MODE = { playlist: 'Playlist', scene: 'Playing once', manual: 'Manual' };
 
-function StatusChip({ now, online }) {
+function StatusChip({ now, online, via }) {
   if (!online) return <span class="status bad" title="The globe isn't answering"><span class="dot" />Offline</span>;
   if (!now) return <span class="status"><span class="dot" />Connecting…</span>;
   const what = now.mode === 'manual' ? (now.text ? `“${now.text}”` : 'manual text') : now.name || now.scene;
-  return <span class="status ok" title="Connected to the globe"><span class="dot" />{MODE[now.mode] || now.mode}{what ? <> · <b>{what}</b></> : null}</span>;
+  const how = via === 'ws' ? 'Connected to the globe (live)' : 'Connected to the globe (checking every 1.5 s)';
+  return <span class="status ok" title={how}><span class="dot" />{MODE[now.mode] || now.mode}{what ? <> · <b>{what}</b></> : null}</span>;
 }
 
 export function App() {
   const [route, setRoute] = useState(parseHash());
   const [toast, setToast] = useState(null);
-  const { now, online } = useNow();
+  const { now, online, via } = useNow();
   useEffect(() => {
     const on = () => setRoute(parseHash());
     addEventListener('hashchange', on);
@@ -81,7 +74,7 @@ export function App() {
         <h1>InfoGlobe</h1>
         <div class="head-right">
           {GLOBE && <span class="muted small">{GLOBE}</span>}
-          <StatusChip now={now} online={online} />
+          <StatusChip now={now} online={online} via={via} />
           <ThemeButton />
         </div>
       </header>
