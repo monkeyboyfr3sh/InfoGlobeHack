@@ -18,6 +18,7 @@
 #include "frame_maker_task.h"
 #include "ir_led_task.h"
 #include "api_v1.h"
+#include "auth.h"
 
 static const char *TAG = "HTTP_SERVER";
 
@@ -94,6 +95,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 
 static esp_err_t text_post_handler(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *root = recv_json(req);
     if (!root) { httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad JSON"); return ESP_FAIL; }
 
@@ -116,6 +118,7 @@ static esp_err_t text_post_handler(httpd_req_t *req)
 
 static esp_err_t raw_post_handler(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *root = recv_json(req);
     if (!root) { httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad JSON"); return ESP_FAIL; }
 
@@ -143,6 +146,7 @@ static esp_err_t raw_post_handler(httpd_req_t *req)
 
 static esp_err_t button_post_handler(httpd_req_t *req)
 {
+    if (!auth_check(req)) return ESP_OK;
     cJSON *root = recv_json(req);
     if (!root) { httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad JSON"); return ESP_FAIL; }
 
@@ -175,6 +179,18 @@ static esp_err_t button_post_handler(httpd_req_t *req)
 
 static esp_err_t ota_post_handler(httpd_req_t *req)
 {
+    // Checked before esp_ota_begin(), which erases the other app slot.
+    if (!auth_check(req)) {
+        // Read the upload away quickly (the server's own purge reads 32 bytes
+        // at a time) so the browser gets the 401 rather than a reset.
+        char junk[512];
+        for (int left = req->content_len; left > 0; ) {
+            int r = httpd_req_recv(req, junk, left < (int)sizeof(junk) ? left : (int)sizeof(junk));
+            if (r <= 0) break;
+            left -= r;
+        }
+        return ESP_OK;
+    }
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
     if (!update_partition) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
@@ -251,6 +267,7 @@ static esp_err_t mode_handler(httpd_req_t *req)
         httpd_resp_sendstr(req, resp);
         return ESP_OK;
     }
+    if (!auth_check(req)) return ESP_OK;
 
     cJSON *root = recv_json(req);
     if (!root) { httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad JSON"); return ESP_FAIL; }
@@ -295,6 +312,7 @@ static void ir_test_task(void *arg)
 static esp_err_t ir_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_POST) {
+        if (!auth_check(req)) return ESP_OK;
         cJSON *root = recv_json(req);
         if (!root) { httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad JSON"); return ESP_FAIL; }
         cJSON *gap = cJSON_GetObjectItem(root, "gap_ms");
@@ -508,6 +526,7 @@ static cJSON *recv_json_large(httpd_req_t *req, size_t max)
 
 static esp_err_t notes_handler(httpd_req_t *req)
 {
+    if (req->method == HTTP_POST && !auth_check(req)) return ESP_OK;
     cJSON *notes = notes_load();
 
     if (req->method == HTTP_POST) {
@@ -549,9 +568,16 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     memset(s_button_cmds, 0, sizeof(s_button_cmds));
     init_spiffs();
     init_notes_fs();
+    auth_init();                 // NVS is up (tcp_server_task) before we get here
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers    = 48;
+    // Sockets: LWIP_MAX_SOCKETS is 10 for the whole system. The server takes
+    // these sessions + 3 of its own; the default 7 left nothing, so the feeds'
+    // HTTPS fetches failed while a browser held idle keep-alive connections.
+    // 5 + 3 leaves 2 for the feeds. Up to LIVE_MAX_CLIENTS of the 5 can be
+    // WebSockets; LRU purging recycles idle HTTP ones.
+    config.max_open_sockets    = 5;
     config.uri_match_fn        = httpd_uri_match_wildcard;   // for /api/v1/* (OPTIONS)
     config.stack_size          = 8192;
     config.recv_wait_timeout   = 60; // seconds — needed for OTA uploads

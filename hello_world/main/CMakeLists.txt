@@ -12,6 +12,8 @@ idf_component_register(SRCS
     "src/globe_frame.c"
     "src/globe_effects.c"
     "src/api_v1.c"
+    "src/auth.c"
+    "src/live.c"
     "src/scene_engine.c"
     "src/clock_values.c"
     "src/value_store.c"

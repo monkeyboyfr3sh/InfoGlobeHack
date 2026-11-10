@@ -17,11 +17,8 @@ function PushedValues({ toast }) {
   const load = async () => {
     try { const v = await api.getValues(); setValues(v); setVars(v); } catch { /* offline: the status chip says so */ }
   };
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
-  }, []);
+  // Pushed over the live link (polled every 3 s when there's none).
+  useEffect(() => api.subscribeValues((v) => { setValues(v); setVars(v); }), []);
 
   const save = async (e) => {
     e.preventDefault();
