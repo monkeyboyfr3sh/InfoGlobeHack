@@ -6,12 +6,17 @@ import { TEMPLATES, newFrame, slug, cleanScene, toStored } from '../lib/scenes.j
 import { useHistory } from '../lib/history.js';
 import * as api from '../lib/api.js';
 import { Screen } from '../components/Screen.jsx';
-import { FrameEditor, EFFECTS } from '../components/FrameEditor.jsx';
+import { FrameEditor, EFFECTS, animName } from '../components/FrameEditor.jsx';
 import { Mini } from '../components/Mini.jsx';
+import { animStep, isFiniteAnim } from '../lib/anim.js';
+import { animStepStyle } from '../lib/sim.js';
 
 const toCodes = (text) => encodeText(fillValues(text)).codes.slice(0, TEXT_MAX);
 const styleOf = (f) => ({ entrance: f.entrance ?? -1, after: f.after, blink: f.blink, shift: f.shift });
 const fxName = (id) => (id === null || id === undefined || id < 0 ? 'Appears' : EFFECTS[id].name);
+const fill = (s) => fillValues(s);
+/** What makeScene needs for a frame, its custom animation included. */
+const simFrame = (f, anim = f.anim) => ({ codes: toCodes(f.text), style: styleOf(f), ...(anim ? { anim, text: fillValues(f.text), fill } : {}) });
 
 function loadDraft() {
   try { const d = JSON.parse(localStorage.getItem('scene-draft')); if (d && d.scene) return d; } catch { /* ignore */ }
@@ -26,6 +31,7 @@ export function Designer({ sceneId, toast }) {
   const [savedJson, setSavedJson] = useState(null);
   const [library, setLibrary] = useState([]);
   const [hover, setHover] = useState(null);
+  const [hoverAnim, setHoverAnim] = useState(undefined);   // undefined: not hovering; null: "None"
   const [whole, setWhole] = useState(false);
   const [runKey, setRunKey] = useState(0);
   const [live, setLive] = useState(false);
@@ -87,21 +93,31 @@ export function Designer({ sceneId, toast }) {
   // ---- preview ----
   const prevFrame = scene.frames.length > 1 ? scene.frames[(sel + scene.frames.length - 1) % scene.frames.length] : null;
   const prev = prevFrame ? { codes: toCodes(prevFrame.text), style: styleOf(prevFrame) } : { codes: encodeText('12:00').codes, style: { entrance: -1, after: 'spin' } };
+  const hovering = hover !== null || hoverAnim !== undefined;
   const preview = useMemo(() => {
-    if (whole && hover === null) {
-      return makeSequence(scene.frames.map((f) => ({ codes: toCodes(f.text), style: styleOf(f), ms: (f.seconds || 6) * 1000 })), EFFECTS);
+    if (whole && !hovering) {
+      return makeSequence(scene.frames.map((f) => ({ ...simFrame(f), ms: (f.seconds || 6) * 1000 })), EFFECTS);
     }
-    const st = styleOf(frame);
-    if (hover !== null) st.entrance = hover;
-    return makeScene(prev, { codes: toCodes(frame.text), style: st }, EFFECTS);
-  }, [scene, sel, hover, whole]);
+    if (hover !== null) return makeScene(prev, { ...simFrame(frame, null), style: { ...styleOf(frame), entrance: hover } }, EFFECTS);
+    return makeScene(prev, simFrame(frame, hoverAnim !== undefined ? hoverAnim : frame.anim), EFFECTS);
+  }, [scene, sel, hover, hoverAnim, whole]);
 
-  const shownFx = whole && hover === null ? scene.frames.map((f) => f.entrance) : [hover !== null ? hover : frame.entrance];
+  const shownFx = whole && !hovering ? scene.frames.filter((f) => !f.anim).map((f) => f.entrance)
+    : [hover !== null ? hover : hoverAnim !== undefined || frame.anim ? null : frame.entrance];
   const estimate = shownFx.some((id) => id !== null && id !== undefined && id >= 0 && !EFFECTS[String(id)].calibrated);
+  const animShown = whole && !hovering ? scene.frames.some((f) => f.anim) : hover === null && !!(hoverAnim !== undefined ? hoverAnim : frame.anim);
   const sceneSecs = scene.frames.reduce((a, f) => a + (f.seconds || 0), 0);
 
-  let compiled = null, compileError = null;
-  try { compiled = compileFrame(toCodes(frame.text), styleOf(frame)); } catch (e) { compileError = e.message; }
+  // An animated frame is a stream of still frames: show the first one, the engine sends the rest.
+  let compiled = null, compileError = null, firstStep = null;
+  try {
+    if (frame.anim) {
+      const step = animStep(frame.anim, { target: fillValues(frame.text), shift: frame.after === 'hold' ? frame.shift : -1 }, 0);
+      const text = step.tmpl ? fillValues(step.text) : step.text;
+      compiled = compileFrame(toCodes(text), { entrance: -1, ...animStepStyle(step, styleOf(frame), isFiniteAnim(frame.anim)) });
+      firstStep = step;
+    } else compiled = compileFrame(toCodes(frame.text), styleOf(frame));
+  } catch (e) { compileError = e.message; }
 
   // ---- globe actions ----
   const frameBody = (f) => {
@@ -110,8 +126,17 @@ export function Designer({ sceneId, toast }) {
     return b;
   };
   const sendThis = async (quiet) => {
-    try { await api.sendFrame(frameBody(frame)); if (!quiet) toast(true, 'Frame sent; the playlist is paused until you resume it'); }
-    catch (e) { toast(false, `Could not send: ${e.message}`); }
+    try {
+      if (frame.anim) {
+        // animations run in the globe's scene engine, so this plays as a short scene
+        const secs = Math.max(15, frame.seconds || 30);
+        await api.playFrames([{ ...frame, seconds: 0 }], secs);
+        if (!quiet) toast(true, `Playing this animated frame for ${secs} s, then back to the playlist`);
+      } else {
+        await api.sendFrame(frameBody(frame));
+        if (!quiet) toast(true, 'Frame sent; the playlist is paused until you resume it');
+      }
+    } catch (e) { toast(false, `Could not send: ${e.message}`); }
   };
   useEffect(() => {
     if (!live) return undefined;
@@ -196,15 +221,15 @@ export function Designer({ sceneId, toast }) {
 
       <div class="layout">
         <div class="sticky">
-          <Screen scene={preview} runKey={runKey} holdMs={whole && hover === null ? 0 : 4000}
-            badge={estimate ? '≈ estimated transition' : null} />
+          <Screen scene={preview} runKey={runKey} holdMs={whole && !hovering ? 0 : 4000}
+            badge={estimate ? '≈ estimated transition' : animShown ? '≈ animation, not yet seen on the globe' : null} />
           <div class="row controls">
             <button class="btn" onClick={() => setRunKey((k) => k + 1)}>↻ Replay</button>
             <div class="seg" role="group" aria-label="Preview">
               <button aria-pressed={!whole} onClick={() => setWhole(false)}>This frame</button>
               <button aria-pressed={whole} onClick={() => setWhole(true)}>Whole scene</button>
             </div>
-            <span class="muted small">{hover !== null ? `Previewing ${fxName(hover)}` : ''}</span>
+            <span class="muted small">{hover !== null ? `Previewing ${fxName(hover)}` : hoverAnim ? `Previewing ${animName(hoverAnim)}` : hoverAnim === null ? 'Previewing no animation' : ''}</span>
           </div>
 
           <div class="strip-head">
@@ -217,7 +242,7 @@ export function Designer({ sceneId, toast }) {
                 style={{ flexBasis: `${Math.round(Math.min(260, Math.max(150, 110 + (f.seconds || 6) * 8)))}px` }}>
                 <Mini frame={f} height={26} dim={i !== sel} />
                 <span class="frame-text mono">{i + 1}. {f.text || '(empty)'}</span>
-                <span class="frame-meta">{fxName(f.entrance)} · {f.after}{f.seconds ? ` · ${f.seconds} s` : ''}</span>
+                <span class="frame-meta">{f.anim ? animName(f.anim) || 'Animation' : fxName(f.entrance)} · {f.after}{f.seconds ? ` · ${f.seconds} s` : ''}</span>
               </button>
             ))}
             <button class="frame-card add" onClick={addFrame} title="Add a frame after the selected one">+ Add frame</button>
@@ -233,6 +258,7 @@ export function Designer({ sceneId, toast }) {
             <summary>Show commands (advanced)</summary>
             {compiled && (
               <div style="margin-top:8px">
+                {firstStep && <p class="hint small">First step of the animation; the globe's engine sends one still frame like it every {firstStep.ms} ms or more.</p>}
                 <div class="bytes">{hex(compiled.first)}</div>
                 {compiled.then && <div class="bytes" style="margin-top:6px">then {hex(compiled.then)}</div>}
               </div>
@@ -242,7 +268,7 @@ export function Designer({ sceneId, toast }) {
 
         <div>
           <div class="inspector-head"><h2>Frame {sel + 1}</h2><span class="muted small">of {scene.frames.length} · edits apply to the selected frame</span></div>
-          <FrameEditor frame={frame} onChange={setFrame} prevCodes={prev.codes} onHover={setHover} />
+          <FrameEditor frame={frame} onChange={setFrame} prevCodes={prev.codes} onHover={setHover} onHoverAnim={setHoverAnim} />
           <div class="actions">
             <div class="row">
               <button class="btn primary" onClick={playOnGlobe}>Play scene on globe ▶</button>

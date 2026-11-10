@@ -140,7 +140,7 @@ export function Clock({ toast }) {
           <ol class="recipe">
             {compiled.frames.map((f, i) => (
               <li key={i}><span class="mono">{f.text}</span>
-                <span class="muted small"> · {f.after}{f.onChange !== undefined ? ` · on change: ${f.onChange === 'random' ? 'surprise' : EFFECTS[f.onChange].name}` : ''}{f.motion ? ` · ${f.motion}` : ''}{f.seconds ? ` · ${f.seconds} s` : ''}</span></li>
+                <span class="muted small"> · {f.after}{f.onChange !== undefined ? ` · on change: ${f.onChange === 'random' ? 'surprise' : EFFECTS[f.onChange] ? EFFECTS[f.onChange].name : f.onChange.type || f.onChange}` : ''}{f.motion ? ` · ${f.motion}` : ''}{f.seconds ? ` · ${f.seconds} s` : ''}</span></li>
             ))}
             {compiled.chimeFrames && <li><span class="muted">Chime every {c.chime.every} min:</span> <span class="mono">{compiled.chimeFrames.map((f) => f.text).join(' → ')}</span></li>}
           </ol>
