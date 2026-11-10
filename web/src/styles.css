@@ -317,3 +317,18 @@ table.values td:last-child { text-align: right; padding-right: 0; }
   justify-content: center; padding: 12vh 16px 16px; }
 .modal { width: min(440px, 100%); box-shadow: 0 8px 28px rgba(0, 0, 0, .3); }
 .modal input[type=password], .modal input[type=text] { font-family: var(--mono); }
+
+/* Aircraft card */
+.pill.on { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.air-now { margin: 4px 0 4px; padding: 10px 12px; border-radius: 4px; background: var(--subtle); }
+.air-line { font-size: 1.15rem; color: var(--text-strong); letter-spacing: .02em; overflow-wrap: anywhere; }
+.air-grid { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 10px 12px; align-items: center; margin-top: 14px; }
+.air-grid .label { color: var(--text-muted); }
+.air-sub { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.air-sub h3 { margin: 0 0 4px; font-size: .9rem; font-weight: 600; color: var(--text-strong); }
+table.values.air-values td:last-child { text-align: left; }
+@media (max-width: 560px) {
+  .air-grid { grid-template-columns: 1fr; gap: 4px; }
+  .air-grid .label { margin-top: 8px; }
+}
