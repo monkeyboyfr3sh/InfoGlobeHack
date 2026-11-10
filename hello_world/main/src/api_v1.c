@@ -476,12 +476,15 @@ static esp_err_t values_post(httpd_req_t *req)
     if (!cJSON_IsObject(b)) { cJSON_Delete(b); return send_error(req, "400 Bad Request", "Body must be a JSON object such as {\"cpu\":42}"); }
 
     uint32_t ttl = 0;
-    char query[48], num[12];
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+    size_t qlen = httpd_req_get_url_query_len(req);    // sized to fit: ?token=... can be long
+    char *query = qlen ? malloc(qlen + 1) : NULL;
+    char num[12];
+    if (query && httpd_req_get_url_query_str(req, query, qlen + 1) == ESP_OK &&
         httpd_query_key_value(query, "ttl", num, sizeof(num)) == ESP_OK) {
         long t = atol(num);
         if (t > 0) ttl = (uint32_t)t;
     }
+    free(query);
 
     const char *err = NULL;
     const cJSON *it;

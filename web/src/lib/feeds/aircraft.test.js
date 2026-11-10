@@ -19,8 +19,8 @@ describe('aircraft values (feed_aircraft.c)', () => {
     expect(Object.keys(SAMPLES).sort()).toEqual(VALUES.map((v) => v.name).sort());
   });
 
-  it('are in the designer menu', () => {
-    expect(ALL.filter((v) => v.group === 'Aircraft').map((v) => v.name)).toEqual(VALUES.map((v) => v.name));
+  it('are in the designer menu, inserted as {var:name}', () => {
+    expect(ALL.filter((v) => v.group === 'Aircraft').map((v) => v.name)).toEqual(VALUES.map((v) => `var:${v.name}`));
   });
 
   it('samples render through fillValues, by bare name and by {var:}', () => {

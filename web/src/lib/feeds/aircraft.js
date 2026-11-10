@@ -43,8 +43,8 @@ export const WORST = {
 export const PLANE_SCENE = {
   name: 'Plane overhead',
   frames: [
-    { text: '{planeline}', entrance: 1, after: 'spin', blink: 0, shift: -1, seconds: 12 },
-    { text: '{planetrip}', entrance: 24, after: 'spin', blink: 0, shift: -1, seconds: 7 },
-    { text: '{planewhere}', entrance: 26, after: 'spin', blink: 0, shift: -1, seconds: 10 },
+    { text: '{var:planeline}', entrance: 1, after: 'spin', blink: 0, shift: -1, seconds: 12 },
+    { text: '{var:planetrip}', entrance: 24, after: 'spin', blink: 0, shift: -1, seconds: 7 },
+    { text: '{var:planewhere}', entrance: 26, after: 'spin', blink: 0, shift: -1, seconds: 10 },
   ],
 };

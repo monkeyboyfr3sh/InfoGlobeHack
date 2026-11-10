@@ -59,8 +59,8 @@ export const VALUES = [
   { group: 'Countdown', name: 'until:12-25', label: 'Days until 25 Dec' },
   { group: 'Countdown', name: 'until:17:00', label: 'Time until 17:00' },
   { group: 'Other', name: 'ip', label: "Globe's IP address" },
-  ...weather.VALUES,
-  ...aircraft.VALUES,
+  // inserted as {var:temp}: that form shows "--" while a feed has nothing, a bare {temp} stays as typed
+  ...[...weather.VALUES, ...aircraft.VALUES].map((v) => ({ ...v, name: `var:${v.name}` })),
   { group: 'Pushed values', name: 'var:name', label: 'A value you push (change "name")' },
   { group: 'Pushed values', name: 'bar:name', label: 'Bar of a pushed 0-100 number' },
   { group: 'Pushed values', name: 'bar:name:250', label: 'Bar of a pushed number out of 250' },

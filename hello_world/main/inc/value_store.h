@@ -3,7 +3,8 @@
 /* Pushed values: a small key -> text table in RAM that scene text can show.
  *
  *   {var:cpu}        the value, or "--" when nothing has set it (or it expired)
- *   {cpu}            the same, for any name that isn't a built-in value
+ *   {cpu}            the value, for any name that isn't a built-in one; while it
+ *                    is not set the text stays as typed, so prefer {var:cpu}
  *   {bar:cpu}        10-character bar of a 0-100 number; {bar:print:250} = out of 250
  *   {pct:print:250}  whole percent of the same
  *
