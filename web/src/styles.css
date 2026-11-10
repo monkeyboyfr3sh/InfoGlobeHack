@@ -331,4 +331,22 @@ table.values.air-values td:last-child { text-align: left; }
 @media (max-width: 560px) {
   .air-grid { grid-template-columns: 1fr; gap: 4px; }
   .air-grid .label { margin-top: 8px; }
+
+/* Animations */
+.anim-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.anim-opts { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.anim-opt { display: grid; grid-template-columns: minmax(120px, 190px) 1fr auto; align-items: center; gap: 8px 12px; }
+.anim-opt > .seg { justify-self: start; grid-column: 2 / 4; }
+.anim-opt input[type=range] { width: 100%; min-width: 0; }
+.anim-texts { align-items: start; }
+.anim-texts textarea {
+  grid-column: 2 / 4; width: 100%; font: inherit; font-family: var(--mono); color: var(--text); background: var(--surface);
+  border: 1px solid var(--input-border); border-radius: 4px; padding: 6px 10px; resize: vertical;
+}
+.anim-texts > .muted { grid-column: 2 / 4; }
+.anim-check { display: flex; gap: 8px; align-items: flex-start; }
+@media (max-width: 560px) {
+  .anim-opt { grid-template-columns: 1fr auto; }
+  .anim-opt > span:first-child { grid-column: 1 / -1; }
+  .anim-opt > .seg, .anim-texts textarea, .anim-texts > .muted { grid-column: 1 / -1; }
 }

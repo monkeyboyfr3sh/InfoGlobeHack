@@ -13,6 +13,7 @@ export const STYLES = [
   { key: 'binary', name: 'Binary', desc: 'Hours and minutes in ones and zeros.', text: '{binary}', after: 'hold', change: 36 },
   { key: 'decimal', name: 'Revolutionary', desc: 'French decimal time: 10 hours of 100 minutes.', text: 'DEC {decimal}', after: 'hold', change: 35 },
   { key: 'beat', name: 'Internet time', desc: 'Swatch .beats: 1000 per day, same everywhere.', text: 'BEAT {beat}', after: 'hold', change: 12 },
+  { key: 'decode', name: 'Decode', desc: 'Each new minute scrambles and locks in, Matrix style.', uses: 'time', change: 'decode' },
 ];
 
 export const EXTRAS = [

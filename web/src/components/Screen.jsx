@@ -76,7 +76,8 @@ export function drawBand(canvas, pic, cssH = 34) {
 
 /**
  * Animated preview. `scene` comes from makeScene(); `runKey` restarts playback.
- * Loops: entrance, then the steady state for `holdMs`, then again.
+ * Loops: entrance, then the steady state for `holdMs`, then again; a scene
+ * with its own loopMs (Infinity for a looping custom animation) uses that.
  */
 export function Screen({ scene, runKey, speed = 1, loop = true, holdMs = 4000, badge }) {
   const front = useRef(null);
@@ -85,10 +86,10 @@ export function Screen({ scene, runKey, speed = 1, loop = true, holdMs = 4000, b
     if (!scene) return undefined;
     let raf = 0;
     const t0 = performance.now();
-    const total = scene.entranceMs + holdMs;
+    const total = scene.loopMs ?? scene.entranceMs + holdMs;
     const tick = (now) => {
       let ms = (now - t0) * speed;
-      if (loop && total > 0) ms %= total;
+      if (loop && total > 0 && Number.isFinite(total)) ms %= total;
       const pic = scene.pictureAt(ms);
       if (front.current) drawFront(front.current, pic);
       if (band.current) drawBand(band.current, pic);

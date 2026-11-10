@@ -1,18 +1,20 @@
 // Clock simulator: plays a scene with live values the way the globe's engine
 // does (scene_engine.c): change transitions when a value changes (flip clock),
-// colon blink, pendulum / drift motion, frame rotation and chimes.
+// custom animations (an entrance, a loop, or onChange: "decode"), colon blink,
+// pendulum / drift motion, frame rotation and chimes.
 // `speed` fast-forwards the clock (60 = a minute per second) so a minute
 // change can be seen without waiting.
 
 import { encodeText, TEXT_MAX } from './protocol.js';
 import { makeScene, tiledLayout, stillLayout, spin, stillAt } from './sim.js';
 import { fillValues } from './values.js';
+import { changeAnimOf } from './anim.js';
 
 const codesOf = (text) => encodeText(text).codes.slice(0, TEXT_MAX);
 const frameMs = (f, n) => (f.seconds ? f.seconds * 1000 : n > 1 ? 5000 : 0);
 
 /**
- * frames: [{text, entrance, after, blink, shift, seconds, onChange, motion, motionMs}]
+ * frames: [{text, entrance, after, blink, shift, seconds, onChange, motion, motionMs, anim}]
  * opts: {speed = 1, start = Date.now(), chime: {frames, every} | null}
  * Call pictureAt() with increasing ms (it keeps state, like the globe).
  */
@@ -21,19 +23,27 @@ export function makeClockSim(frames, effects, opts = {}) {
   const chime = opts.chime && opts.chime.frames && opts.chime.frames.length ? opts.chime : null;
   const distinct = Object.entries(effects).filter(([, e]) => e.sameAs === undefined).map(([id]) => +id);
   const dateAt = (ms) => new Date(start + ms * speed);
-  let cur = null;          // {list, idx, f, sc, t0, frameT0, steady, codes, motionT0, chimeEnd}
+  let cur = null;          // {list, idx, f, sc, t0, frameT0, steady, codes, motionT0, chimeEnd, looping}
   let lastChimeKey = null;
 
-  // Show frame idx of list at ms; `entrance` overrides the frame's own (change transitions).
-  function show(list, idx, ms, { entrance, frameT0, chimeEnd } = {}) {
+  // Show frame idx of list at ms; `entrance` overrides the frame's own (change
+  // transitions), `changeAnim` plays an onChange animation from the text `from`.
+  function show(list, idx, ms, { entrance, frameT0, chimeEnd, changeAnim, from } = {}) {
     const f = list[idx];
     const d = dateAt(ms);
     const codes = codesOf(fillValues(f.text, d, undefined, false, f.blinkColon));
     const prev = cur ? { codes: cur.codes, style: { entrance: -1, after: 'spin' } } : null;
     const style = { entrance: entrance ?? (f.entrance ?? -1), after: f.after, blink: f.blink || 0, shift: f.shift ?? -1 };
-    const sc = makeScene(prev, { codes, style }, effects);
+    const anim = changeAnim || (entrance === undefined ? f.anim : null);
+    const next = { codes, style };
+    if (anim) {
+      // live values stay live while it plays, as on the globe
+      Object.assign(next, { anim, from, text: (t) => fillValues(f.text, dateAt(ms + t), undefined, false, f.blinkColon),
+        fill: (s) => fillValues(s, dateAt(ms), undefined, false, f.blinkColon) });
+    }
+    const sc = makeScene(prev, next, effects);
     cur = { list, idx, f, sc, t0: ms, frameT0: frameT0 ?? ms, steady: fillValues(f.text, d, undefined, true),
-      codes, motionT0: ms + sc.entranceMs, chimeEnd };
+      codes, motionT0: ms + sc.entranceMs, chimeEnd, looping: sc.loopMs === Infinity };
   }
 
   return {
@@ -60,13 +70,19 @@ export function makeClockSim(frames, effects, opts = {}) {
         show(cur.list, (cur.idx + 1) % cur.list.length, ms, { chimeEnd: cur.chimeEnd });
       }
 
+      // a looping animation has the frame for as long as it shows
+      if (cur.looping) return cur.sc.pictureAt(ms - cur.t0);
+
       // a live value changed (minute, date ...) once the entrance has played
       const f = cur.f;
       if (ms - cur.t0 >= cur.sc.entranceMs) {
         const steady = fillValues(f.text, d, undefined, true);
         if (steady !== cur.steady) {
           const oc = f.onChange;
-          if (oc !== null && oc !== undefined && oc !== -1) {
+          const ca = changeAnimOf(f);
+          if (ca) {
+            show(cur.list, cur.idx, ms, { changeAnim: ca, from: cur.steady, frameT0: cur.frameT0, chimeEnd: cur.chimeEnd });
+          } else if ((typeof oc === 'number' && oc >= 0) || oc === 'random') {
             const fx = oc === 'random' ? distinct[Math.floor(Math.random() * distinct.length)] : oc;
             show(cur.list, cur.idx, ms, { entrance: fx, frameT0: cur.frameT0, chimeEnd: cur.chimeEnd });
           } else {

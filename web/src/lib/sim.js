@@ -10,6 +10,8 @@
 // calibrated from video (durationMs in docs/effects.json).
 
 import { glyph, ROWS } from './font.js';
+import { encodeText, TEXT_MAX } from './protocol.js';
+import { makeAnimPlayer } from './anim.js';
 
 export { ROWS };
 export const CHAR_W = 6;                 // typical glyph (5) + gap (1)
@@ -373,12 +375,60 @@ export function steadyLayout(codes, style) {
   return style.after === 'spin' ? tiledLayout(codes) : stillLayout(codes, style);
 }
 
+/** How the engine sends one animation step (scene_engine.c anim_tick): still text, 05 frame. */
+export function animStepStyle(step, style, finite) {
+  const st = { after: 'hold', blink: 0, shift: style.after === 'hold' ? style.shift ?? -1 : -1 };
+  if (step.shift >= 0) st.shift = step.shift;
+  if (step.blink >= 0) st.blink = step.blink;
+  else if (!finite && style.after === 'flash') st.after = 'flash';      // a loop keeps the frame's blinking
+  else if (!finite && style.after === 'hold') st.blink = style.blink || 0;
+  return st;
+}
+
+/**
+ * A frame with a custom animation (anim.js): a finite one plays as the entrance
+ * and then the frame settles into its style; a looping one plays all along
+ * (loopMs = Infinity: the preview shouldn't restart it).
+ */
+function makeAnimScene(next) {
+  const style = next.style;
+  const player = makeAnimPlayer(next.anim, {
+    target: next.text ?? String.fromCodePoint(...next.codes), from: next.from ?? null,
+    shift: style.after === 'hold' ? style.shift ?? -1 : -1, gapMs: next.gapMs ?? 10, fill: next.fill,
+  });
+  const finite = player.finite;
+  const entranceMs = finite ? player.totalMs : 0;
+  const tiled = tiledLayout(next.codes);
+  const steady = steadyLayout(next.codes, style);
+  let last = null, lastL = null;
+  const stepPicture = (ms) => {
+    const s = player.at(Math.max(0, ms));
+    const st = animStepStyle(s, style, finite);
+    if (s !== last) { last = s; lastL = stillLayout(encodeText(s.text).codes.slice(0, TEXT_MAX), st); }
+    return stillAt(lastL, st, ms);
+  };
+  return {
+    entranceMs,
+    loopMs: finite ? undefined : Infinity,
+    player,
+    pictureAt(ms) {
+      if (!finite || ms < entranceMs) return stepPicture(ms);
+      const t = ms - entranceMs;
+      if (style.after === 'spin') return spin(tiled, t);
+      return stillAt(steady, style, t);
+    },
+  };
+}
+
 /**
  * A playable scene: from the previous frame (or blank) into `next`.
  * next = {codes, style:{entrance, after, blink, shift}}; effects = effects.json "effects".
- * Returns {entranceMs, pictureAt(ms)}.
+ * With next.anim (a custom animation) also: text (string or ms => string, live
+ * values filled in), fill (fills sequence templates), from (count: the old text).
+ * Returns {entranceMs, pictureAt(ms)} (+ loopMs for looping animations).
  */
 export function makeScene(prev, next, effects) {
+  if (next.anim) return makeAnimScene(next);
   const oldL = prev ? steadyLayout(prev.codes, prev.style) : emptyLayout();
   const fxId = next.style.entrance;
   const fx = fxId >= 0 ? effects[String(fxId)] : null;
