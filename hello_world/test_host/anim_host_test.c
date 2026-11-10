@@ -1,6 +1,6 @@
 /* Host check that globe_anim.c (firmware) and web/src/lib/anim.js (designer
  * preview) agree: replays anim_vectors.txt, which anim.js produced, through
- * the C module and compares every field of every step. See run.sh. */
+ * the C module and compares every field of every step. Run: node hello_world/test_host/run.mjs */
 
 #include <stdio.h>
 #include <stdlib.h>

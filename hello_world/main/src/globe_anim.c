@@ -5,7 +5,7 @@
 #include <string.h>
 
 /* Mirrored line for line by web/src/lib/anim.js; change both together and
- * regenerate hello_world/test_host/anim_vectors.txt (see run.sh there).
+ * run `node hello_world/test_host/run.mjs`, which regenerates the vectors and compares.
  * Integer arithmetic only (no sin/pow), so both sides round identically. */
 
 static const char *const k_types[GA_TYPES] = {
