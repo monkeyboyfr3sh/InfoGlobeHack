@@ -1,0 +1,335 @@
+{
+  "about": [
+    "Golden test vectors for live values: what the globe must show (C: clock_values.c + live_values.c) and the preview must show (values.js).",
+    "Checked by values.vectors.test.js against both. Each vector: an instant (`at` in UTC, or `local` wall time in the zone), the template `t`, the `expect`ed text,",
+    "and optionally `loc` [lat, lon], `colon` (a frame's blinkColon), `steady` (no blinking) and `vars` (pushed values). Group fields are defaults for its vectors.",
+    "{ip} is 10.0.0.5. Sunrise/sunset expectations come from the NOAA algorithm both sides use; they agree with published almanac times within about a minute."
+  ],
+  "zone": "America/Chicago",
+  "groups": [
+    {
+      "name": "matches the real globe (from the API check on 2 Nov 2026)",
+      "vectors": [
+        { "local": "2026-11-02 21:58:07.100", "t": "{clock}", "expect": "09:58 PM" },
+        { "local": "2026-11-02 21:58:07.700", "t": "{clock}", "expect": "09 58 PM" },
+        { "local": "2026-11-02 21:58:07.100", "t": "{time} {date}", "expect": "9:58 Mon 02 Nov" },
+        { "local": "2026-11-02 21:58:07.100", "t": "{time24}|{ampm}|{sec}|{day}|{dd}|{month}|{mon}|{year}", "expect": "21:58|PM|07|Monday|02|November|Nov|2026" },
+        { "local": "2026-11-02 21:58:07.100", "t": "{ip} {nope}", "expect": "10.0.0.5 {nope}" },
+        { "local": "2026-11-02 22:38:55.100", "t": "{fuzzy}|{words}|{roman}|{binary}", "expect": "TWENTY TO ELEVEN|TEN THIRTY EIGHT|X:XXXVIII|10110:100110" },
+        { "local": "2026-11-02 22:38:55.100", "t": "{clock:24} {clock:sx}", "expect": "22:38 10:38:55" },
+        { "local": "2026-11-02 22:38:55.100", "t": "{until:12-25}|{doy} {week}", "expect": "53|306 45" }
+      ]
+    },
+    {
+      "name": "midnight, noon and the 12-hour wraparound",
+      "vectors": [
+        { "local": "2026-01-15 00:00:00.100", "t": "{clock}|{clock:24}|{clock:s}|{clock:x}", "expect": "12:00 AM|00:00|12:00:00 AM|12:00" },
+        { "local": "2026-01-15 00:00:00.100", "t": "{time}|{time24}|{ampm}", "expect": "12:00|00:00|AM" },
+        { "local": "2026-01-15 00:00:00.100", "t": "{words}|{fuzzy}|{roman}|{binary}|{decimal}", "expect": "TWELVE O'CLOCK|MIDNIGHT|XII:N|00000:000000|0:00" },
+        { "local": "2026-01-15 00:00:00.100", "t": "{bar:day}|{pct:day}", "expect": "----------|0" },
+        { "local": "2026-01-15 00:59:00.100", "t": "{time}|{words}|{roman}|{fuzzy}", "expect": "12:59|TWELVE FIFTY NINE|XII:LIX|ONE O'CLOCK" },
+        { "local": "2026-01-15 01:00:00.100", "t": "{clock}|{time}", "expect": "01:00 AM|1:00" },
+        { "local": "2026-01-15 11:59:59.100", "t": "{clock}|{clock:s}|{ampm}|{time24}", "expect": "11:59 AM|11:59:59 AM|AM|11:59" },
+        { "local": "2026-01-15 12:00:00.100", "t": "{clock}|{time}|{time24}|{ampm}", "expect": "12:00 PM|12:00|12:00|PM" },
+        { "local": "2026-01-15 12:00:00.100", "t": "{fuzzy}|{words}|{binary}|{decimal}", "expect": "NOON|TWELVE O'CLOCK|01100:000000|5:00" },
+        { "local": "2026-01-15 12:00:00.100", "t": "{bar:day}|{pct:day}", "expect": "#####-----|50" },
+        { "local": "2026-01-15 12:59:00.100", "t": "{clock}|{roman}", "expect": "12:59 PM|XII:LIX" },
+        { "local": "2026-01-15 13:00:00.100", "t": "{clock}|{clock:24}|{time}|{roman}", "expect": "01:00 PM|13:00|1:00|I:N" },
+        { "local": "2026-01-15 23:59:59.100", "t": "{clock}|{clock:24s}|{time24}|{decimal}", "expect": "11:59 PM|23:59:59|23:59|9:99" },
+        { "local": "2026-01-15 23:59:59.100", "t": "{bar:day}|{pct:day}|{binary}", "expect": "#########-|99|10111:111011" },
+        { "local": "2026-01-15 23:59:59.100", "t": "{words}|{roman}|{fuzzy}", "expect": "ELEVEN FIFTY NINE|XI:LIX|MIDNIGHT" }
+      ]
+    },
+    {
+      "name": "minutes 0-9 and the number words",
+      "vectors": [
+        { "local": "2026-01-15 09:00:00.100", "t": "{words}|{roman}|{time}|{clock}", "expect": "NINE O'CLOCK|IX:N|9:00|09:00 AM" },
+        { "local": "2026-01-15 09:01:00.100", "t": "{words}|{roman}", "expect": "NINE OH ONE|IX:I" },
+        { "local": "2026-01-15 09:04:00.100", "t": "{words}|{roman}", "expect": "NINE OH FOUR|IX:IV" },
+        { "local": "2026-01-15 09:05:00.100", "t": "{words}|{roman}|{time}", "expect": "NINE OH FIVE|IX:V|9:05" },
+        { "local": "2026-01-15 09:09:00.100", "t": "{words}|{roman}", "expect": "NINE OH NINE|IX:IX" },
+        { "local": "2026-01-15 09:10:00.100", "t": "{words}|{roman}", "expect": "NINE TEN|IX:X" },
+        { "local": "2026-01-15 09:14:00.100", "t": "{words}|{roman}", "expect": "NINE FOURTEEN|IX:XIV" },
+        { "local": "2026-01-15 09:19:00.100", "t": "{words}|{roman}", "expect": "NINE NINETEEN|IX:XIX" },
+        { "local": "2026-01-15 09:20:00.100", "t": "{words}|{roman}", "expect": "NINE TWENTY|IX:XX" },
+        { "local": "2026-01-15 09:21:00.100", "t": "{words}", "expect": "NINE TWENTY ONE" },
+        { "local": "2026-01-15 09:40:00.100", "t": "{words}|{roman}", "expect": "NINE FORTY|IX:XL" },
+        { "local": "2026-01-15 09:44:00.100", "t": "{roman}", "expect": "IX:XLIV" },
+        { "local": "2026-01-15 09:49:00.100", "t": "{roman}", "expect": "IX:XLIX" },
+        { "local": "2026-01-15 09:50:00.100", "t": "{words}|{roman}", "expect": "NINE FIFTY|IX:L" },
+        { "local": "2026-01-15 04:04:00.100", "t": "{roman}", "expect": "IV:IV" },
+        { "local": "2026-01-15 20:08:00.100", "t": "{roman}|{words}", "expect": "VIII:VIII|EIGHT OH EIGHT" }
+      ]
+    },
+    {
+      "name": "fuzzy time rounds to the nearest five minutes (:57:30 is the next hour)",
+      "vectors": [
+        { "local": "2026-01-15 11:57:30.000", "t": "{fuzzy}", "expect": "NOON" },
+        { "local": "2026-01-15 11:57:29.900", "t": "{fuzzy}", "expect": "FIVE TO TWELVE" },
+        { "local": "2026-01-15 23:57:30.000", "t": "{fuzzy}", "expect": "MIDNIGHT" },
+        { "local": "2026-01-15 23:57:29.900", "t": "{fuzzy}", "expect": "FIVE TO TWELVE" },
+        { "local": "2026-01-15 10:57:30.000", "t": "{fuzzy}", "expect": "ELEVEN O'CLOCK" },
+        { "local": "2026-01-15 10:02:29.000", "t": "{fuzzy}", "expect": "TEN O'CLOCK" },
+        { "local": "2026-01-15 10:02:30.000", "t": "{fuzzy}", "expect": "FIVE PAST TEN" },
+        { "local": "2026-01-15 10:07:30.000", "t": "{fuzzy}", "expect": "TEN PAST TEN" },
+        { "local": "2026-01-15 10:13:00.000", "t": "{fuzzy}", "expect": "QUARTER PAST TEN" },
+        { "local": "2026-01-15 10:17:30.000", "t": "{fuzzy}", "expect": "TWENTY PAST TEN" },
+        { "local": "2026-01-15 10:22:30.000", "t": "{fuzzy}", "expect": "TWENTY FIVE PAST TEN" },
+        { "local": "2026-01-15 10:32:29.000", "t": "{fuzzy}", "expect": "HALF PAST TEN" },
+        { "local": "2026-01-15 10:32:30.000", "t": "{fuzzy}", "expect": "TWENTY FIVE TO ELEVEN" },
+        { "local": "2026-01-15 10:37:30.000", "t": "{fuzzy}", "expect": "TWENTY TO ELEVEN" },
+        { "local": "2026-01-15 10:45:00.000", "t": "{fuzzy}", "expect": "QUARTER TO ELEVEN" },
+        { "local": "2026-01-15 10:47:30.000", "t": "{fuzzy}", "expect": "TEN TO ELEVEN" },
+        { "local": "2026-01-15 10:52:30.000", "t": "{fuzzy}", "expect": "FIVE TO ELEVEN" },
+        { "local": "2026-01-15 11:52:30.000", "t": "{fuzzy}", "expect": "FIVE TO TWELVE" },
+        { "local": "2026-01-15 12:02:29.000", "t": "{fuzzy}", "expect": "NOON" },
+        { "local": "2026-01-15 12:30:00.000", "t": "{fuzzy}", "expect": "HALF PAST TWELVE" },
+        { "local": "2026-01-15 12:35:00.000", "t": "{fuzzy}", "expect": "TWENTY FIVE TO ONE" },
+        { "local": "2026-01-15 00:02:29.000", "t": "{fuzzy}", "expect": "MIDNIGHT" },
+        { "local": "2026-01-15 00:10:00.000", "t": "{fuzzy}", "expect": "TEN PAST TWELVE" },
+        { "local": "2026-01-01 11:58:00.000", "t": "{fuzzy}", "expect": "NOON" },
+        { "local": "2026-01-01 09:13:00.000", "t": "{fuzzy}", "expect": "QUARTER PAST NINE" }
+      ]
+    },
+    {
+      "name": "clock options and the colon blink",
+      "vectors": [
+        { "local": "2026-01-01 09:05:01.000", "t": "{time}", "colon": { "period": 2000, "look": "dot" }, "expect": "9.05", "note": "second half of a 2 s cycle" },
+        { "local": "2026-01-01 09:05:01.000", "t": "{time}", "colon": { "period": 0 }, "expect": "9:05" },
+        { "local": "2026-01-01 09:05:01.000", "t": "{time}", "colon": { "period": 2000 }, "steady": true, "expect": "9:05" },
+        { "local": "2026-01-01 09:05:01.000", "t": "{clock}", "expect": "09:05 AM", "note": "classic 1 s blink, on half" },
+        { "local": "2026-01-01 09:05:01.600", "t": "{clock}", "expect": "09 05 AM" },
+        { "local": "2026-01-01 09:05:01.600", "t": "{clock:n}|{clock:s}|{clock:24}", "expect": "09:05 AM|09:05:01 AM|09 05" },
+        { "local": "2026-01-01 09:05:01.600", "t": "{clock}", "steady": true, "expect": "09:05 AM" },
+        { "local": "2026-01-01 09:05:01.600", "t": "{time24}|{time}", "expect": "09:05|9:05", "note": "only {clock} blinks without a frame setting" },
+        { "local": "2026-01-01 09:05:01.000", "t": "{clock}", "colon": { "period": 2000, "look": "dot" }, "expect": "09.05 AM" },
+        { "local": "2026-01-01 09:05:01.000", "t": "{clock:n}", "colon": { "period": 2000, "look": "hide" }, "expect": "09 05 AM", "note": "the frame setting wins over :n" },
+        { "local": "2026-01-01 09:05:01.000", "t": "{clock:s}", "colon": { "period": 2000, "look": "dot" }, "expect": "09.05.01 AM" },
+        { "local": "2026-01-01 09:05:01.600", "t": "{clock}", "colon": { "period": 0, "look": "dot" }, "expect": "09:05 AM" },
+        { "local": "2026-01-01 09:05:01.000", "t": "{time24}", "colon": { "period": 2000, "look": "dot" }, "expect": "09.05" },
+        { "local": "2026-01-01 09:05:01.000", "t": "A:{time}", "colon": { "period": 2000, "look": "dot" }, "expect": "A:9.05", "note": "colons outside values never blink" },
+        { "local": "2026-01-01 09:05:00.100", "t": "{clock:x}", "expect": "09:05" },
+        { "local": "2026-01-01 21:05:07.100", "t": "{clock:s}|{clock:24s}|{clock:sx}", "expect": "09:05:07 PM|21:05:07|09:05:07" },
+        { "local": "2026-01-01 09:00:00.500", "t": "{time}", "colon": { "period": 1001, "look": "dot" }, "expect": "9:00", "note": "on while ms < period/2 = 500.5" },
+        { "local": "2026-01-01 09:00:00.501", "t": "{time}", "colon": { "period": 1001, "look": "dot" }, "expect": "9.00" },
+        { "local": "2026-01-01 09:00:00.800", "t": "{time}", "colon": { "period": 1500, "look": "hide" }, "expect": "9 00" },
+        { "local": "2026-01-01 09:00:00.060", "t": "{time}", "colon": { "period": 100, "look": "dot" }, "expect": "9:00", "note": "the engine treats periods under 200 ms as steady" }
+      ]
+    },
+    {
+      "name": "daylight-saving change days (wall-clock values follow the local clock)",
+      "vectors": [
+        { "at": "2026-03-08T07:59:59.100Z", "t": "{clock:24s}|{bar:day}|{pct:day}|{decimal}", "expect": "01:59:59|----------|8|0:83" },
+        { "at": "2026-03-08T07:30:00.100Z", "t": "{until:03:00}", "expect": "1:30", "note": "wall-clock difference; only 30 real minutes" },
+        { "at": "2026-03-08T08:00:00.100Z", "t": "{clock}|{pct:day}|{bar:day}|{decimal}|{fuzzy}", "expect": "03:00 AM|12|#---------|1:25|THREE O'CLOCK" },
+        { "at": "2026-03-08T08:00:00.100Z", "t": "{unix}|{doy} {date}", "expect": "1772956800|67 Sun 08 Mar" },
+        { "at": "2026-11-01T06:30:00.100Z", "t": "{clock}|{time24}", "expect": "01:30 AM|01:30", "note": "01:30 CDT" },
+        { "at": "2026-11-01T07:30:00.100Z", "t": "{clock}|{time24}", "expect": "01:30 AM|01:30", "note": "01:30 CST, an hour later" },
+        { "at": "2026-11-01T06:59:59.100Z", "t": "{clock:24s}", "expect": "01:59:59" },
+        { "at": "2026-11-01T07:00:00.100Z", "t": "{clock:24s}", "expect": "01:00:00" },
+        { "at": "2026-11-01T06:30:00.100Z", "t": "{sunrise} {sunset}", "loc": [41.8781, -87.6298], "expect": "7:23 5:45" },
+        { "at": "2026-11-01T09:00:00.100Z", "t": "{sunrise} {sunset}", "loc": [41.8781, -87.6298], "expect": "6:23 4:45" },
+        { "zone": "Europe/London", "at": "2026-03-29T00:59:59.100Z", "t": "{clock:24s}", "expect": "00:59:59" },
+        { "zone": "Europe/London", "at": "2026-03-29T01:00:00.100Z", "t": "{clock:24s}", "expect": "02:00:00" },
+        { "zone": "Europe/London", "at": "2026-03-29T00:30:00.100Z", "t": "{sunrise} {sunset}", "loc": [51.5074, -0.1278], "expect": "5:44 6:28" },
+        { "zone": "Europe/London", "at": "2026-03-29T02:00:00.100Z", "t": "{sunrise} {sunset}", "loc": [51.5074, -0.1278], "expect": "6:44 7:28" },
+        { "zone": "Australia/Sydney", "at": "2026-04-04T15:30:00.100Z", "t": "{time24}|{doy}", "expect": "02:30|95", "note": "02:30 AEDT" },
+        { "zone": "Australia/Sydney", "at": "2026-04-04T16:30:00.100Z", "t": "{time24}|{doy}", "expect": "02:30|95", "note": "02:30 AEST" }
+      ]
+    },
+    {
+      "name": "year ends, leap years and ISO weeks",
+      "vectors": [
+        { "local": "2026-12-31 23:59:59.100", "t": "{doy}|{week}|{date}", "expect": "365|53|Thu 31 Dec" },
+        { "local": "2026-12-31 23:59:59.100", "t": "{bar:year}|{pct:year}|{bar:month}|{pct:month}|{bar:week}|{pct:week}", "expect": "##########|99|##########|99|#####-----|57" },
+        { "local": "2027-01-01 00:00:00.100", "t": "{doy}|{week}|{year}|{date}", "expect": "1|53|2027|Fri 01 Jan" },
+        { "local": "2027-01-01 00:00:00.100", "t": "{bar:year}|{pct:year}", "expect": "----------|0" },
+        { "local": "2027-01-03 12:00:00.000", "t": "{week}", "expect": "53" },
+        { "local": "2027-01-04 12:00:00.000", "t": "{week}|{doy}", "expect": "01|4" },
+        { "local": "2026-12-28 12:00:00.000", "t": "{week}", "expect": "53" },
+        { "local": "2024-12-29 12:00:00.000", "t": "{week}|{doy}", "expect": "52|364" },
+        { "local": "2024-12-30 12:00:00.000", "t": "{week}|{doy}", "expect": "01|365" },
+        { "local": "2020-12-31 12:00:00.000", "t": "{week}|{doy}", "expect": "53|366" },
+        { "local": "2021-01-03 12:00:00.000", "t": "{week}", "expect": "53" },
+        { "local": "2021-01-04 12:00:00.000", "t": "{week}", "expect": "01" },
+        { "local": "2028-02-29 12:00:00.000", "t": "{doy}|{date}|{bar:month}|{pct:month}", "expect": "60|Tue 29 Feb|#########-|98" },
+        { "local": "2028-12-31 12:00:00.000", "t": "{doy}|{week}|{bar:year}|{pct:year}", "expect": "366|52|#########-|99" },
+        { "local": "2026-07-02 12:00:00.000", "t": "{bar:year}|{pct:year}", "expect": "#####-----|50" },
+        { "local": "2000-12-31 12:00:00.000", "t": "{doy}", "expect": "366" },
+        { "local": "2100-12-31 12:00:00.000", "t": "{doy}", "expect": "365" },
+        { "local": "2100-02-28 12:00:00.000", "t": "{until:03-01}", "expect": "1" },
+        { "local": "2096-02-28 12:00:00.000", "t": "{until:03-01}", "expect": "2" }
+      ]
+    },
+    {
+      "name": "countdowns ({until:}) and their rollover",
+      "vectors": [
+        { "local": "2026-12-25 08:00:00.000", "t": "{until:12-25}", "expect": "0" },
+        { "local": "2026-12-26 08:00:00.000", "t": "{until:12-25}", "expect": "364" },
+        { "local": "2027-12-26 08:00:00.000", "t": "{until:12-25}", "expect": "365", "note": "across 29 Feb 2028" },
+        { "local": "2026-12-31 23:59:00.000", "t": "{until:01-01}|{until:1-1}", "expect": "1|1" },
+        { "local": "2027-01-01 00:00:00.000", "t": "{until:01-01}|{until:12-31}", "expect": "0|364" },
+        { "local": "2028-02-01 12:00:00.000", "t": "{until:2-29}", "expect": "28" },
+        { "local": "2027-02-01 12:00:00.000", "t": "{until:2-30}", "expect": "29", "note": "30 Feb rolls over to 2 Mar, like Date and mktime" },
+        { "local": "2026-11-02 22:38:00.000", "t": "{until:13-01}", "expect": "60", "note": "month 13 is next January" },
+        { "local": "2026-01-15 16:59:30.000", "t": "{until:17:00}", "expect": "0:01" },
+        { "local": "2026-01-15 17:00:00.000", "t": "{until:17:00}", "expect": "0:00" },
+        { "local": "2026-01-15 17:00:59.000", "t": "{until:17:00}", "expect": "0:00" },
+        { "local": "2026-01-15 17:01:00.000", "t": "{until:17:00}", "expect": "23:59" },
+        { "local": "2026-01-15 00:00:00.000", "t": "{until:17:00}", "expect": "17:00" },
+        { "local": "2026-01-15 23:59:00.000", "t": "{until:00:00}|{until:0:00}", "expect": "0:01|0:01" },
+        { "local": "2026-01-15 09:00:00.000", "t": "{until:9:30}", "expect": "0:30" },
+        { "local": "2026-01-15 09:00:00.000", "t": "{until:9:5}|{until:12:345}|{until:noon}", "expect": "{until:9:5}|{until:12:345}|{until:noon}", "note": "minutes need two digits" },
+        { "local": "2026-11-02 22:38:00.000", "t": "{until:12-25x}|{until:123-1}|{until:-1-5}", "expect": "{until:12-25x}|{until:123-1}|{until:-1-5}" }
+      ]
+    },
+    {
+      "name": "internet time, decimal time and Unix time",
+      "vectors": [
+        { "at": "2026-01-15T23:00:00.000Z", "t": "{beat}|{unix}", "expect": "000|1768518000", "note": "midnight in Biel (UTC+1)" },
+        { "at": "2026-01-15T22:59:59.900Z", "t": "{beat}", "expect": "999" },
+        { "at": "2026-01-15T11:00:00.000Z", "t": "{beat}", "expect": "500" },
+        { "at": "2026-01-15T00:00:00.000Z", "t": "{beat}", "expect": "041" },
+        { "zone": "Asia/Kolkata", "at": "2026-01-15T11:00:00.000Z", "t": "{beat}", "expect": "500", "note": "the same everywhere" },
+        { "at": "2038-01-19T03:14:08.000Z", "t": "{unix}", "expect": "2147483648", "note": "past the 32-bit limit" },
+        { "local": "2026-01-15 06:00:00.100", "t": "{decimal}", "expect": "2:50" },
+        { "local": "2026-01-15 18:00:00.100", "t": "{decimal}", "expect": "7:50" },
+        { "local": "2026-01-15 14:24:00.100", "t": "{decimal}", "expect": "6:00" },
+        { "local": "2026-01-15 00:00:52.100", "t": "{decimal}", "expect": "0:00" },
+        { "local": "2026-01-15 00:01:27.100", "t": "{decimal}", "expect": "0:01" }
+      ]
+    },
+    {
+      "name": "moon phases on both sides of every boundary",
+      "zone": "UTC",
+      "vectors": [
+        { "at": "2026-01-18T10:47:26.000Z", "t": "{moon}|{moonpct}", "expect": "NEW MOON|0" },
+        { "at": "2026-01-25T19:58:27.000Z", "t": "{moon}|{moonpct}", "expect": "FIRST QUARTER|50" },
+        { "at": "2026-02-02T05:09:28.000Z", "t": "{moon}|{moonpct}", "expect": "FULL MOON|100" },
+        { "at": "2026-01-20T07:05:10.000Z", "t": "{moon}", "expect": "NEW MOON" },
+        { "at": "2026-01-20T07:05:13.000Z", "t": "{moon}", "expect": "WAXING CRESCENT" },
+        { "at": "2026-01-20T07:05:11.900Z", "t": "{moon}", "expect": "WAXING CRESCENT", "note": "0.36 s after the boundary at 07:05:11.541" },
+        { "at": "2026-01-23T23:40:40.000Z", "t": "{moon}", "expect": "WAXING CRESCENT" },
+        { "at": "2026-01-23T23:40:43.000Z", "t": "{moon}", "expect": "FIRST QUARTER" },
+        { "at": "2026-01-27T16:16:11.000Z", "t": "{moon}", "expect": "FIRST QUARTER" },
+        { "at": "2026-01-27T16:16:14.000Z", "t": "{moon}", "expect": "WAXING GIBBOUS" },
+        { "at": "2026-01-31T08:51:41.000Z", "t": "{moon}", "expect": "WAXING GIBBOUS" },
+        { "at": "2026-01-31T08:51:44.000Z", "t": "{moon}", "expect": "FULL MOON" },
+        { "at": "2026-02-04T01:27:11.000Z", "t": "{moon}", "expect": "FULL MOON" },
+        { "at": "2026-02-04T01:27:14.000Z", "t": "{moon}", "expect": "WANING GIBBOUS" },
+        { "at": "2026-02-07T18:02:42.000Z", "t": "{moon}", "expect": "WANING GIBBOUS" },
+        { "at": "2026-02-07T18:02:45.000Z", "t": "{moon}", "expect": "LAST QUARTER" },
+        { "at": "2026-02-11T10:38:12.000Z", "t": "{moon}", "expect": "LAST QUARTER" },
+        { "at": "2026-02-11T10:38:15.000Z", "t": "{moon}", "expect": "WANING CRESCENT" },
+        { "at": "2026-02-15T03:13:43.000Z", "t": "{moon}", "expect": "WANING CRESCENT" },
+        { "at": "2026-02-15T03:13:46.000Z", "t": "{moon}", "expect": "NEW MOON" },
+        { "at": "2026-10-13T01:41:36.000Z", "t": "{moon}", "expect": "NEW MOON" },
+        { "at": "2026-10-13T01:41:39.000Z", "t": "{moon}", "expect": "WAXING CRESCENT" },
+        { "at": "2026-10-24T03:28:07.000Z", "t": "{moon}", "expect": "WAXING GIBBOUS" },
+        { "at": "2026-10-24T03:28:10.000Z", "t": "{moon}", "expect": "FULL MOON" },
+        { "at": "2026-11-07T21:50:08.000Z", "t": "{moon}", "expect": "WANING CRESCENT" },
+        { "at": "2026-11-07T21:50:11.000Z", "t": "{moon}", "expect": "NEW MOON" }
+      ]
+    },
+    {
+      "name": "sunrise and sunset at several latitudes, including polar day and night",
+      "vectors": [
+        { "local": "2026-06-21 12:00:00.100", "loc": [41.8781, -87.6298], "t": "{sunrise} {sunset}", "expect": "5:15 8:29", "note": "Chicago" },
+        { "local": "2026-12-21 12:00:00.100", "loc": [41.8781, -87.6298], "t": "{sunrise} {sunset}", "expect": "7:15 4:23" },
+        { "zone": "Asia/Singapore", "local": "2026-03-20 12:00:00.100", "loc": [1.3521, 103.8198], "t": "{sunrise} {sunset}", "expect": "7:09 7:16" },
+        { "zone": "America/Guayaquil", "local": "2026-09-23 12:00:00.100", "loc": [-0.1807, -78.4678], "t": "{sunrise} {sunset}", "expect": "6:03 6:10", "note": "Quito" },
+        { "zone": "Australia/Sydney", "local": "2026-12-21 12:00:00.100", "loc": [-33.8688, 151.2093], "t": "{sunrise} {sunset}", "expect": "5:41 8:05" },
+        { "zone": "Australia/Sydney", "local": "2026-06-21 12:00:00.100", "loc": [-33.8688, 151.2093], "t": "{sunrise} {sunset}", "expect": "7:00 4:54" },
+        { "zone": "Asia/Kolkata", "local": "2026-11-09 17:30:00.100", "loc": [28.6139, 77.209], "t": "{sunrise} {sunset}", "expect": "6:39 5:31", "note": "half-hour offset" },
+        { "zone": "America/St_Johns", "local": "2026-07-01 12:00:00.100", "loc": [47.5615, -52.7126], "t": "{sunrise} {sunset}", "expect": "5:07 9:02", "note": "UTC-2:30" },
+        { "zone": "Atlantic/Reykjavik", "local": "2026-06-21 12:00:00.100", "loc": [64.1466, -21.9426], "t": "{sunrise} {sunset}", "expect": "2:55 12:04", "note": "sunset just after midnight" },
+        { "zone": "Europe/Oslo", "local": "2026-03-20 12:00:00.100", "loc": [69.6492, 18.9553], "t": "{sunrise} {sunset}", "expect": "5:45 6:00", "note": "Tromso" },
+        { "zone": "Europe/Oslo", "local": "2026-06-21 12:00:00.100", "loc": [69.6492, 18.9553], "t": "{sunrise} {sunset}", "expect": "--:-- --:--", "note": "midnight sun" },
+        { "zone": "Europe/Oslo", "local": "2026-12-21 12:00:00.100", "loc": [69.6492, 18.9553], "t": "{sunrise} {sunset}", "expect": "--:-- --:--", "note": "polar night" },
+        { "zone": "Antarctica/McMurdo", "local": "2026-12-21 12:00:00.100", "loc": [-77.85, 166.67], "t": "{sunrise} {sunset}", "expect": "--:-- --:--" },
+        { "local": "2026-06-21 12:00:00.100", "t": "{sunrise} {sunset}", "expect": "--:-- --:--", "note": "no location set" }
+      ]
+    },
+    {
+      "name": "world clock: every city, summer and winter, and across transitions",
+      "zone": "UTC",
+      "vectors": [
+        { "at": "2026-11-09T12:00:00.000Z", "t": "{tz:nyc} {tz:chi} {tz:den} {tz:la} {tz:hnl} {tz:lon}", "expect": "7:00 6:00 5:00 4:00 2:00 12:00" },
+        { "at": "2026-11-09T12:00:00.000Z", "t": "{tz:par} {tz:ber} {tz:ath} {tz:dxb} {tz:del} {tz:sgp}", "expect": "1:00 1:00 2:00 4:00 5:30 8:00" },
+        { "at": "2026-11-09T12:00:00.000Z", "t": "{tz:hkg} {tz:tyo} {tz:syd} {tz:akl} {tz:utc}", "expect": "8:00 9:00 11:00 1:00 12:00" },
+        { "at": "2026-07-01T12:00:00.000Z", "t": "{tz:nyc} {tz:chi} {tz:den} {tz:la} {tz:hnl} {tz:lon}", "expect": "8:00 7:00 6:00 5:00 2:00 1:00" },
+        { "at": "2026-07-01T12:00:00.000Z", "t": "{tz:par} {tz:ber} {tz:ath} {tz:dxb} {tz:del} {tz:sgp}", "expect": "2:00 2:00 3:00 4:00 5:30 8:00" },
+        { "at": "2026-07-01T12:00:00.000Z", "t": "{tz:hkg} {tz:tyo} {tz:syd} {tz:akl} {tz:utc}", "expect": "8:00 9:00 10:00 12:00 12:00" },
+        { "at": "2026-03-08T06:59:00.000Z", "t": "{tz:nyc}", "expect": "1:59" },
+        { "at": "2026-03-08T07:00:00.000Z", "t": "{tz:nyc}", "expect": "3:00" },
+        { "at": "2026-11-01T08:59:00.000Z", "t": "{tz:la}", "expect": "1:59" },
+        { "at": "2026-11-01T09:00:00.000Z", "t": "{tz:la}", "expect": "1:00" },
+        { "at": "2026-03-29T00:59:00.000Z", "t": "{tz:lon}", "expect": "12:59" },
+        { "at": "2026-03-29T01:00:00.000Z", "t": "{tz:lon}", "expect": "2:00" },
+        { "at": "2026-10-25T00:59:00.000Z", "t": "{tz:ath}", "expect": "3:59" },
+        { "at": "2026-10-25T01:00:00.000Z", "t": "{tz:ath}", "expect": "3:00" },
+        { "at": "2026-04-04T15:59:00.000Z", "t": "{tz:syd}", "expect": "2:59" },
+        { "at": "2026-04-04T16:00:00.000Z", "t": "{tz:syd}", "expect": "2:00" },
+        { "at": "2026-09-26T13:59:00.000Z", "t": "{tz:akl}", "expect": "1:59" },
+        { "at": "2026-09-26T14:00:00.000Z", "t": "{tz:akl}", "expect": "3:00" },
+        { "at": "2026-11-09T12:00:00.000Z", "t": "{tz:xyz} {tz:NYC} {tz}", "expect": "{tz:xyz} {tz:NYC} {tz}" },
+        { "at": "2026-11-09T12:00:00.000Z", "t": "{tz:constructor} {tz:toString}", "expect": "{tz:constructor} {tz:toString}" }
+      ]
+    },
+    {
+      "name": "pushed values",
+      "local": "2026-11-02 21:58:07.100",
+      "vars": { "cpu": "42", "print": "125", "build_ok": "PASS", "neg": "-5", "big": "250", "txt": "abc", "sp": " 42", "exp": "1e2",
+                "frac": "33.3", "hex": "0x1A", "inf": "inf", "pi": "3.14159", "empty": "" },
+      "vectors": [
+        { "t": "CPU {var:cpu} {cpu} {build_ok}", "expect": "CPU 42 42 PASS" },
+        { "t": "{var:nope} {nope}", "expect": "-- {nope}" },
+        { "t": "{bar:cpu}|{pct:cpu}", "expect": "####------|42" },
+        { "t": "{bar:print:250}|{pct:print:250}", "expect": "#####-----|50" },
+        { "t": "{bar:nope}|{pct:nope}", "expect": "----------|--" },
+        { "t": "{bar:neg}|{pct:neg}", "expect": "----------|0" },
+        { "t": "{bar:big}|{pct:big}|{pct:print}", "expect": "##########|100|100" },
+        { "t": "{bar:txt}|{pct:txt}", "expect": "----------|--" },
+        { "t": "{bar:sp}|{pct:sp}", "expect": "####------|42" },
+        { "t": "{pct:exp}|{pct:frac}|{bar:frac}", "expect": "100|33|###-------" },
+        { "t": "{pct:hex}", "expect": "0", "note": "read like JavaScript's parseFloat: no hex" },
+        { "t": "{pct:inf}|{bar:inf}", "expect": "--|----------" },
+        { "t": "{bar:cpu:abc}|{bar:cpu:0}|{bar:cpu:-5}", "expect": "####------|####------|####------" },
+        { "t": "{bar:cpu:84}|{pct:cpu:84}", "expect": "#####-----|50" },
+        { "t": "{pct:cpu:0x10}", "expect": "42" },
+        { "t": "{var:pi}|{var:empty}|[{empty}]|{bar:empty}|{pct:empty}", "expect": "3.14159||[]|----------|--" },
+        { "t": "{var:cpu:x}|{build_ok:x}", "expect": "--|{build_ok:x}" },
+        { "t": "{pct:averyveryverylongkey}|{bar:averyveryverylongkey}|{pct:averyveryverylongkey:250}", "expect": "--|----------|--" },
+        { "t": "{var} {tz} {until}", "vars": { "var": "V", "tz": "T", "until": "U" }, "expect": "{var} {tz} {until}", "note": "built-in names that need an argument are never pushed values" },
+        { "t": "{clock}|{bar:day}", "vars": { "clock": "X", "day": "99" }, "expect": "09:58 PM|#########-", "note": "built-ins win over pushed names" }
+      ]
+    },
+    {
+      "name": "template syntax (the same as the preview's regex)",
+      "local": "2026-11-02 21:58:07.100",
+      "vectors": [
+        { "t": "{clock:}|{bar:}|{pct:}", "expect": "{clock:}|{bar:}|{pct:}", "note": "an empty argument is not a value" },
+        { "t": "{}|{Clock}|{clock", "expect": "{}|{Clock}|{clock" },
+        { "t": "{{clock}}", "expect": "{09:58 PM}" },
+        { "t": "{a_very_long_name_x}|{abcdefghijklmno}", "expect": "{a_very_long_name_x}|{abcdefghijklmno}" },
+        { "t": "{tz:abcdefghijklmnopqrstuvwxy}", "expect": "{tz:abcdefghijklmnopqrstuvwxy}", "note": "argument longer than 24" },
+        { "t": "{bar:averyveryverylongkey:2500}", "expect": "{bar:averyveryverylongkey:2500}" },
+        { "t": "Café {time}", "expect": "Café 9:58" },
+        { "t": "{time}{sec}{ampm}", "expect": "9:5807PM" },
+        { "t": "{x:a{b}", "expect": "{x:a{b}" },
+        { "t": "{until:12-25}{until:12-25}", "expect": "5353" },
+        { "t": "{ip:x} {sunrise:x} {nope:arg}", "expect": "10.0.0.5 --:-- {nope:arg}" }
+      ]
+    },
+    {
+      "name": "other zones as the globe's own zone",
+      "vectors": [
+        { "zone": "Asia/Kolkata", "at": "2026-11-09T12:00:00.100Z", "t": "{clock} {beat}", "expect": "05:30 PM 541" },
+        { "zone": "Asia/Kathmandu", "at": "2026-11-09T06:15:00.100Z", "t": "{clock:24} {beat}", "expect": "12:00 302", "note": "UTC+5:45" },
+        { "zone": "Pacific/Auckland", "local": "2027-01-01 00:00:00.100", "t": "{doy}|{year}|{date}", "expect": "1|2027|Fri 01 Jan", "note": "UTC is still in 2026" },
+        { "zone": "UTC", "at": "2026-11-09T12:00:00.100Z", "t": "{clock:24}|{date}", "expect": "12:00|Mon 09 Nov" },
+        { "zone": "America/St_Johns", "local": "2026-07-01 12:00:00.100", "t": "{clock}", "expect": "12:00 PM" }
+      ]
+    }
+  ]
+}

@@ -15,6 +15,7 @@ idf_component_register(SRCS
     "src/scene_engine.c"
     "src/clock_values.c"
     "src/value_store.c"
+    "src/live_values.c"
     "src/http_fetch.c"
     "src/feeds.c"
     "src/feed_weather.c"
