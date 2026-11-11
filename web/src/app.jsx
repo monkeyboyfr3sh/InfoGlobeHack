@@ -108,20 +108,30 @@ export function App() {
   const say = (ok, msg) => setToast({ ok, msg, at: Date.now() });
 
   return (
-    <div class="wrap">
-      <header>
-        <h1>InfoGlobe</h1>
+    <div class="app">
+      <header class="bar">
+        <a class="brand" href="#/home" aria-label="InfoGlobe home">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+            <circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45" />
+            {[5, 9, 13, 17, 21].map((x) => <circle key={x} cx={x} cy="13" r="1.5" fill="currentColor" />)}
+            {[9, 13, 17].map((x) => <circle key={`t${x}`} cx={x} cy="8.5" r="1.1" fill="currentColor" opacity=".55" />)}
+            {[9, 13, 17].map((x) => <circle key={`b${x}`} cx={x} cy="17.5" r="1.1" fill="currentColor" opacity=".55" />)}
+          </svg>
+          <span>InfoGlobe</span>
+        </a>
+        <nav class="tabs">
+          {PAGES.map(([p, label]) => <a key={p} href={`#/${p}`} aria-current={route.page === p ? 'page' : undefined}>{label}</a>)}
+        </nav>
         <div class="head-right">
           {GLOBE && <span class="muted small">{GLOBE}</span>}
           <StatusChip now={now} online={online} via={via} />
+          <a class="btn icon" href="#/advanced" aria-current={route.page === 'advanced' ? 'page' : undefined} aria-label="Advanced" title="Advanced">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4h6M12 4h2M2 8h2M8 8h6M2 12h7M13 12h1" /><circle cx="10" cy="4" r="1.8" /><circle cx="6" cy="8" r="1.8" /><circle cx="11" cy="12" r="1.8" /></svg>
+          </a>
           <ThemeButton />
         </div>
       </header>
-      <nav class="tabs">
-        {PAGES.map(([p, label]) => <a key={p} href={`#/${p}`} aria-current={route.page === p ? 'page' : undefined}>{label}</a>)}
-        <span style="flex:1" />
-        <a class="quiet" href="#/advanced" aria-current={route.page === 'advanced' ? 'page' : undefined}>Advanced</a>
-      </nav>
+      <main class="wrap">
       {route.page === 'scenes' ? <Designer sceneId={route.id} toast={say} />
         : route.page === 'clock' ? <Clock toast={say} />
         : route.page === 'weather' ? <Weather toast={say} />
@@ -129,6 +139,7 @@ export function App() {
         : route.page === 'settings' ? <Settings toast={say} />
         : route.page === 'advanced' ? <Advanced toast={say} />
         : <Dashboard toast={say} now={now} online={online} />}
+      </main>
       {toast && <div class={`snack ${toast.ok ? 'ok' : 'bad'}`} role="status" onClick={() => setToast(null)}>{toast.msg}</div>}
       {asking && <TokenDialog reason={asking.reason} onDone={(t) => { asking.resolve(t); setAsking(null); }} />}
     </div>

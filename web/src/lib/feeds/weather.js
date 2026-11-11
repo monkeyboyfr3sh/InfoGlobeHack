@@ -1,3 +1,4 @@
+import { findPlaces } from '../places.js';
 // Weather feed (feed_weather.c): the values it publishes, for the designer.
 // VALUES go in the "Insert live value" menu; SAMPLES fill the preview when the
 // globe hasn't published a real value yet. docs/weather.md has the details.
@@ -56,17 +57,9 @@ export function weatherScene() {
   };
 }
 
-/** Place search (Open-Meteo geocoding, straight from the browser: it allows any origin). */
+/** Place search; see lib/places.js for what it accepts. */
 export async function searchPlaces(name, lang = 'en') {
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=6&language=${encodeURIComponent(lang)}&format=json`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Place search failed (HTTP ${r.status})`);
-  const data = await r.json();
-  return (data.results || []).map((p) => ({
-    name: [...new Set([p.name, p.admin1, p.country].filter(Boolean))].join(', '),
-    lat: Math.round(p.latitude * 1000) / 1000,
-    lon: Math.round(p.longitude * 1000) / 1000,
-  }));
+  return (await findPlaces(name, lang)).map((p) => ({ name: p.name, lat: p.lat, lon: p.lon }));
 }
 
 /** "just now", "4 min ago", "2 h ago" from a unix time. */
