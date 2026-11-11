@@ -15,16 +15,10 @@ export function TransitionPicker({ effects, codes, prevCodes, selected, onSelect
       <div class="picker-current">
         <div>
           <div class="picker-name">{fx ? fx.name : 'None'}</div>
-          <div class="muted small">
-            {fx ? <>{fx.group} · FX {selected} · {(fx.durationMs / 1000).toFixed(1)} s
-              {fx.calibrated ? <span class="tag ok" title="Length measured from camera footage">measured</span>
-                : <span class="tag" title="Not filmed yet; length and look are estimates">estimate</span>}</>
-              : 'Text appears without a transition'}
-          </div>
+          <div class="muted small">{fx ? `${fx.group} · takes about ${(fx.durationMs / 1000).toFixed(1)} s` : 'Pick one below'}</div>
         </div>
         <span style="flex:1" />
-        {selected >= 0 && <button class="btn small" onClick={() => pick(-1)}>No transition</button>}
-        <button class="btn small" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Done' : 'Change…'}</button>
+        <button class="btn small" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Done' : 'See all 38'}</button>
       </div>
       {open && (
         <div class="picker-body">
@@ -33,7 +27,7 @@ export function TransitionPicker({ effects, codes, prevCodes, selected, onSelect
               <button key={g} class="chip" role="tab" aria-selected={filter === g} aria-pressed={filter === g} onClick={() => setFilter(g)}>{g}</button>
             ))}
           </div>
-          <p class="hint small">Hover to preview with your text, click to choose. Tiles marked ≈ haven't been filmed yet.</p>
+          <p class="hint small">Hover one to watch it with your text; click to choose it.</p>
           <Gallery effects={effects} codes={codes} prevCodes={prevCodes} selected={selected} filter={filter}
             onSelect={(id) => { pick(id); }} onHover={onHover} />
         </div>

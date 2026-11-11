@@ -78,7 +78,7 @@ export function Gallery({ effects, codes, prevCodes, selected, onSelect, onHover
                 onFocus={() => onHover(e.id)} onBlur={() => onHover(null)}>
                 <canvas ref={(el) => { canvases.current[e.id] = el; }} />
                 <span class="name">{e.name}</span>
-                <span class="num">FX {e.id} · {(e.durationMs / 1000).toFixed(1)} s{e.calibrated ? '' : ' ≈'}</span>
+                <span class="num">{(e.durationMs / 1000).toFixed(1)} s</span>
               </button>
             ))}
           </div>

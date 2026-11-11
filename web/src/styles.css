@@ -430,3 +430,29 @@ h3.group:first-of-type { margin-top: 2px; }
 .loc-name b { color: var(--text-strong); font-weight: 600; }
 .loc-name .muted { font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .loc-hint { margin: 8px 2px 0; }
+
+/* Scene builder: a list of your scenes, then one message at a time in plain words */
+.page.wide { max-width: 1040px; }
+.scene-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.scene-card { padding: 12px; gap: 10px; background: var(--subtle); border: 1px solid var(--border); }
+button.scene-card.start { font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+button.scene-card.start:hover { border-color: var(--accent); background: var(--accent-soft); }
+.scene-on { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer; color: var(--text-muted); font-size: .9rem; }
+.now-box.plain { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.scenebar { gap: 12px; padding: 12px 14px; position: sticky; top: 58px; z-index: 6; }
+.scenebar-title input.name { font-size: 1.1rem; }
+.sticky { top: 142px; }
+.step-head { justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.step-head h2 { font-size: 1.02rem; }
+.shows-as { margin: 10px 0 0; }
+.shows-as b { color: var(--text-strong); font-size: 1.02rem; }
+.arrive-body { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+details.sub > summary { cursor: pointer; }
+.strip-tools { margin-top: 8px; }
+.frame-card { flex: 0 0 180px; }
+.frame-text { font-family: var(--mono); }
+.inspector-head h2 { font-size: 1.2rem; letter-spacing: -.01em; }
+@media (max-width: 920px) { .scenebar { position: static; } }
+.frame-card.add { flex: 0 0 140px; white-space: nowrap; }
+.feature-head + h3.group, .now-box + h3.group { margin-top: 20px; }
+.seg.wide button { white-space: nowrap; }
