@@ -453,7 +453,7 @@ static esp_err_t settings_post(httpd_req_t *req)
     if (!cJSON_IsObject(b)) { cJSON_Delete(b); return send_error(req, "400 Bad Request", "Body must be a JSON object"); }
     bool ok = settings_save(b);
     cJSON_Delete(b);
-    scene_engine_reload();
+    scene_engine_refresh();                 // settings only: no need to restart what is playing
     feeds_settings_changed();
     return ok ? ok_json(req) : send_error(req, "500 Internal Server Error", "Could not save settings");
 }

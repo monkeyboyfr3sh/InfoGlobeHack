@@ -255,7 +255,7 @@ cJSON *playlist_load(void)
 bool playlist_save(const cJSON *playlist)
 {
     bool ok = write_json(PLAYLIST_PATH, playlist);
-    if (ok) scene_engine_reload();
+    if (ok) scene_engine_refresh();
     return ok;
 }
 
@@ -314,6 +314,7 @@ typedef struct {
 
 static SemaphoreHandle_t s_lock;
 static volatile bool     s_reload = true;
+static volatile bool     s_refresh = false;      // re-read the playlist and settings without restarting
 static volatile bool     s_next = false;
 static volatile bool     s_cancel_override = false;
 static eng_item_t        s_items[PLAYLIST_MAX];
@@ -356,6 +357,7 @@ static struct {
 static uint16_t s_anim_min_ms;              // settings "animMinMs": floor for every step, 0 = airtime only
 
 void scene_engine_reload(void) { s_reload = true; }
+void scene_engine_refresh(void) { s_refresh = true; }
 
 static StaticSemaphore_t s_lock_buf;
 __attribute__((constructor)) static void engine_lock_init(void) { s_lock = xSemaphoreCreateMutexStatic(&s_lock_buf); }
@@ -742,6 +744,25 @@ void scene_engine_tick(QueueHandle_t q, bool active)
         unlock();
         if (E.item >= s_nitems) E.item = 0;
         E.was_active = false;                       // restart with the new content
+        s_refresh = false;
+    }
+    if (s_refresh) {
+        // The playlist or the settings were saved (a time changed, something was
+        // switched on or off). Carry on with what is showing if it is still in the
+        // list, so adjusting a time on the web page doesn't restart the display.
+        s_refresh = false;
+        char cur[SCENE_ID_MAX] = "";
+        if (E.item < s_nitems) snprintf(cur, sizeof(cur), "%s", s_items[E.item].scene);
+        lock();
+        load_playlist();
+        unlock();
+        int k = -1;
+        for (int i = 0; i < s_nitems; i++) if (!strcmp(s_items[i].scene, cur)) { k = i; break; }
+        if (k >= 0) E.item = k;
+        else {
+            if (E.item >= s_nitems) E.item = 0;
+            if (!E.override) E.was_active = false;  // what was showing left the list: move on now
+        }
     }
     if (!E.was_active) {
         E.was_active = true;

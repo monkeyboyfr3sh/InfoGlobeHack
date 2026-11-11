@@ -52,6 +52,7 @@ bool   scene_delete(const char *id);
 cJSON *scene_list(void);                           // [{id,name,frames}]
 cJSON *playlist_load(void);                        // never NULL
 bool   playlist_save(const cJSON *playlist);
-void   scene_engine_reload(void);                  // storage changed: re-read at next tick
+void   scene_engine_reload(void);                  // a scene changed: re-read and start again at next tick
+void   scene_engine_refresh(void);                 // playlist or settings changed: re-read, keep playing if the current scene is still listed
 cJSON *settings_load(void);                        // {"lat":..,"lon":..}
 bool   settings_save(const cJSON *patch);          // merge and apply

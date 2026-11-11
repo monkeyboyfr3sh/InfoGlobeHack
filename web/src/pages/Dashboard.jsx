@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { encodeText, TEXT_MAX } from '../lib/protocol.js';
 import { makeScene } from '../lib/sim.js';
 import { cleanScene } from '../lib/scenes.js';
@@ -106,6 +106,28 @@ function QuickMessage({ toast }) {
 
 /* ---------- on the globe: what takes turns, and what interrupts ---------- */
 
+/* How long a thing stays up. Typing or stepping changes the box at once; the
+ * globe is told once you pause, so stepping from 30 to 40 is one save, not ten. */
+function Seconds({ value, name, onSave }) {
+  const [draft, setDraft] = useState(null);         // what is in the box while it differs from the globe
+  const timer = useRef(0);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const change = (e) => {
+    const text = e.currentTarget.value;
+    setDraft(text);
+    clearTimeout(timer.current);
+    const v = Math.round(Number(text));
+    if (!(v >= 1 && v <= 86400)) return;            // wait for something sensible
+    timer.current = setTimeout(async () => { await onSave(v); setDraft(null); }, 700);
+  };
+  return (
+    <label class={`psecs${draft !== null ? ' saving' : ''}`}>
+      <input type="number" min="1" max="86400" value={draft !== null ? draft : value} aria-label={`Seconds for ${name}`}
+        onInput={change} onBlur={() => { if (draft !== null && !(Math.round(Number(draft)) >= 1)) setDraft(null); }} /> s
+    </label>
+  );
+}
+
 function TurnRow({ row, item, many, playing, frame, onToggle, onSeconds, toast }) {
   const on = !!item;
   return (
@@ -117,8 +139,7 @@ function TurnRow({ row, item, many, playing, frame, onToggle, onSeconds, toast }
         <span class="muted small">{playing ? 'showing now' : row.note}</span>
       </div>
       {on && many
-        ? <label class="psecs"><input type="number" min="1" max="86400" value={item.seconds} aria-label={`Seconds for ${row.name}`}
-            onChange={(e) => onSeconds(e.currentTarget.valueAsNumber)} /> s</label>
+        ? <Seconds value={item.seconds} name={row.name} onSave={onSeconds} />
         : <span />}
       <div class="row">
         {row.exists && <button class="btn small" title="Play it once now" onClick={() => api.playScene(row.id, 0).then(() => toast(true, `Playing ${row.name} once`), (e) => toast(false, e.message))}>Play</button>}
@@ -128,7 +149,7 @@ function TurnRow({ row, item, many, playing, frame, onToggle, onSeconds, toast }
   );
 }
 
-function OnTheGlobe({ scenes, details, items, settings, now, toast, onChanged }) {
+function OnTheGlobe({ scenes, details, items, settings, now, toast, onChanged, onItems, onSettings }) {
   const have = new Map(scenes.map((s) => [s.id, s]));
   const rows = [
     ...['clock', 'weather'].map((id) => ({ id, name: BUILT_IN[id].name, page: BUILT_IN[id].page, builtin: true, exists: have.has(id) || id === 'clock',
@@ -142,22 +163,23 @@ function OnTheGlobe({ scenes, details, items, settings, now, toast, onChanged })
 
   const toggle = (row) => async (next) => {
     try {
-      if (row.id === 'weather' && next && settings && settings.weather === false) await api.saveSettings({ weather: true });
+      if (row.id === 'weather' && next && settings && settings.weather === false) { await api.saveSettings({ weather: true }); onSettings({ weather: true }); }
       const d = details[row.id];
-      await setInRotation(row.id, next, d ? sceneSeconds(d) : undefined);
-      await onChanged();
+      onItems(await setInRotation(row.id, next, d ? sceneSeconds(d) : undefined));
+      if (next && !row.exists) onChanged();            // a scene was just made: fetch it for its preview
       toast(true, next ? `${row.name} now takes a turn on the globe` : `${row.name} taken off the globe`);
     } catch (e) { toast(false, e.message); }
   };
   const seconds = (row) => async (v) => {
-    if (!(v >= 1)) return;
-    try { await setRotationSeconds(row.id, v); await onChanged(); } catch (e) { toast(false, e.message); }
+    try { onItems(await setRotationSeconds(row.id, v)); } catch (e) { toast(false, e.message); }
   };
   const watch = async (next) => {
     try {
-      if (next && !have.has('plane')) await api.saveScene('plane', BUILT_IN.plane.make());
+      const fresh = next && !have.has('plane');
+      if (fresh) await api.saveScene('plane', BUILT_IN.plane.make());
       await api.saveSettings({ aircraft: next });
-      await onChanged();
+      onSettings({ aircraft: next });
+      if (fresh) onChanged();
       toast(true, next ? 'Watching for planes' : 'Stopped watching for planes');
     } catch (e) { toast(false, e.message); }
   };
@@ -226,7 +248,8 @@ export function Dashboard({ toast, now, online }) {
         <QuickMessage toast={toast} />
       </div>
       <div class="dash-side">
-        <OnTheGlobe scenes={scenes} details={details} items={items} settings={settings} now={now} toast={toast} onChanged={refresh} />
+        <OnTheGlobe scenes={scenes} details={details} items={items} settings={settings} now={now} toast={toast} onChanged={refresh}
+          onItems={setItems} onSettings={(patch) => setSettings((s) => ({ ...s, ...patch }))} />
       </div>
     </div>
   );

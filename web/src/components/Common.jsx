@@ -5,16 +5,19 @@ import { findPlaces } from '../lib/places.js';
 
 // Pieces every page uses, so switches and option rows look and behave the same everywhere.
 
-/** An on/off switch. `onChange(next)` may be async; the switch waits for it. */
+/** An on/off switch. It moves at once and saves behind; if `onChange(next)`
+ *  (which may be async) fails or returns false it goes back. */
 export function Switch({ on, onChange, label, disabled }) {
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(null);     // the position shown while a save is on its way
+  const shown = pending === null ? !!on : pending;
   const click = async () => {
-    if (busy || disabled) return;
-    setBusy(true);
-    try { await onChange(!on); } finally { setBusy(false); }
+    if (pending !== null || disabled) return;
+    const next = !shown;
+    setPending(next);
+    try { await onChange(next); } finally { setPending(null); }
   };
   return (
-    <button type="button" class="switch" role="switch" aria-checked={!!on} aria-label={label} disabled={disabled || busy} onClick={click}>
+    <button type="button" class="switch" role="switch" aria-checked={shown} aria-busy={pending !== null} aria-label={label} disabled={disabled} onClick={click}>
       <span class="knob" />
     </button>
   );

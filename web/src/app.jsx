@@ -109,7 +109,7 @@ export function App() {
 
   return (
     <div class="app">
-      <header class="bar">
+      <header class="appbar">
         <a class="brand" href="#/home" aria-label="InfoGlobe home">
           <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
             <circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45" />
