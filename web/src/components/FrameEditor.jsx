@@ -244,7 +244,7 @@ export function FrameEditor({ frame, onChange, prevCodes, onHover, onHoverAnim, 
               seconds</label>
             {[5, 10, 30].map((s) => <button key={s} class="chip" aria-pressed={frame.seconds === s} onClick={() => set({ seconds: s })}>{s} s</button>)}
           </div>
-          <p class="hint small" style="margin-top:6px">{frame.seconds === 0 ? '0 = stays until the playlist moves on.'
+          <p class="hint small" style="margin-top:6px">{frame.seconds === 0 ? '0 = stays until the rotation moves on.'
             : anim && animTotal !== Infinity && frame.seconds * 1000 < animTotal ? 'Shorter than the animation, so it will be cut off.'
             : anim ? 'Includes the animation.'
             : fx && frame.seconds * 1000 < fx.durationMs ? 'Shorter than the transition, so it will be cut off.' : 'Includes the transition.'}</p>

@@ -3,7 +3,9 @@ import { GLOBE, subscribeNow, onTokenNeeded } from './lib/api.js';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Clock } from './pages/Clock.jsx';
-import { Data } from './pages/Data.jsx';
+import { Weather } from './pages/Weather.jsx';
+import { Planes } from './pages/Planes.jsx';
+import { Advanced } from './pages/Advanced.jsx';
 import { Settings } from './pages/Settings.jsx';
 
 function ThemeButton() {
@@ -28,10 +30,13 @@ function ThemeButton() {
   );
 }
 
-// #/dashboard, #/designer, #/designer/<scene id>
+// One menu, the same on every page. #/scenes/<scene id> opens a scene in the editor.
+const PAGES = [['home', 'Home'], ['clock', 'Clock'], ['weather', 'Weather'], ['planes', 'Planes'], ['scenes', 'My scenes'], ['settings', 'Settings']];
+const OLD = { dashboard: 'home', designer: 'scenes', data: 'weather' };      // links from before the menu changed
 function parseHash() {
-  const [, page, id] = (location.hash || '').replace(/^#/, '').split('/');
-  return { page: ['designer', 'clock', 'data', 'settings'].includes(page) ? page : 'dashboard', id: id || null };
+  const [, raw, id] = (location.hash || '').replace(/^#/, '').split('/');
+  const page = OLD[raw] || raw;
+  return { page: PAGES.some(([p]) => p === page) || page === 'advanced' ? page : 'home', id: id || null };
 }
 
 // What the globe is doing, for the whole app: pushed over a WebSocket when
@@ -43,7 +48,7 @@ function useNow() {
   return { now, online: link.online, via: link.via };
 }
 
-const MODE = { playlist: 'Playlist', scene: 'Playing once', manual: 'Manual' };
+const MODE = { playlist: 'Rotation', scene: 'Playing once', manual: 'Manual' };
 
 function StatusChip({ now, online, via }) {
   if (!online) return <span class="status bad" title="The globe isn't answering"><span class="dot" />Offline</span>;
@@ -113,17 +118,16 @@ export function App() {
         </div>
       </header>
       <nav class="tabs">
-        <a href="#/dashboard" aria-current={route.page === 'dashboard' ? 'page' : undefined}>Dashboard</a>
-        <a href="#/clock" aria-current={route.page === 'clock' ? 'page' : undefined}>Clock</a>
-        <a href="#/designer" aria-current={route.page === 'designer' ? 'page' : undefined}>Designer</a>
-        <a href="#/data" aria-current={route.page === 'data' ? 'page' : undefined}>Data</a>
-        <a href="#/settings" aria-current={route.page === 'settings' ? 'page' : undefined}>Settings</a>
-        <a href={GLOBE + '/'}>Control &amp; Explorer</a>
+        {PAGES.map(([p, label]) => <a key={p} href={`#/${p}`} aria-current={route.page === p ? 'page' : undefined}>{label}</a>)}
+        <span style="flex:1" />
+        <a class="quiet" href="#/advanced" aria-current={route.page === 'advanced' ? 'page' : undefined}>Advanced</a>
       </nav>
-      {route.page === 'designer' ? <Designer sceneId={route.id} toast={say} />
+      {route.page === 'scenes' ? <Designer sceneId={route.id} toast={say} />
         : route.page === 'clock' ? <Clock toast={say} />
-        : route.page === 'data' ? <Data toast={say} />
+        : route.page === 'weather' ? <Weather toast={say} />
+        : route.page === 'planes' ? <Planes toast={say} />
         : route.page === 'settings' ? <Settings toast={say} />
+        : route.page === 'advanced' ? <Advanced toast={say} />
         : <Dashboard toast={say} now={now} online={online} />}
       {toast && <div class={`snack ${toast.ok ? 'ok' : 'bad'}`} role="status" onClick={() => setToast(null)}>{toast.msg}</div>}
       {asking && <TokenDialog reason={asking.reason} onDone={(t) => { asking.resolve(t); setAsking(null); }} />}

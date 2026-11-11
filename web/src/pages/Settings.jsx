@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import * as api from '../lib/api.js';
 import { TOKEN_RE, TOKEN_RULES, generateToken } from '../lib/request.js';
+import { Choice, Row, LocationPicker } from '../components/Common.jsx';
 
 // Settings: the globe's access token for now; other settings can join as cards.
 
@@ -50,12 +51,7 @@ function AccessToken({ toast }) {
   return (
     <section class="card">
       <div class="card-head"><h2>Access token</h2>{info && <span class={`pill ${info.required ? 'playlist' : 'manual'}`}>{info.required ? 'On' : 'Off'}</span>}</div>
-      <p class="hint">
-        With a token set, the globe only accepts changes that carry it: showing or clearing text, scenes, the playlist,
-        settings, pushed values, the Control &amp; Explorer page and firmware updates. Looking stays open: the
-        dashboard, what's showing, values and the live view work without it. The token is kept on the globe
-        (not in exported settings) and in this browser.
-      </p>
+      <p class="hint">With a token set, the globe only accepts changes that carry it. Looking stays open.</p>
       {state}
 
       {info && info.required && !info.valid ? (
@@ -74,11 +70,13 @@ function AccessToken({ toast }) {
       )}
       {info && <p class="muted small">{TOKEN_RULES}. Write it down: a lost token can only be cleared at the globe (see below).</p>}
 
-      <h3 class="token-sub">Scripts and webhooks</h3>
+      <details class="token-more">
+      <summary>Using the token from scripts and webhooks</summary>
       <p class="muted small">Send it in a header, or in the URL when the sender can't set headers (Home Assistant, Uptime Kuma, ...):</p>
       <pre class="bytes">{`curl -X POST ${host}/api/v1/values -H "Authorization: Bearer ${shown}" -d '{"cpu":42}'
 curl -X POST "${host}/api/v1/values?token=${shown}" -d '{"cpu":42}'`}</pre>
       <p class="muted small">A token in a URL can end up in the sender's logs and history; use a header where you can.</p>
+      </details>
 
       <h3 class="token-sub">Lost it?</h3>
       <p class="muted small">
@@ -96,9 +94,49 @@ curl -X POST "${host}/api/v1/values?token=${shown}" -d '{"cpu":42}'`}</pre>
   );
 }
 
+const PACES = [[0, 'Fastest'], [150, 'Normal'], [300, 'Slow'], [600, 'Very slow']];
+
+function Globe({ toast }) {
+  const [settings, setSettings] = useState(null);
+  useEffect(() => { api.getSettings().then(setSettings, () => setSettings({})); }, []);
+  const save = async (patch, msg) => {
+    try { await api.saveSettings(patch); setSettings((s) => ({ ...s, ...patch })); toast(true, msg); }
+    catch (e) { toast(false, `Could not save: ${e.message}`); }
+  };
+  const units = settings && settings.units === 'c' ? 'c' : 'f';
+  const pace = settings && Number.isFinite(settings.animMinMs) ? settings.animMinMs : 0;
+  const paceValue = PACES.reduce((best, [v]) => (Math.abs(v - pace) < Math.abs(best - pace) ? v : best), 0);
+  return (
+    <>
+      <section class="card">
+        <div class="card-head"><h2>The globe</h2></div>
+        <Row label="Location" hint="for weather, planes and sunrise">
+          <LocationPicker settings={settings} toast={toast} onSaved={(p) => setSettings((s) => ({ ...s, ...p }))} />
+        </Row>
+        <Row label="Units">
+          <Choice label="Units" value={units} options={[['f', '°F and mph'], ['c', '°C and km/h']]} onPick={(v) => save({ units: v }, v === 'f' ? 'Fahrenheit and mph' : 'Celsius and km/h')} />
+        </Row>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Speed and brightness</h2></div>
+        <Row label="Animation pace" hint="how fast custom animations step">
+          <Choice label="Animation pace" value={paceValue} options={PACES} onPick={(v) => save({ animMinMs: v }, 'Animation pace saved')} />
+        </Row>
+        <Row label="Time on screen">
+          <span class="muted">Set per item on <a href="#/home">Home</a>: the seconds box beside each thing that is switched on.</span>
+        </Row>
+        <Row label="Brightness and spin speed">
+          <span class="muted">Fixed inside the globe. None of the commands it accepts changes them, so there is nothing to set.</span>
+        </Row>
+      </section>
+    </>
+  );
+}
+
 export function Settings({ toast }) {
   return (
-    <div class="settings-page">
+    <div class="page">
+      <Globe toast={toast} />
       <AccessToken toast={toast} />
     </div>
   );

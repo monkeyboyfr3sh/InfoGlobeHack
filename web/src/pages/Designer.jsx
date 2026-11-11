@@ -51,7 +51,7 @@ export function Designer({ sceneId, toast }) {
       hist.set(s, { replace: true });
       setSel(0);
       setSavedJson(JSON.stringify(toStored(s)));
-      location.hash = `#/designer/${id}`;
+      location.hash = `#/scenes/${id}`;
     } catch (e) { toast(false, `Could not open: ${e.message}`); }
   };
   useEffect(() => { if (sceneId && sceneId !== scene.id) open(sceneId); }, [sceneId]);
@@ -62,7 +62,7 @@ export function Designer({ sceneId, toast }) {
     hist.set({ id: '', name: t.key === 'blank' ? 'My scene' : t.name, frames: t.frames.map((f) => ({ ...f })) }, { replace: true });
     setSel(0);
     setSavedJson(null);
-    location.hash = '#/designer';
+    location.hash = '#/scenes';
   };
 
   // ---- scene edits ----
@@ -131,10 +131,10 @@ export function Designer({ sceneId, toast }) {
         // animations run in the globe's scene engine, so this plays as a short scene
         const secs = Math.max(15, frame.seconds || 30);
         await api.playFrames([{ ...frame, seconds: 0 }], secs);
-        if (!quiet) toast(true, `Playing this animated frame for ${secs} s, then back to the playlist`);
+        if (!quiet) toast(true, `Playing this animated frame for ${secs} s, then back to the rotation`);
       } else {
         await api.sendFrame(frameBody(frame));
-        if (!quiet) toast(true, 'Frame sent; the playlist is paused until you resume it');
+        if (!quiet) toast(true, 'Frame sent; the rotation is paused until you resume it');
       }
     } catch (e) { toast(false, `Could not send: ${e.message}`); }
   };
@@ -152,7 +152,7 @@ export function Designer({ sceneId, toast }) {
       await api.saveScene(id, toStored(scene));
       hist.set((s) => ({ ...s, id }), { replace: true });
       setSavedJson(JSON.stringify(toStored(scene)));
-      location.hash = `#/designer/${id}`;
+      location.hash = `#/scenes/${id}`;
       refreshLibrary();
       toast(true, `Saved “${scene.name}” on the globe`);
       return id;
@@ -160,7 +160,7 @@ export function Designer({ sceneId, toast }) {
     finally { setBusy(false); }
   };
   const playOnGlobe = async () => {
-    try { await api.playFrames(toStored(scene).frames, 0); toast(true, 'Playing once on the globe, then back to the playlist'); }
+    try { await api.playFrames(toStored(scene).frames, 0); toast(true, 'Playing once on the globe, then back to the rotation'); }
     catch (e) { toast(false, `Could not play: ${e.message}`); }
   };
   const remove = async () => {
@@ -275,7 +275,7 @@ export function Designer({ sceneId, toast }) {
               <button class="btn" onClick={() => sendThis(false)} disabled={!!compileError}>Send this frame</button>
               <label class="check"><input type="checkbox" checked={live} onChange={(e) => setLive(e.currentTarget.checked)} />Live</label>
               <span style="flex:1" />
-              <button class="btn" onClick={() => api.resume().then(() => toast(true, 'Playlist resumed'), (e) => toast(false, e.message))}>Resume playlist</button>
+              <button class="btn" onClick={() => api.resume().then(() => toast(true, 'Back to the rotation'), (e) => toast(false, e.message))}>Back to the rotation</button>
             </div>
             {compileError && <div class="toast bad">{compileError}</div>}
           </div>

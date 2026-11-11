@@ -6,8 +6,11 @@ import * as api from '../lib/api.js';
 import { Screen } from '../components/Screen.jsx';
 import { Mini } from '../components/Mini.jsx';
 import { WidthMeter, EFFECTS } from '../components/FrameEditor.jsx';
+import { BUILT_IN, HIDDEN, sceneSeconds, setInRotation, setRotationSeconds } from '../lib/rotation.js';
+import { weatherScene } from '../lib/feeds/weather.js';
+import { Switch } from '../components/Common.jsx';
 
-const MODE_LABEL = { playlist: 'Playlist', scene: 'Playing once', manual: 'Manual text' };
+const MODE_LABEL = { playlist: 'Rotation', scene: 'Playing once', manual: 'Manual text' };
 const fmtSecs = (s) => (s >= 3600 ? `${Math.round(s / 360) / 10} h` : s >= 60 ? `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ''}` : `${s} s`);
 
 /* ---------- now showing ---------- */
@@ -28,11 +31,11 @@ function NowShowing({ now, online, toast, canNext }) {
       <div class="now-meta">
         <div class="now-what">
           {now && now.mode !== 'manual' && <><b>{now.name}</b>{now.frames > 1 && <span class="muted"> · frame {now.frame + 1} of {now.frames}</span>}</>}
-          {now && now.mode === 'manual' && <span class="muted">Text sent from the designer or control page. The playlist is paused.</span>}
+          {now && now.mode === 'manual' && <span class="muted">Text you sent. The rotation is paused.</span>}
         </div>
         <div class="row">
-          {now && now.mode !== 'playlist' && <button class="btn primary" onClick={() => act(api.resume, 'Playlist resumed')}>Resume playlist</button>}
-          {canNext && <button class="btn" onClick={() => act(api.next, 'Skipped to the next item')} title="Skip to the next playlist item">Next ⏭</button>}
+          {now && now.mode !== 'playlist' && <button class="btn primary" onClick={() => act(api.resume, 'Back to the rotation')}>Back to the rotation</button>}
+          {canNext && <button class="btn" onClick={() => act(api.next, 'Skipped to the next item')} title="Skip to the next thing">Next ⏭</button>}
           <button class="btn" onClick={() => act(api.clearGlobe, 'Globe cleared')}>Clear</button>
         </div>
       </div>
@@ -55,7 +58,7 @@ const LOOKS = [
   { key: 'flash', label: 'Flashing', tip: 'Stays in front and blinks', frame: { entrance: 37, after: 'flash' } },
   { key: 'alert', label: 'Alert ✉', tip: 'Envelope in front, whole message blinks', frame: { entrance: 37, after: 'flash' }, prefix: '✉ ' },
 ];
-const DURATIONS = [[30, '30 s'], [60, '1 min'], [300, '5 min'], [900, '15 min'], [0, 'Until I resume']];
+const DURATIONS = [[30, '30 s'], [60, '1 min'], [300, '5 min'], [900, '15 min'], [0, 'Until I change it']];
 
 function QuickMessage({ toast }) {
   const [text, setText] = useState('DINNER IS READY');
@@ -71,8 +74,8 @@ function QuickMessage({ toast }) {
     if (!text.trim()) return;
     const frame = { text: full, blink: 0, shift: -1, seconds: 0, ...L.frame };
     try {
-      if (secs) { await api.playFrames([frame], secs); toast(true, `Showing for ${DURATIONS.find((d) => d[0] === secs)[1]}, then back to the playlist`); }
-      else { await api.sendFrame({ text: full, entrance: L.frame.entrance, after: L.frame.after }); toast(true, 'Showing until you resume the playlist'); }
+      if (secs) { await api.playFrames([frame], secs); toast(true, `Showing for ${DURATIONS.find((d) => d[0] === secs)[1]}, then back to the rotation`); }
+      else { await api.sendFrame({ text: full, entrance: L.frame.entrance, after: L.frame.after }); toast(true, 'Showing until you go back to the rotation'); }
     } catch (e) { toast(false, `Could not send: ${e.message}`); }
   };
   return (
@@ -101,87 +104,97 @@ function QuickMessage({ toast }) {
   );
 }
 
-/* ---------- playlist ---------- */
+/* ---------- on the globe: what takes turns, and what interrupts ---------- */
 
-function Playlist({ scenes, details, now, toast, onSaved }) {
-  const [items, setItems] = useState(null);
-  const [saved, setSaved] = useState('');
-  const load = () => api.getPlaylist().then((p) => { setItems(p.items || []); setSaved(JSON.stringify(p.items || [])); }, (e) => toast(false, e.message));
-  useEffect(() => { load(); }, []);
-  if (!items) return <section class="card"><div class="card-head"><h2>Playlist</h2></div><p class="muted">Loading…</p></section>;
-  const dirty = JSON.stringify(items) !== saved;
-  const upd = (i, patch) => setItems(items.map((it, k) => (k === i ? { ...it, ...patch } : it)));
-  const move = (i, d) => { const j = i + d; if (j < 0 || j >= items.length) return; const n = [...items]; [n[i], n[j]] = [n[j], n[i]]; setItems(n); };
-  const total = items.reduce((a, it) => a + (it.seconds || 0), 0);
-  const save = async () => {
-    const fixed = items.length > 1 ? items.map((it) => ({ ...it, seconds: it.seconds || 10 })) : items;
-    try { await api.savePlaylist(fixed); setItems(fixed); setSaved(JSON.stringify(fixed)); onSaved(); toast(true, 'Playlist saved; the globe is playing it'); }
-    catch (e) { toast(false, `Could not save: ${e.message}`); }
-  };
-  const known = new Map(scenes.map((s) => [s.id, s]));
-  const playing = (i) => !dirty && now && now.mode === 'playlist' && (items.length === 1 ? now.scene === items[0].scene : now.item === i);
+function TurnRow({ row, item, many, playing, frame, onToggle, onSeconds, toast }) {
+  const on = !!item;
   return (
-    <section class="card">
-      <div class="card-head">
-        <h2>Playlist</h2>
-        <span class="muted small">{items.length > 1 ? `one round: ${fmtSecs(total)}` : 'one scene, shown continuously'}</span>
+    <li class={`turn${playing ? ' playing' : ''}`}>
+      <Switch on={on} onChange={onToggle} label={`Show ${row.name} on the globe`} />
+      <Mini frame={frame} />
+      <div class="turn-main">
+        <b>{row.name}</b>
+        <span class="muted small">{playing ? 'showing now' : row.note}</span>
       </div>
-      <p class="hint">What the globe shows when nothing else is up. It runs on the globe, so your PC can be off.</p>
-      <ol class="plist">
-        {items.map((it, i) => (
-          <li class={`prow${playing(i) ? ' playing' : ''}`} key={i}>
-            <span class="pnum">{playing(i) ? '▶' : i + 1}</span>
-            <Mini frame={details[it.scene] && details[it.scene].frames[0]} />
-            <div class="pmain">
-              <select class="select" value={it.scene} onChange={(e) => upd(i, { scene: e.currentTarget.value })} aria-label="Scene">
-                {!known.has(it.scene) && <option value={it.scene}>{it.scene} (missing)</option>}
-                {scenes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            {items.length > 1 && (
-              <label class="psecs">
-                <input type="number" min="1" max="86400" value={it.seconds} aria-label="Seconds"
-                  onInput={(e) => upd(i, { seconds: Math.max(1, e.currentTarget.valueAsNumber || 1) })} /> s
-              </label>
-            )}
-            <div class="pbtns">
-              <button class="btn icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up" title="Move up">↑</button>
-              <button class="btn icon" onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Move down" title="Move down">↓</button>
-              <button class="btn icon" onClick={() => setItems(items.filter((_, k) => k !== i))} disabled={items.length < 2} aria-label="Remove" title="Remove">✕</button>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <div class="card-foot">
-        <button class="btn" onClick={() => setItems([...items.map((it) => ({ ...it, seconds: it.seconds || 20 })), { scene: scenes[0] ? scenes[0].id : 'clock', seconds: 10 }])} disabled={items.length >= 24}>+ Add scene</button>
-        <span style="flex:1" />
-        {dirty && <button class="btn" onClick={load}>Discard</button>}
-        <button class="btn primary" onClick={save} disabled={!dirty}>{dirty ? 'Save playlist' : 'Saved'}</button>
+      {on && many
+        ? <label class="psecs"><input type="number" min="1" max="86400" value={item.seconds} aria-label={`Seconds for ${row.name}`}
+            onChange={(e) => onSeconds(e.currentTarget.valueAsNumber)} /> s</label>
+        : <span />}
+      <div class="row">
+        {row.exists && <button class="btn small" title="Play it once now" onClick={() => api.playScene(row.id, 0).then(() => toast(true, `Playing ${row.name} once`), (e) => toast(false, e.message))}>Play</button>}
+        <a class="btn small" href={row.page}>{row.builtin ? 'Set up' : 'Edit'}</a>
       </div>
-    </section>
+    </li>
   );
 }
 
-/* ---------- scenes ---------- */
+function OnTheGlobe({ scenes, details, items, settings, now, toast, onChanged }) {
+  const have = new Map(scenes.map((s) => [s.id, s]));
+  const rows = [
+    ...['clock', 'weather'].map((id) => ({ id, name: BUILT_IN[id].name, page: BUILT_IN[id].page, builtin: true, exists: have.has(id) || id === 'clock',
+      note: id === 'clock' ? 'time, date and extras' : 'temperature, sky and forecast' })),
+    ...scenes.filter((s) => !BUILT_IN[s.id] || s.id === 'plane').map((s) => ({ id: s.id, name: s.id === 'plane' ? 'Nearest plane' : s.name, page: `#/scenes/${s.id}`, exists: true,
+      note: s.id === 'plane' ? 'takes a turn even when none is close' : `your scene · ${s.frames} frame${s.frames === 1 ? '' : 's'}` })),
+  ];
+  const many = items.length > 1;
+  const total = items.reduce((a, it) => a + (it.seconds || 0), 0);
+  const watching = !!settings && settings.aircraft === true;
 
-function Scenes({ scenes, details, inPlaylist, toast }) {
+  const toggle = (row) => async (next) => {
+    try {
+      if (row.id === 'weather' && next && settings && settings.weather === false) await api.saveSettings({ weather: true });
+      const d = details[row.id];
+      await setInRotation(row.id, next, d ? sceneSeconds(d) : undefined);
+      await onChanged();
+      toast(true, next ? `${row.name} now takes a turn on the globe` : `${row.name} taken off the globe`);
+    } catch (e) { toast(false, e.message); }
+  };
+  const seconds = (row) => async (v) => {
+    if (!(v >= 1)) return;
+    try { await setRotationSeconds(row.id, v); await onChanged(); } catch (e) { toast(false, e.message); }
+  };
+  const watch = async (next) => {
+    try {
+      if (next && !have.has('plane')) await api.saveScene('plane', BUILT_IN.plane.make());
+      await api.saveSettings({ aircraft: next });
+      await onChanged();
+      toast(true, next ? 'Watching for planes' : 'Stopped watching for planes');
+    } catch (e) { toast(false, e.message); }
+  };
+
   return (
     <section class="card">
-      <div class="card-head"><h2>Scenes</h2><a class="btn small" href="#/designer">+ New scene</a></div>
-      <div class="scene-grid">
-        {scenes.map((s) => (
-          <div class="scene-card" key={s.id}>
-            <Mini frame={details[s.id] && details[s.id].frames[0]} height={34} />
-            <div class="scene-info">
-              <b>{s.name}</b>
-              <span class="muted small">{s.frames} frame{s.frames === 1 ? '' : 's'}{s.builtin ? ' · built in' : ''}{inPlaylist.has(s.id) ? ' · in playlist' : ''}</span>
-            </div>
-            <div class="row">
-              <button class="btn small" onClick={() => api.playScene(s.id, 0).then(() => toast(true, `Playing “${s.name}” once`), (e) => toast(false, e.message))}>Play</button>
-              <a class="btn small" href={`#/designer/${s.id}`}>Edit</a>
-            </div>
+      <div class="card-head">
+        <h2>On the globe</h2>
+        <span class="muted small">{many ? `one round: ${fmtSecs(total)}` : 'one thing, shown all the time'}</span>
+      </div>
+      <h3 class="group">Takes turns</h3>
+      <ul class="turns">
+        {rows.map((row) => {
+          const i = items.findIndex((it) => it.scene === row.id);
+          const playing = i >= 0 && now && now.mode === 'playlist' && (many ? now.item === i : now.scene === row.id);
+          const d = details[row.id];
+          const frame = d ? d.frames[0] : row.id === 'weather' ? weatherScene().frames[0] : null;
+          return <TurnRow key={row.id} row={row} item={items[i]} many={many} playing={playing} frame={frame} toast={toast}
+            onToggle={toggle(row)} onSeconds={seconds(row)} />;
+        })}
+      </ul>
+      <h3 class="group">Interrupts</h3>
+      <ul class="turns">
+        <li class="turn">
+          <Switch on={watching} onChange={watch} label="Watch for planes overhead" disabled={!settings} />
+          <span />
+          <div class="turn-main">
+            <b>Plane overhead</b>
+            <span class="muted small">{watching ? 'cuts in when a plane flies close, then goes back' : 'off'}</span>
           </div>
-        ))}
+          <span />
+          <div class="row"><a class="btn small" href="#/planes">Set up</a></div>
+        </li>
+      </ul>
+      <div class="card-foot">
+        <span class="muted small" style="flex:1">It runs on the globe itself, so this page can be closed.</span>
+        <a class="btn" href="#/scenes">+ Make your own scene</a>
       </div>
     </section>
   );
@@ -190,21 +203,22 @@ function Scenes({ scenes, details, inPlaylist, toast }) {
 export function Dashboard({ toast, now, online }) {
   const [scenes, setScenes] = useState([]);
   const [details, setDetails] = useState({});
-  const [plist, setPlist] = useState([]);
+  const [items, setItems] = useState([{ scene: 'clock', seconds: 0 }]);
+  const [settings, setSettings] = useState(null);
   const refresh = async () => {
     try {
-      const list = (await api.getScenes()).filter((s) => s.id !== 'quick');
+      const list = (await api.getScenes()).filter((s) => !HIDDEN.includes(s.id));
       setScenes(list);
+      const p = await api.getPlaylist();
+      setItems(p.items && p.items.length ? p.items : [{ scene: 'clock', seconds: 0 }]);
+      setSettings(await api.getSettings());
       const d = {};
       await Promise.all(list.map(async (s) => { try { d[s.id] = cleanScene(await api.getScene(s.id)); } catch { /* skip */ } }));
       setDetails(d);
-      const p = await api.getPlaylist();
-      setPlist(p.items || []);
     } catch { /* offline: the status chip says so */ }
   };
   useEffect(() => { refresh(); }, []);
-  const inPlaylist = new Set(plist.map((it) => it.scene));
-  const canNext = !!now && ((now.mode === 'playlist' && plist.length > 1) || now.mode === 'scene');
+  const canNext = !!now && ((now.mode === 'playlist' && items.length > 1) || now.mode === 'scene');
   return (
     <div class="dash">
       <div class="dash-main">
@@ -212,8 +226,7 @@ export function Dashboard({ toast, now, online }) {
         <QuickMessage toast={toast} />
       </div>
       <div class="dash-side">
-        <Playlist scenes={scenes} details={details} now={now} toast={toast} onSaved={refresh} />
-        <Scenes scenes={scenes} details={details} inPlaylist={inPlaylist} toast={toast} />
+        <OnTheGlobe scenes={scenes} details={details} items={items} settings={settings} now={now} toast={toast} onChanged={refresh} />
       </div>
     </div>
   );

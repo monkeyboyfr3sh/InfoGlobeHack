@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'preact/hooks';
 import * as api from '../lib/api.js';
 import { setVars } from '../lib/values.js';
-import { WeatherCard } from '../components/WeatherCard.jsx';
-import { AircraftCard } from '../components/AircraftCard.jsx';
 
-// Data: what the globe knows beyond the clock. Pushed values first; the
-// feeds (weather, aircraft) add their own cards here.
+// Advanced: things most people never need. Values pushed by scripts, and the
+// way into the protocol lab and firmware update (the classic page).
 
 const KEY_RE = /^[a-z0-9_]{1,15}$/;
 
@@ -68,12 +66,24 @@ function PushedValues({ toast }) {
   );
 }
 
-export function Data({ toast }) {
+function Tools() {
   return (
-    <div class="data-page">
+    <section class="card">
+      <div class="card-head"><h2>Tools</h2></div>
+      <ul class="tools">
+        <li><a class="btn" href={api.GLOBE + '/'}>Protocol lab</a><span class="muted small">Raw commands, the effect explorer and test patterns from the reverse-engineering work.</span></li>
+        <li><a class="btn" href={api.GLOBE + '/'}>Firmware update</a><span class="muted small">Upload a new firmware file (same page, under Update).</span></li>
+      </ul>
+      <p class="muted small">The HTTP API, for scripts and home automation, is described in <code>docs/api.md</code> and <code>docs/pushed-values.md</code> in the project.</p>
+    </section>
+  );
+}
+
+export function Advanced({ toast }) {
+  return (
+    <div class="page">
       <PushedValues toast={toast} />
-      <WeatherCard toast={toast} />
-      <AircraftCard toast={toast} />
+      <Tools />
     </div>
   );
 }
