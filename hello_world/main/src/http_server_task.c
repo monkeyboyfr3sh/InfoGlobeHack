@@ -19,6 +19,7 @@
 #include "ir_led_task.h"
 #include "api_v1.h"
 #include "auth.h"
+#include "scene_engine.h"
 
 static const char *TAG = "HTTP_SERVER";
 
@@ -568,6 +569,7 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     memset(s_button_cmds, 0, sizeof(s_button_cmds));
     init_spiffs();
     init_notes_fs();
+    scene_engine_reload();       // the display loop may have started before the scenes were readable: load them now
     auth_init();                 // NVS is up (tcp_server_task) before we get here
 
     httpd_config_t config      = HTTPD_DEFAULT_CONFIG();
