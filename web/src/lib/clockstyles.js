@@ -20,13 +20,15 @@ export const STYLES = [
   { key: 'dissolve', name: 'Dissolve', desc: 'The new minute dissolves in, dot by dot.', uses: 'time', change: 36 },
 ];
 
-export const EXTRAS = [
-  { key: 'date', name: 'Date', desc: 'Mon 02 Nov', frame: { text: '{day} {dd} {mon}', entrance: 16, after: 'spin' } },
-  { key: 'daybar', name: 'Day progress', desc: 'DAY ######----', frame: { text: 'DAY {bar:day}', entrance: 12, after: 'spin' } },
-  { key: 'moon', name: 'Moon phase', desc: 'WAXING GIBBOUS', frame: { text: '{moon}', entrance: 3, after: 'spin' } },
-  { key: 'sun', name: 'Sunrise and sunset', desc: 'needs your location', frame: { text: 'RISE {sunrise} SET {sunset}', entrance: 17, after: 'spin' } },
-  { key: 'weather', name: 'Weather', desc: '61 CLOUDY, set up on the Weather page', frame: { text: '{var:weather}', entrance: 16, after: 'hold' } },
-  { key: 'world', name: 'World clock', desc: 'other cities', frame: null },
+// What used to take turns inside the clock ("extras"): rows of their own on Home
+// now, offered switched off until they are wanted (Dashboard.jsx). id = the scene's id.
+const row = (text, entrance, seconds = 10) => ({ text, entrance, after: 'spin', blink: 0, shift: -1, seconds });
+export const READY_ROWS = [
+  { id: 'date', name: 'Date', frames: [row('{day} {dd} {mon}', 16)] },
+  { id: 'world', name: 'World clock', frames: [row('NYC {tz:nyc}  LON {tz:lon}  TYO {tz:tyo}', 0, 12)] },
+  { id: 'sun', name: 'Sunrise and sunset', frames: [row('RISE {sunrise} SET {sunset}', 17)] },
+  { id: 'moon', name: 'Moon phase', frames: [row('{moon}', 3)] },
+  { id: 'daybar', name: 'Day progress', frames: [row('DAY {bar:day}', 12)] },
 ];
 
 export const CHIMES = [
@@ -40,8 +42,7 @@ export const CHIMES = [
 export const DEFAULT_CLOCK = {
   style: 'classic', h24: false, seconds: false, ampm: true, colon: { period: 1000, look: 'hide' },
   change: undefined, motion: undefined, motionMs: undefined,
-  extras: [], clockSeconds: 20, extraSeconds: 6,
-  world: ['nyc', 'lon', 'tyo'],
+
   chime: { every: 0, look: 'words' },
 };
 
@@ -70,9 +71,8 @@ export function upgradeClock(c) {
   if (out.style === 'drift') { out.style = 'pendulum'; out.motion = undefined; }
   if (out.motion === 'drift') out.motion = undefined;
   delete out.blink;
-  // countdowns are rows of their own on Home now, not part of the clock
-  if (Array.isArray(out.extras)) out.extras = out.extras.filter((k) => k !== 'countdown');
-  delete out.countdown;
+  // what took turns inside the clock (date, world clock, countdown...) is a row of its own on Home now
+  for (const k of ['extras', 'countdown', 'world', 'clockSeconds', 'extraSeconds']) delete out[k];
   return out;
 }
 
@@ -87,23 +87,6 @@ export function compileClock(c) {
   if (change !== undefined && change !== null) main.onChange = change;
   if (motion) { main.motion = motion; main.motionMs = c.motionMs || (motion === 'drift' ? 160 : 250); }
 
-  const extras = [];
-  for (const key of c.extras) {
-    const x = EXTRAS.find((e) => e.key === key);
-    if (!x) continue;
-    let f = x.frame;
-    if (key === 'world') {
-      const parts = (c.world || []).slice(0, 3).map((k) => `${k.toUpperCase()} {tz:${k}}`);
-      if (!parts.length) continue;
-      f = { text: parts.join('  '), entrance: 0, after: 'spin' };
-    }
-    extras.push(blankFrame({ ...f, seconds: c.extraSeconds || 6 }));
-  }
-  if (extras.length) {
-    main.seconds = c.clockSeconds || 20;
-    // come back to the clock with its own look
-    if (main.entrance === null) main.entrance = 17;
-  }
   const chime = c.chime && c.chime.every ? (CHIMES.find((x) => x.key === c.chime.look) || CHIMES[0]).frames.map((f) => blankFrame(f)) : null;
-  return { frames: [main, ...extras], chimeFrames: chime };
+  return { frames: [main], chimeFrames: chime };
 }

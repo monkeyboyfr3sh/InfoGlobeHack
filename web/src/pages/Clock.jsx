@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import effectsDoc from '../../../docs/effects.json';
-import { STYLES, EXTRAS, CHIMES, DEFAULT_CLOCK, BLINK_RATES, compileClock, upgradeClock } from '../lib/clockstyles.js';
+import { STYLES, CHIMES, DEFAULT_CLOCK, BLINK_RATES, compileClock, upgradeClock } from '../lib/clockstyles.js';
 import { makeClockSim } from '../lib/clocksim.js';
-import { fillValues, setLocation, CITIES } from '../lib/values.js';
+import { fillValues, setLocation } from '../lib/values.js';
 import { encodeText, TEXT_MAX } from '../lib/protocol.js';
 import { stillLayout, tiledLayout } from '../lib/sim.js';
 import * as api from '../lib/api.js';
@@ -16,7 +16,7 @@ const SPEEDS = [[1, 'Real time'], [30, '30×'], [120, '2 min / s']];
 /** Thumbnail of a style showing the current time. */
 function StyleThumb({ config, styleKey, now }) {
   const ref = useRef(null);
-  const { frames } = compileClock({ ...config, style: styleKey, extras: [], change: undefined, motion: undefined });
+  const { frames } = compileClock({ ...config, style: styleKey, change: undefined, motion: undefined });
   const f = frames[0];
   const text = fillValues(f.text, now, undefined, true);
   useEffect(() => {
@@ -43,7 +43,6 @@ export function Clock({ toast }) {
   const [speed, setSpeed] = useState(30);
   const [simStart, setSimStart] = useState(Date.now());
   const [runKey, setRunKey] = useState(0);
-  const [loc, setLoc] = useState({ lat: '', lon: '' });
   const [now, setNow] = useState(new Date());
   const [busy, setBusy] = useState(false);
   const set = (patch) => setC((o) => ({ ...o, ...patch }));
@@ -56,7 +55,7 @@ export function Clock({ toast }) {
   useEffect(() => {
     api.getScene('clock').then((s) => { if (s && s.clock) { const cfg = upgradeClock({ ...DEFAULT_CLOCK, ...s.clock }); setC(cfg); setSaved(JSON.stringify(cfg)); } }, () => {});
     api.getSettings().then((s) => {
-      if (Number.isFinite(s.lat)) { setLoc({ lat: String(s.lat), lon: String(s.lon) }); setLocation({ lat: s.lat, lon: s.lon }); }
+      if (Number.isFinite(s.lat)) setLocation({ lat: s.lat, lon: s.lon });
     }, () => {});
     const t = setInterval(() => setNow(new Date()), 10000);
     return () => clearInterval(t);
@@ -65,7 +64,7 @@ export function Clock({ toast }) {
   const compiled = useMemo(() => compileClock(c), [c]);
   const sim = useMemo(() => makeClockSim(compiled.frames, EFFECTS, {
     speed, start: simStart, chime: compiled.chimeFrames ? { frames: compiled.chimeFrames, every: c.chime.every } : null,
-  }), [compiled, speed, simStart, runKey, loc.lat, loc.lon]);
+  }), [compiled, speed, simStart, runKey]);
 
   // simulated clock readout
   const [simNow, setSimNow] = useState('');
@@ -85,15 +84,6 @@ export function Clock({ toast }) {
   const minuteSoon = () => {
     const d = new Date(); d.setSeconds(55, 0);
     setSimStart(d.getTime()); setSpeed(1); setRunKey((k) => k + 1);
-  };
-
-  const toggleExtra = (key) => set({ extras: c.extras.includes(key) ? c.extras.filter((k) => k !== key) : [...c.extras, key] });
-
-  const saveLocation = async () => {
-    const lat = parseFloat(loc.lat), lon = parseFloat(loc.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) { toast(false, 'Latitude −90…90 and longitude −180…180, e.g. 41.88 and −87.63'); return; }
-    try { await api.saveSettings({ lat, lon }); setLocation({ lat, lon }); setRunKey((k) => k + 1); toast(true, 'Location saved on the globe'); }
-    catch (e) { toast(false, e.message); }
   };
 
   const useClock = async () => {
@@ -144,7 +134,7 @@ export function Clock({ toast }) {
             ))}
             {compiled.chimeFrames && <li><span class="muted">Chime every {c.chime.every} min:</span> <span class="mono">{compiled.chimeFrames.map((f) => f.text).join(' → ')}</span></li>}
           </ol>
-          {tooWide && <div class="problem">One of the frames is longer than 35 characters; pick fewer cities.</div>}
+          {tooWide && <div class="problem">It is longer than 35 characters.</div>}
           <div class="card-foot">
             <button class="btn" onClick={tryIt}>Try for a minute</button>
             <span style="flex:1" />
@@ -221,41 +211,6 @@ export function Clock({ toast }) {
               <input type="range" min="100" max="500" step="20" value={600 - (c.motionMs || 250)}
                 onInput={(e) => set({ motionMs: 600 - e.currentTarget.valueAsNumber })} aria-label="Motion speed" />
               <span class="muted small">fast</span>
-            </div>
-          )}
-        </Section>
-
-        <Section title="Also show" hint="These take turns with the clock.">
-          <div class="extras">
-            {EXTRAS.map((x) => (
-              <label key={x.key} class="extra">
-                <input type="checkbox" checked={c.extras.includes(x.key)} onChange={() => toggleExtra(x.key)} />
-                <span><b>{x.name}</b> <span class="muted small">{x.desc}</span></span>
-              </label>
-            ))}
-          </div>
-          {c.extras.includes('world') && (
-            <div class="sub">
-              <span class="muted small">Cities (up to 3)</span>
-              <div class="chips" style="margin-top:6px">
-                {Object.entries(CITIES).map(([k, [name]]) => (
-                  <button key={k} class="chip" aria-pressed={c.world.includes(k)} title={name}
-                    onClick={() => set({ world: c.world.includes(k) ? c.world.filter((x) => x !== k) : [...c.world, k].slice(-3) })}>{k.toUpperCase()}</button>
-                ))}
-              </div>
-            </div>
-          )}
-          {c.extras.includes('sun') && (
-            <div class="sub row">
-              <label class="row">Lat <input type="text" style="width:90px" value={loc.lat} onInput={(e) => setLoc({ ...loc, lat: e.currentTarget.value })} placeholder="41.88" /></label>
-              <label class="row">Lon <input type="text" style="width:90px" value={loc.lon} onInput={(e) => setLoc({ ...loc, lon: e.currentTarget.value })} placeholder="-87.63" /></label>
-              <button class="btn small" onClick={saveLocation}>Save location</button>
-            </div>
-          )}
-          {c.extras.length > 0 && (
-            <div class="row" style="margin-top:10px">
-              <label class="row">Clock for <input type="number" min="5" max="600" value={c.clockSeconds} onInput={(e) => set({ clockSeconds: Math.max(5, e.currentTarget.valueAsNumber || 20) })} /> s,</label>
-              <label class="row">each extra <input type="number" min="3" max="60" value={c.extraSeconds} onInput={(e) => set({ extraSeconds: Math.max(3, e.currentTarget.valueAsNumber || 6) })} /> s</label>
             </div>
           )}
         </Section>

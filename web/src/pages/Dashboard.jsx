@@ -7,6 +7,7 @@ import { Screen } from '../components/Screen.jsx';
 import { Mini } from '../components/Mini.jsx';
 import { WidthMeter, EFFECTS, animName } from '../components/FrameEditor.jsx';
 import { MessageRows, MONTHS } from '../components/MessageRows.jsx';
+import { READY_ROWS } from '../lib/clockstyles.js';
 import { fillValues, setVars } from '../lib/values.js';
 import { BUILT_IN, HIDDEN, sceneSeconds, setInRotation, setRotationSeconds, swapInRotation, withSwapped, fitRotationSeconds,
   deleteScene, removeTimer, freshId, showTime } from '../lib/rotation.js';
@@ -284,9 +285,8 @@ function TurnRow({ row, item, pos, many, playing, frame, parts, at, secs, open, 
           </span>
         )}
         {row.exists && <button class="btn small icon" title="Play it once now" aria-label={`Play ${row.name} once now`} onClick={play}>▶</button>}
-        {row.mine
-          ? <button class="btn small" aria-expanded={!!open} onClick={onOpen}>{open ? 'Close' : 'Edit'}</button>
-          : <a class="btn small" href={row.page}>Set up</a>}
+        {row.mine ? <button class="btn small" aria-expanded={!!open} onClick={onOpen}>{open ? 'Close' : 'Edit'}</button>
+          : row.page ? <a class="btn small" href={row.page}>Set up</a> : null}
       </div>
       {children}
     </li>
@@ -362,9 +362,12 @@ function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open
   const rows = [
     ...['clock', 'weather', 'plane'].filter((id) => id !== 'plane' || have.has('plane')).map((id) => ({
       id, name: id === 'plane' ? 'Nearest plane' : BUILT_IN[id].name, page: BUILT_IN[id].page, exists: have.has(id) || id === 'clock',
-      note: id === 'clock' ? 'time, date and extras' : id === 'weather' ? 'temperature, sky and forecast' : 'even when none is close' })),
+      note: id === 'clock' ? 'the time, styled on the Clock page' : id === 'weather' ? 'temperature, sky and forecast' : 'even when none is close' })),
     ...scenes.filter((s) => !BUILT_IN[s.id]).map((s) => ({ id: s.id, name: s.name, exists: true, mine: true,
       note: plural(details[s.id] ? details[s.id].frames.length : s.frames, 'message') })),
+    // ready to switch on; once on they are yours like any other row (and come back here if deleted)
+    ...READY_ROWS.filter((r) => !have.has(r.id)).map((r) => ({ id: r.id, name: r.name, exists: false, ready: r,
+      note: fillValues(r.frames[0].text) })),
   ];
   const many = items.length > 1;
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -376,7 +379,8 @@ function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open
   const toggle = (row) => async (next) => {
     try {
       if (row.id === 'weather' && next && settings && settings.weather === false) { await api.saveSettings({ weather: true }); onSettings({ weather: true }); }
-      const d = details[row.id];
+      if (next && row.ready) await api.saveScene(row.id, { name: row.name, frames: row.ready.frames });
+      const d = details[row.id] || row.ready;
       onItems(await setInRotation(row.id, next, d ? sceneSeconds(d) : undefined));
       if (next && !row.exists) onChanged();            // a scene was just made: fetch it for its preview
       toast(true, next ? `${row.name} now takes a turn on the globe` : `${row.name} switched off. It is kept below`);
@@ -391,7 +395,7 @@ function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open
     onItems(withSwapped(items, a, b));
     try { onItems(await swapInRotation(a, b)); } catch (e) { onItems(before); toast(false, e.message); }
   };
-  const frameOf = (row) => (details[row.id] ? details[row.id].frames[0] : row.id === 'weather' ? weatherScene().frames[0] : null);
+  const frameOf = (row) => (details[row.id] ? details[row.id].frames[0] : row.ready ? row.ready.frames[0] : row.id === 'weather' ? weatherScene().frames[0] : null);
   const watch = async (next) => {
     try {
       const fresh = next && !have.has('plane');
@@ -538,7 +542,7 @@ export function Dashboard({ toast, now, online, display }) {
   const add = (text, name = plainName(text) || 'Message') => addScene(name, [messageFrame(text)]);
   const addReady = (t) => addScene(t.name, t.frames.map((f) => ({ ...f })));
   const addScene = async (name, frames) => {
-    const id = freshId(slug(name), [...scenes.map((s) => s.id), 'new', ...HIDDEN, ...Object.keys(BUILT_IN)]);
+    const id = freshId(slug(name), [...scenes.map((s) => s.id), 'new', ...HIDDEN, ...Object.keys(BUILT_IN), ...READY_ROWS.map((r) => r.id)]);
     const scene = { id, name: name.slice(0, 39).trim(), frames };
     try {
       await api.saveScene(id, toStored(scene));

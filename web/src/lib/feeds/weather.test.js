@@ -66,11 +66,11 @@ describe('ready-made weather scene', () => {
   });
 });
 
-describe('clock extra', () => {
-  it('alternates the time with the weather', () => {
+describe('the clock is just the clock', () => {
+  it('ignores the old weather extra: the weather is a row of its own', () => {
     const { frames } = compileClock({ ...DEFAULT_CLOCK, extras: ['weather'] });
-    expect(frames.map((f) => f.text)).toEqual(['{clock}', '{var:weather}']);
-    expect(fillValues(frames[1].text, d)).toBe('61 CLOUDY');
+    expect(frames.map((f) => f.text)).toEqual(['{clock}']);
+    expect(fillValues('{var:weather}', d)).toBe('61 CLOUDY');
   });
 });
 
