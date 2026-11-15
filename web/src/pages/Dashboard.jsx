@@ -13,7 +13,7 @@ import { BUILT_IN, HIDDEN, sceneSeconds, setInRotation, setRotationSeconds, swap
   deleteScene, removeTimer, freshId, showTime } from '../lib/rotation.js';
 import { weatherScene } from '../lib/feeds/weather.js';
 import { Switch } from '../components/Common.jsx';
-import { TimerChip } from '../components/WhenItShows.jsx';
+import { TimerChip, SetTimes } from '../components/WhenItShows.jsx';
 
 // Home. One list is the whole story: what the globe shows, in what order and
 // for how long. A message of your own is added, worded, timed, reordered and
@@ -233,7 +233,7 @@ function Seconds({ value, name, onSave }) {
 }
 
 /** One of your own scenes, opened in the list: its messages, each with its words, entrance, what it does and its time. */
-function EditPanel({ scene, saveState, focus, onFocus, onChange, onDelete, onMore, toast }) {
+function EditPanel({ scene, saveState, focus, onFocus, onChange, onDelete, onMore, timers, onTimers, toast }) {
   const n = scene.frames.length;
   const tryIt = () => api.playFrames(toStored(scene).frames, 0).then(
     () => toast(true, 'Playing it once on the globe, then the globe carries on'), (e) => toast(false, e.message));
@@ -248,9 +248,13 @@ function EditPanel({ scene, saveState, focus, onFocus, onChange, onDelete, onMor
       <label class="edit-name"><span class="muted small">Name in the list</span>
         <input type="text" value={scene.name} maxLength={39} onInput={(e) => onChange({ ...scene, name: e.currentTarget.value })} aria-label="Name in the list" />
       </label>
+      <div class="edit-times">
+        <span class="muted small">Also at a set time <span class="hint-inline">(it cuts in, then the globe goes back)</span></span>
+        <SetTimes scene={scene} timers={timers} onTimers={onTimers} toast={toast} />
+      </div>
       <div class="edit-foot">
         <button class="btn small" onClick={tryIt} title="Play it once on the globe now">▶ Try it on the globe</button>
-        <a class="btn small" href={`#/scenes/${scene.id}`} onClick={onMore} title="Every transition with a preview, animation settings, live values such as the time or weather, set times">More options</a>
+        <a class="btn small" href={`#/scenes/${scene.id}`} onClick={onMore} title="Every transition with a preview, animation settings, saving to a file">More options</a>
         <span class={`save-state${saveState === 'failed' ? ' dirty' : ''}`} role="status">{saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved on the globe' : saveState === 'failed' ? 'Not saved' : ''}</span>
         <span style="flex:1" />
         <button class="btn small danger" onClick={onDelete}>Delete</button>
@@ -419,7 +423,7 @@ function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open
         secs={d ? sceneSeconds(d) : 0} open={isOpen} onOpen={() => onOpen(isOpen ? null : row.id)}
         onToggle={toggle(row)} onSeconds={seconds(row)}
         onUp={on && k > 0 ? swap(row.id, onRows[k - 1].id) : null} onDown={on && k < onRows.length - 1 ? swap(row.id, onRows[k + 1].id) : null}>
-        {isOpen && <EditPanel scene={d} saveState={saveState} toast={toast} focus={focus} onFocus={onFocus} onChange={(s) => onEdit(row.id, s)}
+        {isOpen && <EditPanel scene={d} saveState={saveState} toast={toast} focus={focus} onFocus={onFocus} onChange={(s) => onEdit(row.id, s)} timers={timers} onTimers={onTimers}
           onDelete={() => onDelete(row)} onMore={(e) => onMore(e, row.id)} />}
       </TurnRow>
     );
@@ -462,7 +466,7 @@ function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open
           {timers.map((t) => <TimerChip key={`${t.scene}${t.at}`} timer={t} name={(have.get(t.scene) || {}).name || t.scene}
             onRemove={() => removeTimer(t).then(onTimers, (e) => toast(false, e.message))} />)}
         </div>
-      ) : <p class="muted small" style="margin:2px 0 0">Nothing yet. To show a message at a time of day (GOOD MORNING at 7:00), open it with Edit, then More options.</p>}
+      ) : <p class="muted small" style="margin:2px 0 0">Nothing yet. To show one of yours at a time of day (GOOD MORNING at 7:00), open it with Edit.</p>}
       <div class="card-foot">
         <span class="muted small" style="flex:1">It runs on the globe itself, so this page can be closed.</span>
       </div>

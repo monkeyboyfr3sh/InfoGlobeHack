@@ -4,7 +4,7 @@ import { GROUP_ORDER } from './Gallery.jsx';
 import { ANIMS } from '../lib/anim.js';
 import { encodeText, TEXT_MAX } from '../lib/protocol.js';
 import { textWidth, WINDOW } from '../lib/sim.js';
-import { VALUES, worstCase, hasValues, fillValues } from '../lib/values.js';
+import { VALUES, CITIES, worstCase, hasValues, fillValues } from '../lib/values.js';
 import { newFrame } from '../lib/scenes.js';
 
 // Every message of a scene at once, one block each: what it says, for how
@@ -22,6 +22,11 @@ const p2 = (n) => String(n).padStart(2, '0');
 const DAY_RE = /\{(countdown|until):(\d{1,2})-(\d{1,2})\}/;
 /** The text with its countdown pointed at another day. */
 const withDay = (text, month, day) => text.replace(DAY_RE, (m, kind) => `{${kind}:${p2(Math.min(12, Math.max(1, month)))}-${p2(Math.min(31, Math.max(1, day)))}}`);
+
+// a world clock: nothing but cities and their times, "NYC {tz:nyc}  LON {tz:lon}"
+const WORLD_RE = /^\s*(?:[A-Z]{2,4} \{tz:[a-z]+\}\s*)+$/;
+const citiesOf = (text) => [...text.matchAll(/\{tz:([a-z]+)\}/g)].map((m) => m[1]);
+const worldText = (keys) => keys.map((k) => `${k.toUpperCase()} {tz:${k}}`).join('  ');
 
 /** The "Arrives" choice of a frame as one value: none, fx:<effect id> or anim:<type>. */
 function arriveValue(f) {
@@ -96,6 +101,11 @@ export function MessageRows({ frames, onChange, sel = -1, onSelect }) {
           const warn = trouble(f);
           const day = DAY_RE.exec(f.text);
           const live = hasValues(f.text);
+          const world = WORLD_RE.test(f.text) ? citiesOf(f.text) : null;
+          const pickCity = (k) => {
+            const next = world.includes(k) ? world.filter((x) => x !== k) : [...world, k].slice(-3);
+            if (next.length) set(i, { text: worldText(next) });
+          };
           return (
             <li key={i} class={`msg${i === sel ? ' sel' : ''}`} onFocusIn={() => pick(i)} onClick={() => pick(i)}>
               <span class="msg-n" aria-hidden="true">{i + 1}</span>
@@ -153,6 +163,13 @@ export function MessageRows({ frames, onChange, sel = -1, onSelect }) {
                     </label>
                   )}
                   <span class="muted">shows now as <b class="mono">{fillValues(f.text)}</b></span>
+                  {world && (
+                    <div class="city-picks" role="group" aria-label="Cities, up to 3">
+                      {Object.entries(CITIES).map(([k, [name]]) => (
+                        <button key={k} type="button" class="chip" aria-pressed={world.includes(k)} title={name} onClick={() => pickCity(k)}>{name}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {warn && <div class="msg-note">{warn}</div>}

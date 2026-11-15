@@ -3,6 +3,19 @@
 What changed in each version of the InfoGlobe, newest first. The globe's web app shows these under
 Settings, About. The version itself is in `VERSION`; see "Making a release" in `README.md`.
 
+## 0.9.1-beta (2026-11-15)
+
+### The clock is just the clock
+- Date, world clock, sunrise and sunset, moon phase and day progress are rows of their own on Home, waiting
+  under "Switched off" until you switch one on. The Clock page no longer has "Also show".
+
+### Easier to set up
+- Set times right where you edit a message on Home: "also at 7:30 every day", no need for the full editor.
+- World clock: pick the cities from a list instead of typing codes.
+
+### Safer
+- Backup and restore: your scenes, the rotation and the settings in one file (Settings, More).
+
 ## 0.9.0-beta (2026-11-15)
 
 The first numbered version: everything since the globe got its own web app, gathered into one beta.
@@ -12,8 +25,6 @@ The first numbered version: everything since the globe got its own web app, gath
   by typing it, edit its words, entrance and time right in the list, reorder with arrows, delete.
 - Countdowns to a day ("XMAS IN 41 DAYS", then "TOMORROW", then "TODAY"), added from the same list. They are
   rows of their own: the clock no longer has a countdown inside it.
-- Date, world clock, sunrise and sunset, moon phase and day progress are rows of their own too, waiting
-  under "Switched off" on Home: the clock is just the clock.
 - Ready-made starting points (Decode, Typewriter, Ticker, Alert, Sprites…) from the list's add row.
 - A kitchen timer: counts down on the globe ("TEA 4:59"), flashes TIME'S UP, and goes back by itself.
 - Quick message: something shown right now, once, over the rotation.

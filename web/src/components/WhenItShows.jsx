@@ -21,10 +21,36 @@ export function TimerChip({ timer, name, onRemove }) {
   );
 }
 
-export function WhenItShows({ scene, seconds, items, timers, onItems, onTimers, toast }) {
+/** A scene's set times: its chips, and a line to add one ("at 7:00 every day for 1 min"). */
+export function SetTimes({ scene, timers, onTimers, toast }) {
   const [at, setAt] = useState('07:00');
   const [days, setDays] = useState('all');
   const [length, setLength] = useState(60);
+  const mine = timers.filter((t) => t.scene === scene.id);
+  const add = async (e) => {
+    e.preventDefault();
+    try { onTimers(await addTimer({ scene: scene.id, at, days, seconds: length })); toast(true, `“${scene.name}” will show at ${showTime(at)}, ${dayWord(days)}`); }
+    catch (err) { toast(false, err.message); }
+  };
+  const remove = async (t) => {
+    try { onTimers(await removeTimer(t)); } catch (err) { toast(false, err.message); }
+  };
+  return (
+    <div class="set-times">
+      {mine.length > 0 && <div class="timer-chips">{mine.map((t) => <TimerChip key={t.at} timer={t} onRemove={() => remove(t)} />)}</div>}
+      <form class="row timer-add" onSubmit={add}>
+        <input type="time" value={at} onInput={(e) => setAt(e.currentTarget.value)} aria-label="Time of day" required />
+        <Choice label="Days" value={days} options={DAYS} onPick={setDays} />
+        <select class="select" value={length} onChange={(e) => setLength(+e.currentTarget.value)} aria-label="For how long">
+          {LENGTHS.map(([v, l]) => <option key={v} value={v}>{v ? `for ${l}` : l}</option>)}
+        </select>
+        <button class="btn small" type="submit">+ Add time</button>
+      </form>
+    </div>
+  );
+}
+
+export function WhenItShows({ scene, seconds, items, timers, onItems, onTimers, toast }) {
   const host = api.GLOBE || location.origin;
 
   if (!scene.id) {
@@ -37,18 +63,9 @@ export function WhenItShows({ scene, seconds, items, timers, onItems, onTimers, 
   }
 
   const inRotation = items.some((it) => it.scene === scene.id);
-  const mine = timers.filter((t) => t.scene === scene.id);
   const toggle = async (next) => {
     try { onItems(await setInRotation(scene.id, next, seconds)); toast(true, next ? `“${scene.name}” now takes a turn on the globe` : `“${scene.name}” taken out of the rotation`); }
     catch (e) { toast(false, e.message); }
-  };
-  const add = async (e) => {
-    e.preventDefault();
-    try { onTimers(await addTimer({ scene: scene.id, at, days, seconds: length })); toast(true, `“${scene.name}” will show at ${showTime(at)}, ${dayWord(days)}`); }
-    catch (err) { toast(false, err.message); }
-  };
-  const remove = async (t) => {
-    try { onTimers(await removeTimer(t)); } catch (err) { toast(false, err.message); }
   };
   const play = (secs) => api.playScene(scene.id, secs).then(
     () => toast(true, secs ? `Showing “${scene.name}” for ${lengthWord(secs)}, then the globe goes back` : `Playing “${scene.name}” once`),
@@ -61,15 +78,7 @@ export function WhenItShows({ scene, seconds, items, timers, onItems, onTimers, 
         <label class="feature-switch"><Switch on={inRotation} onChange={toggle} label="Give this scene a turn on the globe" /><span class="muted">{inRotation ? <>On: it comes round every cycle. Set its place in the order on <a href="#/home">Home</a>.</> : 'Off'}</span></label>
       </Row>
       <Row label="At a set time" hint="it cuts in, then the globe goes back to the rotation">
-        {mine.length > 0 && <div class="timer-chips">{mine.map((t) => <TimerChip key={t.at} timer={t} onRemove={() => remove(t)} />)}</div>}
-        <form class="row timer-add" onSubmit={add}>
-          <input type="time" value={at} onInput={(e) => setAt(e.currentTarget.value)} aria-label="Time of day" required />
-          <Choice label="Days" value={days} options={DAYS} onPick={setDays} />
-          <select class="select" value={length} onChange={(e) => setLength(+e.currentTarget.value)} aria-label="For how long">
-            {LENGTHS.map(([v, l]) => <option key={v} value={v}>{v ? `for ${l}` : l}</option>)}
-          </select>
-          <button class="btn" type="submit">+ Add time</button>
-        </form>
+        <SetTimes scene={scene} timers={timers} onTimers={onTimers} toast={toast} />
       </Row>
       <Row label="Right now" hint="over whatever the globe is showing">
         <div class="row">

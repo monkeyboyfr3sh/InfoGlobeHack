@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import * as api from '../lib/api.js';
 import { TOKEN_RE, TOKEN_RULES, generateToken } from '../lib/request.js';
 import { Choice, Row, LocationPicker, Switch, hasLocation } from '../components/Common.jsx';
@@ -8,6 +8,7 @@ import { fillValues, setVars, setLocation } from '../lib/values.js';
 import { VALUES as WX_VALUES, STATUS as WX_STATUS, weatherScene, ago } from '../lib/feeds/weather.js';
 import { VALUES as AC_VALUES, PLANE_SCENE } from '../lib/feeds/aircraft.js';
 import { RELEASES, VERSION, inline } from '../lib/releases.js';
+import { makeBackup, restoreBackup, checkBackup, download } from '../lib/backup.js';
 
 // Settings: everything about the globe that isn't what it shows. The display and its
 // night schedule, where it is, the weather and plane feeds, and, folded away, the
@@ -353,6 +354,45 @@ function About() {
   );
 }
 
+/* ---------- backup and restore ---------- */
+
+function Backup({ toast }) {
+  const [busy, setBusy] = useState('');
+  const file = useRef(null);
+  const save = async () => {
+    setBusy('Reading the globe…');
+    try {
+      const b = await makeBackup();
+      download(`infoglobe-backup-${new Date().toISOString().slice(0, 10)}.json`, b);
+      toast(true, `Backup saved: ${Object.keys(b.scenes).length} scenes, the rotation and the settings`);
+    } catch (e) { toast(false, `Could not make the backup: ${e.message}`); }
+    setBusy('');
+  };
+  const restore = async (f) => {
+    try {
+      const b = JSON.parse(await f.text());
+      const { scenes } = checkBackup(b);
+      const when = b.made ? ` from ${new Date(b.made).toLocaleString()}` : '';
+      if (!confirm(`Restore this backup${when}? Its ${Object.keys(scenes).length} scenes, the rotation and the settings replace what the globe has. Scenes that aren't in the backup are kept.`)) return;
+      const r = await restoreBackup(b, setBusy);
+      toast(true, `Restored ${r.scenes} scenes${r.playlist ? ', the rotation' : ''}${r.settings ? ' and the settings' : ''}. Reloading…`);
+      setTimeout(() => location.reload(), 1500);
+    } catch (e) { toast(false, `Could not restore: ${e.message}`); }
+    setBusy('');
+  };
+  return (
+    <Row label="Backup" hint="your scenes, the rotation and the settings, in one file">
+      <div class="row">
+        <button class="btn small" onClick={save} disabled={!!busy}>Download a backup</button>
+        <button class="btn small" onClick={() => file.current.click()} disabled={!!busy}>Restore from a file…</button>
+        {busy && <span class="muted small">{busy}</span>}
+      </div>
+      <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.currentTarget.files[0]; if (f) restore(f); e.currentTarget.value = ''; }} />
+      <p class="muted small" style="margin:6px 0 0">The access token isn’t in it. Worth doing before you change much, or to set up a second globe.</p>
+    </Row>
+  );
+}
+
 /* ---------- rarely needed: folded away ---------- */
 
 const PACES = [[0, 'Fastest'], [150, 'Normal'], [300, 'Slow'], [600, 'Very slow']];
@@ -363,7 +403,8 @@ function More({ settings, save, toast }) {
   const host = api.GLOBE || location.origin;
   return (
     <details class="card more" id="more">
-      <summary>More: animation pace, access token, scripts and firmware</summary>
+      <summary>More: backup, animation pace, access token, scripts and firmware</summary>
+      <Backup toast={toast} />
       <Row label="Animation pace" hint="how fast animations like split-flap step">
         <Choice label="Animation pace" value={paceValue} options={PACES} onPick={(v) => save({ animMinMs: v }, 'Animation pace saved')} />
       </Row>
