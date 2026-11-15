@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { encodeText, TEXT_MAX } from '../lib/protocol.js';
 import { makeScene } from '../lib/sim.js';
-import { cleanScene, toStored, slug, messageFrame, sceneSim } from '../lib/scenes.js';
+import { cleanScene, toStored, slug, messageFrame, sceneSim, TEMPLATES } from '../lib/scenes.js';
 import * as api from '../lib/api.js';
 import { Screen } from '../components/Screen.jsx';
 import { Mini } from '../components/Mini.jsx';
@@ -293,8 +293,12 @@ function TurnRow({ row, item, pos, many, playing, frame, parts, at, secs, open, 
   );
 }
 
-/** The last row of the list: type a message (or name a day to count down to), press Enter, and it has a turn. */
-function AddMessage({ onAdd }) {
+// Ready-made starting points for the add row (the clock ones are the Clock page's job)
+const READY = TEMPLATES.filter((t) => !['blank', 'clock', 'clockdate'].includes(t.key))
+  .map((t) => { const n = t.name.replace(/^Animation: /, ''); return { ...t, name: n[0].toUpperCase() + n.slice(1) }; });
+
+/** The last row of the list: type a message (or name a day to count down to, or pick a ready-made one), and it has a turn. */
+function AddMessage({ onAdd, onReady }) {
   const [kind, setKind] = useState('message');
   const [text, setText] = useState('');
   const [label, setLabel] = useState('');
@@ -341,13 +345,19 @@ function AddMessage({ onAdd }) {
         </div>
         {kind === 'countdown'
           ? <span class="muted small">{label.trim() ? <>shows as <b class="mono">{fillValues(countdown)}</b>, then TOMORROW, then TODAY</> : 'every year, so it suits birthdays too'}</span>
-          : <a class="btn small link" href="#/scenes">or a ready-made scene</a>}
+          : (
+            <select class="select ready" value="" aria-label="Add a ready-made one"
+              onChange={(e) => { const t = READY.find((x) => x.key === e.currentTarget.value); e.currentTarget.value = ''; if (t) onReady(t); }}>
+              <option value="">or a ready-made one…</option>
+              {READY.map((t) => <option key={t.key} value={t.key}>{t.name} · {t.frames.length} message{t.frames.length === 1 ? '' : 's'}</option>)}
+            </select>
+          )}
       </div>
     </li>
   );
 }
 
-function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open, saveState, focus, onFocus, onOpen, onEdit, onAdd, onDelete, onMore, onChanged, onItems, onSettings, onTimers }) {
+function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open, saveState, focus, onFocus, onOpen, onEdit, onAdd, onReady, onDelete, onMore, onChanged, onItems, onSettings, onTimers }) {
   const have = new Map(scenes.map((s) => [s.id, s]));
   const rows = [
     ...['clock', 'weather', 'plane'].filter((id) => id !== 'plane' || have.has('plane')).map((id) => ({
@@ -420,10 +430,10 @@ function OnTheGlobe({ scenes, details, items, timers, settings, now, toast, open
       <h3 class="group">{many ? 'Takes turns, in this order' : 'Showing'}</h3>
       <ul class="turns">
         {onRows.map(turnRow)}
-        <AddMessage onAdd={onAdd} />
+        <AddMessage onAdd={onAdd} onReady={onReady} />
       </ul>
       <p class="muted small list-hint">
-Each row lists what it says, in order; the lit one is on the globe now. {many ? 'Use ▲ ▼ to change the order. ' : ''}Edit opens one of yours; Set up changes what is inside the Clock, Weather and Planes.
+{many ? '▲ ▼ change the order. ' : ''}The lit part of a row is on the globe now.
       </p>
       {offRows.length > 0 && <>
         <h3 class="group">Switched off</h3>
@@ -439,7 +449,7 @@ Each row lists what it says, in order; the lit one is on the globe now. {many ? 
             <span class="muted small">{watching ? 'cuts in when a plane flies close, then goes back' : 'off'}</span>
           </div>
           <span />
-          <div class="turn-tools"><a class="btn small" href="#/planes">Set up</a></div>
+          <div class="turn-tools"><a class="btn small" href="#/settings/planes">Set up</a></div>
         </li>
       </ul>
       <h3 class="group">At set times</h3>
@@ -525,13 +535,15 @@ export function Dashboard({ toast, now, online, display }) {
     location.hash = `#/scenes/${id}`;
   };
 
-  const add = async (text, name = plainName(text) || 'Message') => {
+  const add = (text, name = plainName(text) || 'Message') => addScene(name, [messageFrame(text)]);
+  const addReady = (t) => addScene(t.name, t.frames.map((f) => ({ ...f })));
+  const addScene = async (name, frames) => {
     const id = freshId(slug(name), [...scenes.map((s) => s.id), 'new', ...HIDDEN, ...Object.keys(BUILT_IN)]);
-    const scene = { id, name: name.slice(0, 39).trim(), frames: [messageFrame(text)] };
+    const scene = { id, name: name.slice(0, 39).trim(), frames };
     try {
       await api.saveScene(id, toStored(scene));
       const next = await setInRotation(id, true, sceneSeconds(scene));
-      setScenes((list) => [...list.filter((s) => s.id !== id), { id, name: scene.name, frames: 1 }]);
+      setScenes((list) => [...list.filter((s) => s.id !== id), { id, name: scene.name, frames: frames.length }]);
       setDetails((d) => ({ ...d, [id]: scene }));
       setItems(next);
       openRow(id);
@@ -566,7 +578,7 @@ export function Dashboard({ toast, now, online, display }) {
       </div>
       <div class="dash-side">
         <OnTheGlobe scenes={scenes} details={details} items={items} timers={timers} onTimers={setTimers} settings={settings} now={now} toast={toast}
-          open={open} saveState={saveState} focus={focus} onFocus={setFocus} onOpen={openRow} onEdit={edit} onAdd={add} onDelete={remove} onMore={more}
+          open={open} saveState={saveState} focus={focus} onFocus={setFocus} onOpen={openRow} onEdit={edit} onAdd={add} onReady={addReady} onDelete={remove} onMore={more}
           onChanged={refresh} onItems={setItems} onSettings={(patch) => setSettings((s) => ({ ...s, ...patch }))} />
       </div>
     </div>

@@ -66,7 +66,7 @@ does not, and neither does a plane sitting at an airfield down the road. Altitud
 ground, which is right near sea level and generous in the mountains.
 
 Every aircraft in range is judged, not only the nearest: one that lingers close by doesn't hide the next to arrive.
-While the alert plays the values describe the aircraft it is about. The Planes page shows the last alert (`plane_alert`, `plane_alert_at`) and
+While the alert plays the values describe the aircraft it is about. Settings, Planes shows the last alert (`plane_alert`, `plane_alert_at`) and
 the closest approach since the globe started (`plane_closest`, `plane_close_at`). It does not fire:
 
 - when no scene `plane` exists (the card creates a default one: the line flying in, the trip, where to look);

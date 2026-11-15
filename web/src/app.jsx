@@ -4,9 +4,6 @@ import { Switch } from './components/Common.jsx';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Clock } from './pages/Clock.jsx';
-import { Weather } from './pages/Weather.jsx';
-import { Planes } from './pages/Planes.jsx';
-import { Advanced } from './pages/Advanced.jsx';
 import { Settings } from './pages/Settings.jsx';
 
 function ThemeButton() {
@@ -31,13 +28,18 @@ function ThemeButton() {
   );
 }
 
-// One menu, the same on every page. #/scenes/<scene id> opens a scene in the editor.
-const PAGES = [['home', 'Home'], ['clock', 'Clock'], ['weather', 'Weather'], ['planes', 'Planes'], ['scenes', 'My scenes'], ['settings', 'Settings']];
-const OLD = { dashboard: 'home', designer: 'scenes', data: 'weather' };      // links from before the menu changed
+// One menu, the same on every page: Home (what the globe shows), Clock (the clock
+// studio) and Settings (everything else). #/scenes/<scene id> opens a scene's full
+// editor, from Edit, More options on Home; #/settings/<card> opens Settings on that card.
+const PAGES = [['home', 'Home'], ['clock', 'Clock'], ['settings', 'Settings']];
+// links from before the menu was slimmed down: [page, card]
+const OLD = { dashboard: ['home'], designer: ['home'], data: ['settings', 'weather'], weather: ['settings', 'weather'],
+  planes: ['settings', 'planes'], advanced: ['settings', 'more'] };
 function parseHash() {
   const [, raw, id] = (location.hash || '').replace(/^#/, '').split('/');
-  const page = OLD[raw] || raw;
-  return { page: PAGES.some(([p]) => p === page) || page === 'advanced' ? page : 'home', id: id || null };
+  if (OLD[raw]) return { page: OLD[raw][0], id: OLD[raw][1] || null };
+  if (raw === 'scenes' && id) return { page: 'scenes', id };          // the full editor of one scene
+  return { page: PAGES.some(([p]) => p === raw) ? raw : 'home', id: id || null };
 }
 
 // After the globe is updated, a page that was already open is an old copy that
@@ -185,19 +187,13 @@ export function App() {
             <Switch on={display.on} onChange={(on) => display.set(on).catch(() => false)} label="Display on" disabled={!now || !online} />
           </label>
           <StatusChip now={now} online={online} via={via} />
-          <a class="btn icon" href="#/advanced" aria-current={route.page === 'advanced' ? 'page' : undefined} aria-label="Advanced" title="Advanced">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4h6M12 4h2M2 8h2M8 8h6M2 12h7M13 12h1" /><circle cx="10" cy="4" r="1.8" /><circle cx="6" cy="8" r="1.8" /><circle cx="11" cy="12" r="1.8" /></svg>
-          </a>
           <ThemeButton />
         </div>
       </header>
       <main class="wrap">
       {route.page === 'scenes' ? <Designer sceneId={route.id} toast={say} />
         : route.page === 'clock' ? <Clock toast={say} />
-        : route.page === 'weather' ? <Weather toast={say} />
-        : route.page === 'planes' ? <Planes toast={say} />
-        : route.page === 'settings' ? <Settings toast={say} display={display} />
-        : route.page === 'advanced' ? <Advanced toast={say} />
+        : route.page === 'settings' ? <Settings toast={say} display={display} section={route.id} />
         : <Dashboard toast={say} now={now} online={online} display={display} />}
       </main>
       {newer && <div class="snack update" role="status">The globe has a newer version of this page. <button class="btn small primary" onClick={() => location.reload()}>Reload</button></div>}

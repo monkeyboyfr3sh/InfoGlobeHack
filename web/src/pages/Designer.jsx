@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { encodeText } from '../lib/protocol.js';
 import { makeScene, makeSequence } from '../lib/sim.js';
-import { TEMPLATES, newFrame, slug, cleanScene, toStored, toCodes, styleOf, simFrame } from '../lib/scenes.js';
+import { newFrame, slug, cleanScene, toStored, toCodes, styleOf, simFrame } from '../lib/scenes.js';
 import { useHistory } from '../lib/history.js';
-import { BUILT_IN, HIDDEN, sceneSeconds, setInRotation, fitRotationSeconds, deleteScene, showTime } from '../lib/rotation.js';
+import { BUILT_IN, HIDDEN, sceneSeconds, setInRotation, fitRotationSeconds, deleteScene } from '../lib/rotation.js';
 import * as api from '../lib/api.js';
 import { Screen } from '../components/Screen.jsx';
 import { FrameEditor, EFFECTS, animName } from '../components/FrameEditor.jsx';
@@ -13,22 +13,14 @@ import { Switch } from '../components/Common.jsx';
 import { WhenItShows } from '../components/WhenItShows.jsx';
 
 // My scenes. A scene is a short show: messages that appear one after another
-// and then start again. #/scenes lists them; #/scenes/<id> (or /new) edits one.
+// and then start again. Home lists them; #/scenes/<id> (or /new) is the full editor of one.
 
 const fxName = (id) => (id === null || id === undefined || id < 0 ? 'Just appears' : EFFECTS[id].name);
 const fmtSecs = (s) => (s >= 60 ? `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ''}` : `${s} s`);
 
 const BLANK = { id: '', name: 'My scene', frames: [newFrame({ text: 'HELLO' })] };
 // Scenes other pages look after; they can be opened here, with a note saying so.
-const OWNER = { clock: ['Clock', '#/clock'], weather: ['Weather', '#/weather'], plane: ['Planes', '#/planes'] };
-const TEMPLATE_HINT = {
-  blank: 'One message; build it up from there.',
-  clock: 'The time, holding still in front.',
-  clockdate: 'The time, then the date.',
-  ticker: 'A long line that circles the globe.',
-  alert: 'A flashing envelope, then your message.',
-  alternate: 'Two short lines taking turns.',
-};
+const OWNER = { clock: ['Clock', '#/clock'], weather: ['Weather settings', '#/settings/weather'], plane: ['Planes settings', '#/settings/planes'] };
 
 // The scene being worked on is kept in this browser, with what the globe had
 // when it was last in step ("base"): with no changes of its own, a scene edited
@@ -36,74 +28,6 @@ const TEMPLATE_HINT = {
 function loadDraft() {
   try { const d = JSON.parse(localStorage.getItem('scene-draft')); if (d && d.scene && Array.isArray(d.scene.frames) && d.scene.frames.length) return d; } catch { /* ignore */ }
   return { scene: BLANK, sel: 0, base: null };
-}
-
-/* ---------- the list: your scenes, and ways to start a new one ---------- */
-
-function SceneList({ library, details, items, timers, draft, onNew, onDelete, toast, onChanged }) {
-  const mine = library.filter((s) => !OWNER[s.id]);
-  const others = library.filter((s) => OWNER[s.id]);
-  const inRotation = (id) => items.some((it) => it.scene === id);
-  const toggle = (s) => async (next) => {
-    try { await setInRotation(s.id, next, details[s.id] ? sceneSeconds(details[s.id]) : undefined); await onChanged(); toast(true, next ? `“${s.name}” now takes a turn on the globe` : `“${s.name}” taken off the globe`); }
-    catch (e) { toast(false, e.message); }
-  };
-  const Card = ({ s }) => (
-    <div class="scene-card">
-      <Mini frame={details[s.id] && details[s.id].frames[0]} height={34} />
-      <div class="scene-info">
-        <b>{s.name}</b>
-        <span class="muted small">{s.frames} message{s.frames === 1 ? '' : 's'}{OWNER[s.id] ? ` · from the ${OWNER[s.id][0]} page` : ''}</span>
-        <span class="uses">
-          {inRotation(s.id) && <span class="pill playlist">takes a turn</span>}
-          {timers.filter((t) => t.scene === s.id).map((t) => <span key={t.at} class="pill scene">{showTime(t.at)}</span>)}
-          {!inRotation(s.id) && !timers.some((t) => t.scene === s.id) && !OWNER[s.id] && <span class="pill">not showing yet</span>}
-        </span>
-      </div>
-      <div class="row">
-        <a class="btn small primary" href={`#/scenes/${s.id}`}>Edit</a>
-        <button class="btn small" onClick={() => api.playScene(s.id, 0).then(() => toast(true, `Playing “${s.name}” once`), (e) => toast(false, e.message))}>Play</button>
-        {!OWNER[s.id] && <button class="btn small danger" onClick={() => onDelete(s)}>Delete</button>}
-      </div>
-      {!OWNER[s.id] && <label class="scene-on small muted">On the globe <Switch on={inRotation(s.id)} onChange={toggle(s)} label={`Show ${s.name} on the globe`} /></label>}
-    </div>
-  );
-  return (
-    <div class="page wide">
-      <section class="card">
-        <div class="feature-head">
-          <div>
-            <h2>My scenes</h2>
-            <p class="muted">A scene is a short show you make yourself: messages that appear one after another, each with its own entrance. Once made, it can take a turn on the globe, show at a set time of day, or be played on demand. For a plain message, the quickest way is the list on <a href="#/home">Home</a>.</p>
-          </div>
-        </div>
-        {draft && (
-          <div class="now-box plain">
-            <div><b>{draft.name}</b><span class="muted small">You were working on this and haven’t saved it.</span></div>
-            <span style="flex:1" />
-            <a class="btn primary" href="#/scenes/new">Keep working on it</a>
-          </div>
-        )}
-        <h3 class="group">Yours</h3>
-        {mine.length ? <div class="scene-grid">{mine.map((s) => <Card key={s.id} s={s} />)}</div>
-          : <p class="muted">You haven’t made any yet. Pick a starting point below.</p>}
-        <h3 class="group">Start a new one</h3>
-        <p class="muted small" style="margin:0 0 10px">These are starting points. Picking one makes a copy that is yours to change; deleting your copy never removes the starting point.</p>
-        <div class="scene-grid">
-          {TEMPLATES.map((t) => (
-            <button key={t.key} class="scene-card start" onClick={() => onNew(t.key)}>
-              <Mini frame={t.frames[0]} height={34} />
-              <div class="scene-info"><b>{t.name}</b><span class="muted small">{TEMPLATE_HINT[t.key] || `${t.frames.length} message${t.frames.length === 1 ? '' : 's'}`}</span></div>
-            </button>
-          ))}
-        </div>
-        {others.length > 0 && <>
-          <h3 class="group">Made by other pages</h3>
-          <div class="scene-grid">{others.map((s) => <Card key={s.id} s={s} />)}</div>
-        </>}
-      </section>
-    </div>
-  );
 }
 
 /* ---------- the editor ---------- */
@@ -114,8 +38,7 @@ export function Designer({ sceneId, toast }) {
   const scene = hist.value;
   const [sel, setSel] = useState(Math.min(draft.sel || 0, scene.frames.length - 1));
   const [savedJson, setSavedJson] = useState(draft.base || null);
-  const [library, setLibrary] = useState([]);
-  const [details, setDetails] = useState({});
+  const [library, setLibrary] = useState([]);       // the globe's scenes: a new name mustn't overwrite one by accident
   const [items, setItems] = useState([]);
   const [timers, setTimers] = useState([]);
   const [hover, setHover] = useState(null);
@@ -126,7 +49,6 @@ export function Designer({ sceneId, toast }) {
   const fileRef = useRef(null);
   const frame = scene.frames[Math.min(sel, scene.frames.length - 1)];
   const dirty = savedJson !== JSON.stringify(toStored(scene));
-  const editing = !!sceneId;
 
   const refreshLibrary = async () => {
     try {
@@ -135,9 +57,6 @@ export function Designer({ sceneId, toast }) {
       const p = await api.getPlaylist();
       setItems(p.items || []);
       setTimers(p.timers || []);
-      const d = {};
-      await Promise.all(list.map(async (s) => { try { d[s.id] = cleanScene(await api.getScene(s.id)); } catch { /* skip */ } }));
-      setDetails(d);
     } catch { setLibrary([]); }
   };
   useEffect(() => { refreshLibrary(); }, []);
@@ -153,7 +72,7 @@ export function Designer({ sceneId, toast }) {
     }, (e) => {
       if (e.status !== 404) return;                    // offline: keep what is here
       hist.set(BLANK, { replace: true }); setSel(0); setSavedJson(null);     // deleted elsewhere
-      if (sceneId === draft.scene.id) location.hash = '#/scenes';
+      if (sceneId === draft.scene.id) location.hash = '#/home';
     });
   }, []);
 
@@ -163,7 +82,7 @@ export function Designer({ sceneId, toast }) {
       hist.set(s, { replace: true });
       setSel(0);
       setSavedJson(JSON.stringify(toStored(s)));
-    } catch (e) { toast(false, `Could not open: ${e.message}`); location.hash = '#/scenes'; }
+    } catch (e) { toast(false, `Could not open: ${e.message}`); location.hash = '#/home'; }
   };
   useEffect(() => {
     if (!sceneId || sceneId === 'new' || sceneId === scene.id) return;
@@ -171,23 +90,12 @@ export function Designer({ sceneId, toast }) {
     open(sceneId);
   }, [sceneId]);
 
-  const fromTemplate = (key) => {
-    const t = TEMPLATES.find((x) => x.key === key);
-    if (!t) return;
-    if (!scene.id && dirty && JSON.stringify(toStored(scene)) !== JSON.stringify(toStored(BLANK)) && !confirm(`Replace your unsaved scene “${scene.name}”?`)) return;
-    hist.set({ id: '', name: t.key === 'blank' ? 'My scene' : t.name, frames: t.frames.map((f) => ({ ...f })) }, { replace: true });
-    setSel(0);
-    setSavedJson(null);
-    location.hash = '#/scenes/new';
-  };
-
   // ---- scene edits ----
   const setFrame = (f) => hist.set((s) => ({ ...s, frames: s.frames.map((x, i) => (i === sel ? f : x)) }));
   const dupFrame = () => { hist.set((s) => ({ ...s, frames: [...s.frames.slice(0, sel + 1), { ...frame }, ...s.frames.slice(sel + 1)] })); setSel(sel + 1); };
 
   // keyboard: undo/redo, duplicate
   useEffect(() => {
-    if (!editing) return undefined;
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       const k = e.key.toLowerCase();
@@ -253,7 +161,7 @@ export function Designer({ sceneId, toast }) {
       toast(true, 'Deleted');
       hist.set(BLANK, { replace: true }); setSel(0); setSavedJson(null);
       await refreshLibrary();
-      location.hash = '#/scenes';
+      location.hash = '#/home';
     } catch (e) { toast(false, e.message); }
   };
   const exportFile = () => {
@@ -275,27 +183,12 @@ export function Designer({ sceneId, toast }) {
     } catch (e) { toast(false, `Could not read that file: ${e.message}`); }
   };
 
-  const removeListed = async (s) => {
-    if (!confirm(`Delete “${s.name}” for good?`)) return;
-    try {
-      await deleteScene(s.id);
-      if (scene.id === s.id) { hist.set(BLANK, { replace: true }); setSel(0); setSavedJson(null); }
-      await refreshLibrary();
-      toast(true, `Deleted “${s.name}”`);
-    } catch (e) { toast(false, `Could not delete it: ${e.message}`); }
-  };
-
-  if (!editing) {
-    const unsaved = !scene.id && JSON.stringify(toStored(scene)) !== JSON.stringify(toStored(BLANK)) ? scene : null;
-    return <SceneList library={library} details={details} items={items} timers={timers} draft={unsaved} onNew={fromTemplate} onDelete={removeListed} toast={toast} onChanged={refreshLibrary} />;
-  }
-
   const owner = OWNER[scene.id];
   const n = scene.frames.length;
   return (
     <div>
       <div class="scenebar">
-        <a class="btn" href="#/scenes" title="Back to the list of scenes">← All scenes</a>
+        <a class="btn" href="#/home" title="Back to the list on Home">← Home</a>
         <div class="scenebar-title">
           <input type="text" class="name" value={scene.name} onInput={(e) => hist.set((x) => ({ ...x, name: e.currentTarget.value }))} aria-label="Scene name" placeholder="Name this scene" />
           <span class={`save-state${dirty ? ' dirty' : ''}`}>{!scene.id ? 'Not saved yet' : dirty ? 'Changes not saved' : 'Saved on the globe'}</span>

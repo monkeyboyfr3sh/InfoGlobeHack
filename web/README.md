@@ -1,8 +1,11 @@
 # InfoGlobe web designer
 
 Preact + Vite app served by the globe at `/designer` (the classic page at `/` stays as the Control/Explorer UI).
-Pages: `#/dashboard` (now showing, playlist, quick message, scenes), `#/clock` (clock studio), `#/designer[/<scene id>]`
-(scene editor), `#/data` (pushed values, weather and aircraft) and `#/settings` (access token).
+Three pages: `#/home` (now showing, timer, quick message, and the list of what the globe shows), `#/clock` (clock
+studio) and `#/settings` (display and night schedule, location, weather, planes; animation pace, scripts, firmware and
+the access token folded under "More"). `#/settings/<card>` opens on a card; `#/scenes/<id>` is one scene's full editor,
+reached from Edit, More options on Home. Links to the old pages (`#/weather`, `#/planes`, `#/advanced`, ...) still land
+in the right place.
 
 - `npm ci` once (Node.js 22.12 or later); after that `idf.py build` rebuilds the bundle automatically when `src/` changes
   (output: `hello_world/main/data/designer.html.gz`, committed so the firmware builds without Node).
@@ -16,11 +19,10 @@ Pages: `#/dashboard` (now showing, playlist, quick message, scenes), `#/clock` (
 |---|---|
 | `src/app.jsx` | Shell: tabs, hash routing, theme, notifications, the access-token prompt |
 | `src/pages/Dashboard.jsx` | Home: now showing (live from `live.js`), quick message, and the one list of what the globe shows, where messages are added, edited, reordered and deleted in place |
-| `src/pages/Designer.jsx` | My scenes: the list and templates, and the full editor (every option of a message, save/export/import, when it shows) |
+| `src/pages/Designer.jsx` | One scene's full editor: every option of a message with previews, save/export/import, when it shows |
 | `src/components/MessageRows.jsx` | A scene's messages, one block each (words, seconds, entrance, what it does, order); used by Home and the editor |
 | `src/pages/Clock.jsx` | Clock studio: styles, colon blink, extras and chimes, compiled into scenes (`clockstyles.js`) |
-| `src/pages/Data.jsx` | Pushed values on the globe, plus the feeds' cards (`components/WeatherCard.jsx`, `AircraftCard.jsx`) |
-| `src/pages/Settings.jsx` | The globe's access token: set, change, remove, generate |
+| `src/pages/Settings.jsx` | Display and night schedule, location and units, the weather and plane feeds, and under "More": animation pace, scripts, firmware, access token |
 | `src/components/` | Preview screen (front window + unrolled band), transition gallery and picker, frame editor, mini previews |
 | `src/lib/api.js` | The globe's REST API (one function per route); base URL from `?globe=` or `VITE_GLOBE` |
 | `src/lib/request.js` | HTTP calls with the optional access token (`Authorization: Bearer`), retry after a 401 |

@@ -586,3 +586,14 @@ input.msg-text { grid-area: text; font-family: var(--mono); height: 36px; letter
 .layout-left .strip-head { margin-top: 12px; }
 .inspector-head { align-items: center; }
 .scene-card .scene-on { justify-content: space-between; }
+
+/* Slimmed down: Settings holds the display, the place, the two feeds, and "More" folded away */
+.page.settings .card + .card, .page.settings .card + details.card { margin-top: 16px; }
+details.card.more > summary { font-weight: 600; color: var(--text-strong); list-style-position: inside; }
+details.card.more[open] > summary { margin-bottom: 4px; }
+.token-card { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.token-card .card-head h2 { font-size: 1rem; }
+.feed-values { margin-top: 14px; }
+.feed-values > summary { color: var(--text-muted); }
+.feed-values table { margin-top: 8px; }
+.add-more .select.ready { height: 28px; font-size: .84rem; padding: 0 6px; color: var(--accent-text); max-width: 220px; }

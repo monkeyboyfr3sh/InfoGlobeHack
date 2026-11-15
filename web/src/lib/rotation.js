@@ -10,8 +10,8 @@ import { withScene, withSeconds, withSwapped, withTimer, withoutTimer } from './
 // Scenes the app makes for you the first time they are switched on.
 export const BUILT_IN = {
   clock: { name: 'Clock', page: '#/clock', seconds: 30 },
-  weather: { name: 'Weather', page: '#/weather', seconds: 30, make: weatherScene },
-  plane: { name: 'Planes', page: '#/planes', seconds: 30, make: () => PLANE_SCENE },
+  weather: { name: 'Weather', page: '#/settings/weather', seconds: 30, make: weatherScene },
+  plane: { name: 'Planes', page: '#/settings/planes', seconds: 30, make: () => PLANE_SCENE },
 };
 // Scenes that are never offered in the rotation (the app plays them itself).
 export const HIDDEN = ['quick', 'clock-chime', 'timer', 'timer-done'];

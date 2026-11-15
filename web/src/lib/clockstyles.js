@@ -3,7 +3,7 @@
 
 export const STYLES = [
   { key: 'classic', name: 'Classic', desc: 'The original: still in front, colon blinks.', uses: 'clock' },
-  { key: 'flip', name: 'Split-flap', desc: 'Digits drop and change like a flip clock.', uses: 'time', change: 26 },
+  { key: 'flip', name: 'Drop', desc: 'Old digits drop away and the new ones fall into place.', uses: 'time', change: 26 },
   { key: 'surprise', name: 'Surprise me', desc: 'A different transition every minute.', uses: 'time', change: 'random' },
   { key: 'pendulum', name: 'Pendulum', desc: 'The time swings gently left and right.', uses: 'time', motion: 'pendulum' },
   { key: 'ticker', name: 'Ticker', desc: 'Time and date circling the globe.', text: '{time} {ampm}  {date}', after: 'spin' },
@@ -15,6 +15,9 @@ export const STYLES = [
   { key: 'beat', name: 'Internet time', desc: 'Swatch .beats: 1000 per day, same everywhere.', text: 'BEAT {beat}', after: 'hold', change: 12 },
   { key: 'decode', name: 'Decode', desc: 'Each new minute scrambles and locks in, Matrix style.', uses: 'time', change: 'decode' },
   { key: 'flap', name: 'Departure board', desc: 'Each digit flips on through the numbers to the new minute.', uses: 'time', change: 'flap' },
+  { key: 'odometer', name: 'Odometer', desc: 'Digits roll up to the new minute like a car’s mileage counter.', uses: 'time',
+    change: { type: 'count', mode: 'digits', steps: 8, ms: 90 } },
+  { key: 'dissolve', name: 'Dissolve', desc: 'The new minute dissolves in, dot by dot.', uses: 'time', change: 36 },
 ];
 
 export const EXTRAS = [

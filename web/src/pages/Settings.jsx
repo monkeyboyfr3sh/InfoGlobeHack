@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'preact/hooks';
 import * as api from '../lib/api.js';
 import { TOKEN_RE, TOKEN_RULES, generateToken } from '../lib/request.js';
-import { Choice, Row, LocationPicker, Switch } from '../components/Common.jsx';
-import { cleanTime, showTime } from '../lib/rotation.js';
+import { Choice, Row, LocationPicker, Switch, hasLocation } from '../components/Common.jsx';
+import { Mini } from '../components/Mini.jsx';
+import { cleanTime, showTime, ensureScene } from '../lib/rotation.js';
+import { fillValues, setVars, setLocation } from '../lib/values.js';
+import { VALUES as WX_VALUES, STATUS as WX_STATUS, weatherScene, ago } from '../lib/feeds/weather.js';
+import { VALUES as AC_VALUES, PLANE_SCENE } from '../lib/feeds/aircraft.js';
 
-// Settings: the globe's access token for now; other settings can join as cards.
+// Settings: everything about the globe that isn't what it shows. The display and its
+// night schedule, where it is, the weather and plane feeds, and, folded away, the
+// rarely needed: animation pace, scripts, firmware and the access token.
 
 function AccessToken({ toast }) {
   const [info, setInfo] = useState(null);          // {required, valid}; false = couldn't ask
@@ -50,7 +56,7 @@ function AccessToken({ toast }) {
     : <p class="token-state">On. This browser doesn't have the token; it will ask for it when you change something.</p>;
 
   return (
-    <section class="card">
+    <section class="token-card">
       <div class="card-head"><h2>Access token</h2>{info && <span class={`pill ${info.required ? 'playlist' : 'manual'}`}>{info.required ? 'On' : 'Off'}</span>}</div>
       <p class="hint">With a token set, the globe only accepts changes that carry it. Looking stays open.</p>
       {state}
@@ -95,60 +101,16 @@ curl -X POST "${host}/api/v1/values?token=${shown}" -d '{"cpu":42}'`}</pre>
   );
 }
 
-const PACES = [[0, 'Fastest'], [150, 'Normal'], [300, 'Slow'], [600, 'Very slow']];
+/* ---------- the globe's display: the switch and the night schedule ---------- */
 
-function Globe({ toast }) {
-  const [settings, setSettings] = useState(null);
-  useEffect(() => { api.getSettings().then(setSettings, () => setSettings({})); }, []);
-  const save = async (patch, msg) => {
-    try { await api.saveSettings(patch); setSettings((s) => ({ ...s, ...patch })); toast(true, msg); }
-    catch (e) { toast(false, `Could not save: ${e.message}`); }
-  };
-  const units = settings && settings.units === 'c' ? 'c' : 'f';
-  const pace = settings && Number.isFinite(settings.animMinMs) ? settings.animMinMs : 0;
-  const paceValue = PACES.reduce((best, [v]) => (Math.abs(v - pace) < Math.abs(best - pace) ? v : best), 0);
-  return (
-    <>
-      <section class="card">
-        <div class="card-head"><h2>The globe</h2></div>
-        <Row label="Location" hint="for weather, planes and sunrise">
-          <LocationPicker settings={settings} toast={toast} onSaved={(p) => setSettings((s) => ({ ...s, ...p }))} />
-        </Row>
-        <Row label="Units">
-          <Choice label="Units" value={units} options={[['f', '°F and mph'], ['c', '°C and km/h']]} onPick={(v) => save({ units: v }, v === 'f' ? 'Fahrenheit and mph' : 'Celsius and km/h')} />
-        </Row>
-      </section>
-      <section class="card">
-        <div class="card-head"><h2>Speed and brightness</h2></div>
-        <Row label="Animation pace" hint="how fast custom animations step">
-          <Choice label="Animation pace" value={paceValue} options={PACES} onPick={(v) => save({ animMinMs: v }, 'Animation pace saved')} />
-        </Row>
-        <Row label="Time on screen">
-          <span class="muted">Set per item on <a href="#/home">Home</a>: the seconds box beside each thing that is switched on.</span>
-        </Row>
-        <Row label="Brightness and spin speed">
-          <span class="muted">Fixed inside the globe. None of the commands it accepts changes them, so there is nothing to set.</span>
-        </Row>
-      </section>
-    </>
-  );
-}
-
-/** The display switch, and the hours it switches itself off for (settings "displayOffAt" / "displayOnAt"). */
-function Display({ toast, display }) {
-  const [settings, setSettings] = useState(null);
+function Display({ settings, save, display }) {
   const [typed, setTyped] = useState({});            // the boxes, while they aren't what the globe has
-  useEffect(() => { api.getSettings().then(setSettings, () => setSettings({})); }, []);
-  const offAt = settings && cleanTime(settings.displayOffAt), onAt = settings && cleanTime(settings.displayOnAt);
+  const offAt = cleanTime(settings.displayOffAt), onAt = cleanTime(settings.displayOnAt);
   const scheduled = !!offAt && !!onAt;
   const shown = { off: typed.off || offAt || '23:00', on: typed.on || onAt || '07:00' };
   const nightNow = (t) => {
     const m = (x) => +x.slice(0, 2) * 60 + +x.slice(3), d = new Date(), n = d.getHours() * 60 + d.getMinutes();
     return m(t.off) < m(t.on) ? n >= m(t.off) && n < m(t.on) : n >= m(t.off) || n < m(t.on);
-  };
-  const save = async (patch, msg) => {
-    try { await api.saveSettings(patch); setSettings((s) => ({ ...s, ...patch })); toast(true, msg); return true; }
-    catch (e) { toast(false, `Could not save: ${e.message}`); return false; }
   };
   const put = (t) => save({ displayOffAt: t.off, displayOnAt: t.on },
     `Off at ${showTime(t.off)}, back on at ${showTime(t.on)}${nightNow(t) ? '. It is inside those hours now, so the display is going dark' : ''}`);
@@ -161,34 +123,241 @@ function Display({ toast, display }) {
     if (scheduled && t.off !== t.on) put(t);
   };
   return (
-    <section class="card">
+    <section class="card" id="display">
       <div class="card-head"><h2>Display</h2><span class={`pill ${display.on ? 'playlist' : 'off'}`}>{display.on ? 'On' : 'Off'}</span></div>
       <Row label="Display" hint="off blanks the globe; everything is kept">
         <label class="feature-switch"><Switch on={display.on} onChange={(on) => display.set(on).catch(() => false)} label="Display on" />
-          <span class="muted">{display.on ? 'On' : 'Off: the globe is dark until you switch it on'}</span></label>
+          <span class="muted">{display.on ? 'On' : 'Off: dark until you switch it on'}</span></label>
       </Row>
       <Row label="Night schedule" hint="it switches itself off and back on">
         <div class="row">
-          <Switch on={scheduled} onChange={toggle} label="Night schedule" disabled={!settings} />
+          <Switch on={scheduled} onChange={toggle} label="Night schedule" />
           <span>Off from</span>
           <input type="time" value={shown.off} onInput={setTime('off')} aria-label="Switch off at" />
           <span>until</span>
           <input type="time" value={shown.on} onInput={setTime('on')} aria-label="Switch back on at" />
         </div>
         <p class="muted small" style="margin:8px 0 0">
-          {scheduled ? `On: dark from ${showTime(offAt)} to ${showTime(onAt)}, every day. ` : ''}Switch the display by hand in between and that holds until the next of the two times. The globe’s button also switches it back on.
+          {scheduled ? `On: dark from ${showTime(offAt)} to ${showTime(onAt)}, every day. ` : ''}Switched by hand in between, it stays that way until the next of the two times.
         </p>
       </Row>
     </section>
   );
 }
 
-export function Settings({ toast, display }) {
+/* ---------- where the globe is: weather, planes and sunrise all use it ---------- */
+
+function Place({ settings, save, onSettings, toast }) {
+  const units = settings.units === 'c' ? 'c' : 'f';
   return (
-    <div class="page">
-      <Display toast={toast} display={display} />
-      <Globe toast={toast} />
+    <section class="card" id="place">
+      <div class="card-head"><h2>Where the globe is</h2></div>
+      <Row label="Location" hint="for weather, planes and sunrise">
+        <LocationPicker settings={settings} toast={toast} onSaved={onSettings} />
+      </Row>
+      <Row label="Units">
+        <Choice label="Units" value={units} options={[['f', '°F and mph'], ['c', '°C and km/h']]} onPick={(v) => save({ units: v }, v === 'f' ? 'Fahrenheit and mph' : 'Celsius and km/h')} />
+      </Row>
+    </section>
+  );
+}
+
+/** "Change what it shows" and "Play it now" for a feed's scene, with the scene's messages as they read now. */
+function FeedScene({ id, frames, label, toast }) {
+  return (
+    <Row label="What it shows">
+      <ol class="recipe small">{frames.map((f, i) => <li key={i}><span class="mono">{fillValues(f.text, undefined, undefined, true)}</span></li>)}</ol>
+      <div class="row" style="margin-top:8px">
+        <a class="btn small" href={`#/scenes/${id}`}>Change what it shows</a>
+        <button class="btn small" onClick={() => api.playScene(id, 0).then(() => toast(true, `Playing ${label} once`), (e) => toast(false, e.message))}>▶ Play it now</button>
+      </div>
+    </Row>
+  );
+}
+
+/** The feed's values for your own messages ({var:temp}...), folded away. */
+function FeedValues({ list, values, unitOf = () => '' }) {
+  return (
+    <details class="sub feed-values">
+      <summary>Use these in your own messages</summary>
+      <table class="values left">
+        <tbody>
+          {list.map((v) => (
+            <tr key={v.name}><td><code>{`{var:${v.name}}`}</code></td><td class="mono">{values[v.name] ?? '–'}{values[v.name] !== undefined && unitOf(v.name) ? ` ${unitOf(v.name)}` : ''}</td><td class="muted small">{v.label.replace(/ \(.*\)$/, '')}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <p class="muted small">Or pick them from “+ Live” on any message.</p>
+    </details>
+  );
+}
+
+/* ---------- weather ---------- */
+
+const UNIT = { temp: '°', feels: '°', hi: '°', lo: '°', thi: '°', tlo: '°', humid: '%', rain: '%' };
+
+function WeatherCard({ settings, values, toast }) {
+  const units = settings.units === 'c' ? 'c' : 'f';
+  const status = values.wx_status, st = WX_STATUS[status];
+  const unitOf = (name) => (name === 'wind' ? (units === 'c' ? 'km/h' : 'mph') : UNIT[name] === '°' ? `°${units.toUpperCase()}` : UNIT[name] || '');
+  return (
+    <section class="card" id="weather">
+      <div class="card-head"><h2>Weather</h2><span class="muted small">switch it on or off on <a href="#/home">Home</a></span></div>
+      {hasLocation(settings) && st && st.why && status !== 'OK' && status !== 'NO LOCATION' && <div class="problem">{st.why}</div>}
+      {!hasLocation(settings) && <div class="problem">Set the location above and the weather starts.</div>}
+      {values.weather && (
+        <div class="now-box">
+          <Mini frame={{ text: values.weather, after: 'hold', shift: -1 }} height={34} />
+          <div>
+            <b class="mono">{values.weather}</b>
+            <span class="muted small">{values.hi !== undefined && `High ${values.hi}, low ${values.lo}. `}{values.wx_updated && `Updated ${ago(values.wx_updated)}, every 15 minutes.`}</span>
+          </div>
+        </div>
+      )}
+      <FeedScene id="weather" frames={weatherScene().frames} label="the weather" toast={toast} />
+      <FeedValues list={WX_VALUES} values={values} unitOf={unitOf} />
+      <p class="muted small" style="margin:10px 0 0">From Open-Meteo (free, no sign-up). It gets the globe’s location.</p>
+    </section>
+  );
+}
+
+/* ---------- planes ---------- */
+
+const RANGES = [3, 5, 10, 15, 25];
+// when a plane interrupts (feed_aircraft.c "aircraftNotice"): it looks about a minute along each plane's track
+const NOTICE = [[0, 'Never'], [1, 'Right overhead'], [2, 'I’ll see or hear it'], [3, 'Anything in my sky']];
+const NOTICE_HINT = ['', 'Only planes about to pass almost straight over the globe.',
+  'Planes about to pass high enough in your sky to spot, or close enough to hear. It goes off about a minute before they get there.',
+  'Also planes lower on the horizon or further off: more interruptions.'];
+const CEILINGS = [[0, 'Any height'], [20000, 'Below 20,000 ft'], [10000, 'Below 10,000 ft'], [5000, 'Below 5,000 ft']];
+const km = (nm) => Math.round(nm * 1.852);
+const num = (v, d) => (Number.isFinite(v) ? v : d);
+// "UAL123 2.4" + a Unix time, as the globe notes its last alert and its closest approach
+const noted = (text, at) => {
+  const m = /^(.+) (\d+(?:\.\d+)?)$/.exec(text || ''), t = Number(at);
+  if (!m) return null;
+  const when = t > 1e9 ? new Date(t * 1000) : null;
+  const sameDay = when && when.toDateString() === new Date().toDateString();
+  return { who: m[1], nm: m[2], when: when ? `${sameDay ? '' : `${when.toLocaleDateString([], { weekday: 'short' })} `}${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '' };
+};
+
+function PlanesCard({ settings, values, save, toast }) {
+  const on = settings.aircraft === true;
+  const radius = num(settings.aircraftRadius, 10);
+  const notice = Number.isFinite(settings.aircraftNotice) ? settings.aircraftNotice : settings.aircraftAlert === 0 ? 0 : 2;
+  const alertFt = num(settings.aircraftAlertFt, 0);
+  const lastAlert = noted(values.plane_alert, values.plane_alert_at), closest = noted(values.plane_closest, values.plane_close_at);
+  const st = values.plane_status, n = parseInt(values.planes, 10);
+  const toggle = async (next) => {
+    try {
+      if (next) await ensureScene('plane');          // so the overhead alert has something to play
+      await save({ aircraft: next }, next ? 'Watching the sky' : 'Stopped watching for planes');
+    } catch (e) { toast(false, e.message); }
+  };
+  return (
+    <section class="card" id="planes">
+      <div class="feature-head">
+        <div>
+          <h2>Planes</h2>
+          <p class="muted small">Interrupts when a plane is about to fly over, like <span class="mono">UAL123 SFO-ORD B738</span>.</p>
+        </div>
+        <label class="feature-switch"><span>{on ? 'Watching' : 'Off'}</span><Switch on={on} onChange={toggle} label="Watch for planes" /></label>
+      </div>
+      {on && !hasLocation(settings) && <div class="problem">Set the location above and it starts looking.</div>}
+      {on && st === 'OFFLINE' && <div class="problem">The flight trackers aren’t answering right now. The globe keeps trying.</div>}
+      {on && st === 'OK' && (
+        <div class="now-box plain">
+          <div>
+            <b class="mono">{values.planeline}</b>
+            {n > 0 && <span class="small">{values.planetrip} · {values.planewhere}</span>}
+            <span class="muted small">{n > 0 ? `${n} in the air within ${radius} nm (${km(radius)} km)` : `Nothing in the air within ${radius} nm right now`}</span>
+          </div>
+        </div>
+      )}
+      {on && <>
+        <Row label="Interrupt for" hint="plays the plane scene once, then goes back">
+          <Choice label="Interrupt for" value={notice} options={NOTICE} onPick={(v) => save({ aircraftNotice: v }, 'Saved')} />
+          {notice > 0 && <p class="muted small" style="margin:8px 0 0">{NOTICE_HINT[notice]}{radius < 10 ? ' “Look within” 10 nm or more gives it time to see fast jets coming.' : ''}</p>}
+          {notice > 0 && (
+            <p class="muted small" style="margin:6px 0 0">
+              {lastAlert ? <>Last time: <b class="mono">{lastAlert.who}</b>{lastAlert.when ? ` at ${lastAlert.when}` : ''}, {lastAlert.nm} nm away. </> : 'It hasn’t interrupted since the globe last started. '}
+              {closest && <>Closest any plane has come: <b class="mono">{closest.who}</b>, {closest.nm} nm{closest.when ? ` (${closest.when})` : ''}.</>}
+            </p>
+          )}
+        </Row>
+        {notice > 0 && (
+          <Row label="Only planes">
+            <Choice label="Only planes" value={alertFt} options={CEILINGS} onPick={(v) => save({ aircraftAlertFt: v }, 'Saved')} />
+          </Row>
+        )}
+        <Row label="Look within" hint="nautical miles around the globe">
+          <Choice label="Look within" value={radius} options={RANGES.map((r) => [r, `${r} nm`])} onPick={(v) => save({ aircraftRadius: v }, 'Saved')} />
+        </Row>
+        <FeedScene id="plane" frames={PLANE_SCENE.frames} label="the plane scene" toast={toast} />
+        <FeedValues list={AC_VALUES} values={values} />
+        <p class="muted small" style="margin:10px 0 0">
+          Aircraft from <a href="https://adsb.lol" target="_blank" rel="noopener noreferrer">adsb.lol</a> or <a href="https://adsb.fi" target="_blank" rel="noopener noreferrer">adsb.fi</a>,
+          routes from <a href="https://www.adsbdb.com" target="_blank" rel="noopener noreferrer">adsbdb</a>. They get the globe’s location, rounded to about 1 km.
+        </p>
+      </>}
+    </section>
+  );
+}
+
+/* ---------- rarely needed: folded away ---------- */
+
+const PACES = [[0, 'Fastest'], [150, 'Normal'], [300, 'Slow'], [600, 'Very slow']];
+
+function More({ settings, save, toast }) {
+  const pace = Number.isFinite(settings.animMinMs) ? settings.animMinMs : 0;
+  const paceValue = PACES.reduce((best, [v]) => (Math.abs(v - pace) < Math.abs(best - pace) ? v : best), 0);
+  const host = api.GLOBE || location.origin;
+  return (
+    <details class="card more" id="more">
+      <summary>More: animation pace, access token, scripts and firmware</summary>
+      <Row label="Animation pace" hint="how fast animations like split-flap step">
+        <Choice label="Animation pace" value={paceValue} options={PACES} onPick={(v) => save({ animMinMs: v }, 'Animation pace saved')} />
+      </Row>
+      <Row label="From scripts" hint="home automation, a phone shortcut">
+        <pre class="bytes">{`curl -X POST ${host}/api/v1/timer -d '{"seconds":300,"label":"TEA"}'
+curl -X POST ${host}/api/v1/values -d '{"cpu":42}'`}</pre>
+        <p class="muted small" style="margin:6px 0 0">A pushed value shows in any message as <code>{'{var:cpu}'}</code>. The whole API is in <code>docs/api.md</code>.</p>
+      </Row>
+      <Row label="Firmware" hint="over the network">
+        <a class="btn small" href={`${api.GLOBE}/`}>Open the classic page</a>
+        <p class="muted small" style="margin:6px 0 0">Firmware upload and the protocol lab live there. The web app itself only updates over USB.</p>
+      </Row>
       <AccessToken toast={toast} />
+    </details>
+  );
+}
+
+export function Settings({ toast, display, section }) {
+  const [settings, setSettings] = useState(null);
+  const [values, setValues] = useState({});
+  useEffect(() => {
+    api.getSettings().then((s) => { setSettings(s); if (hasLocation(s)) setLocation({ lat: s.lat, lon: s.lon }); }, () => setSettings({}));
+    return api.subscribeValues((v) => { setValues(v || {}); setVars(v); });
+  }, []);
+  // #/settings/planes and the like: open on that card
+  useEffect(() => {
+    if (!settings || !section) return;
+    const el = document.getElementById(section);
+    if (el) { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ block: 'start' }); }
+  }, [settings, section]);
+  const onSettings = (patch) => setSettings((s) => ({ ...s, ...patch }));
+  const save = async (patch, msg) => {
+    try { await api.saveSettings(patch); onSettings(patch); if (msg) toast(true, msg); return true; }
+    catch (e) { toast(false, `Could not save: ${e.message}`); return false; }
+  };
+  if (!settings) return <div class="page"><section class="card"><p class="muted">Loading…</p></section></div>;
+  return (
+    <div class="page settings">
+      <Display settings={settings} save={save} display={display} />
+      <Place settings={settings} save={save} onSettings={onSettings} toast={toast} />
+      <WeatherCard settings={settings} values={values} toast={toast} />
+      <PlanesCard settings={settings} values={values} save={save} toast={toast} />
+      <More settings={settings} save={save} toast={toast} />
     </div>
   );
 }
