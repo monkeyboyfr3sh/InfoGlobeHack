@@ -3,6 +3,11 @@
 What changed in each version of the InfoGlobe, newest first. The globe's web app shows these under
 Settings, About. The version itself is in `VERSION`; see "Making a release" in `README.md`.
 
+## 0.9.3-beta (2026-11-15)
+
+- The globe's name on the network is a setting (Settings, Where the globe is). Routers that name devices reach it by
+  that name, often with their own domain after it (**infoglobe.lan**), and it answers to **<name>.local** too.
+
 ## 0.9.2-beta (2026-11-15)
 
 ### Ready to live somewhere else

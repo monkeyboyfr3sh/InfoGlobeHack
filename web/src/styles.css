@@ -613,6 +613,7 @@ details.card.more[open] > summary { margin-bottom: 4px; }
 .edit-times .timer-add .select { height: 30px; font-size: .88rem; }
 .edit-times .timer-add .seg button { height: 24px; padding: 0 9px; font-size: .84rem; }
 pre.bytes { white-space: pre-wrap; overflow-wrap: anywhere; }
+.host-name { width: 220px; font-family: var(--mono); }
 .city-picks { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; }
 .city-picks .chip { height: 26px; padding: 0 10px; font-size: .8rem; }
 .add-more .select.ready { height: 28px; font-size: .84rem; padding: 0 6px; color: var(--accent-text); max-width: 220px; }

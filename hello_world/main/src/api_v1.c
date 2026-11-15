@@ -36,6 +36,7 @@
 #include "live.h"
 #include "esp_app_desc.h"
 #include "esp_ota_ops.h"
+#include "network.h"
 
 static const char *TAG = "API_V1";
 
@@ -526,6 +527,7 @@ static esp_err_t version_get(httpd_req_t *req)
     esp_ota_img_states_t st;
     bool known = run && esp_ota_get_state_partition(run, &st) == ESP_OK;
     if (run) cJSON_AddStringToObject(o, "slot", run->label);
+    cJSON_AddStringToObject(o, "hostname", network_hostname());
     cJSON_AddStringToObject(o, "state", !known || st == ESP_OTA_IMG_UNDEFINED ? "usb" : st == ESP_OTA_IMG_PENDING_VERIFY ? "probation" : "kept");
     return send_json(req, NULL, o);
 }

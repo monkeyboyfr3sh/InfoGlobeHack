@@ -565,15 +565,15 @@ static esp_err_t notes_handler(httpd_req_t *req)
 
 /* ------------------------------------------------------------------ */
 
-/* infoglobe.local, and an "_http._tcp" service so it shows up in network browsers. */
+/* <name>.local, and an "_http._tcp" service so it shows up in network browsers. */
 static void start_mdns(void)
 {
     esp_err_t err = mdns_init();
     if (err != ESP_OK) { ESP_LOGW(TAG, "mDNS: %s", esp_err_to_name(err)); return; }
-    mdns_hostname_set("infoglobe");
+    mdns_hostname_set(network_hostname());          // settings "hostname"; network.c keeps it up to date
     mdns_instance_name_set("InfoGlobe");
     mdns_service_add("InfoGlobe", "_http", "_tcp", 80, NULL, 0);
-    ESP_LOGI(TAG, "mDNS: http://infoglobe.local");
+    ESP_LOGI(TAG, "mDNS: http://%s.local", network_hostname());
 }
 
 /* A firmware that arrived over the network runs on probation (the bootloader's

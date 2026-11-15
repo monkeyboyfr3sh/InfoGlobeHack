@@ -5,6 +5,7 @@
 // rebuilds the web app when web/src changed).
 //
 //   node tools/deploy.mjs                       the globe at http://infoglobe.local
+//   node tools/deploy.mjs --globe infoglobe.lan   by the router's name for it (Settings, name on the network)
 //   node tools/deploy.mjs --globe 192.168.0.71  another address
 //   node tools/deploy.mjs --web-only            just the web app (no restart)
 //   node tools/deploy.mjs --firmware-only

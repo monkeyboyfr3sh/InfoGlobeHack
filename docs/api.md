@@ -155,6 +155,11 @@ WebSocket below.
 curl -X POST $GLOBE/api/v1/settings -d '{"lat":41.88,"lon":-87.63}'
 ```
 
+**Name on the network:** the setting `hostname` (`"infoglobe"` by default; a-z, 0-9 and `-`, up to 32). The globe
+gives it to the router with each address request (routers that name devices then reach it as `infoglobe` or
+`infoglobe.lan`) and announces `<name>.local`. A change asks the router for the address again. `GET /api/v1/version`
+includes the current `hostname`.
+
 **Web app over the network:** `POST /api/v1/webapp` with the built `hello_world/main/data/designer.html.gz` as the body
 replaces the page at `/designer` (it lives on the `spiffs` partition, which `POST /ota` doesn't touch). `tools/deploy.mjs`
 sends both.

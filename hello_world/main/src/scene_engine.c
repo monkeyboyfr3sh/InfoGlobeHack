@@ -25,6 +25,7 @@
 #include "ir_led_task.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
+#include "network.h"
 
 static const char *TAG = "SCENES";
 
@@ -272,6 +273,8 @@ static void settings_apply(const cJSON *s)
     cJSON *lat = cJSON_GetObjectItem(s, "lat"), *lon = cJSON_GetObjectItem(s, "lon");
     if (cJSON_IsNumber(lat) && cJSON_IsNumber(lon)) clock_values_set_location(lat->valuedouble, lon->valuedouble);
     display_apply(!cJSON_IsFalse(cJSON_GetObjectItem(s, "display")));
+    const cJSON *hn = cJSON_GetObjectItem(s, "hostname");
+    network_set_hostname(cJSON_IsString(hn) ? hn->valuestring : NULL);
     int off = minute_of(cJSON_GetObjectItem(s, "displayOffAt")), on = minute_of(cJSON_GetObjectItem(s, "displayOnAt"));
     if (off < 0 || on < 0 || off == on) off = on = -1;
     if (off != s_off_at || on != s_on_at) {         // new hours: look afresh, so setting them at night takes effect at once

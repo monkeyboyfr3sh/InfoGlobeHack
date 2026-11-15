@@ -8,6 +8,7 @@
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "mdns.h"
 #if CONFIG_INFOGLOBE_ETHERNET
 #include "esp_eth.h"
 #include "esp_eth_phy_ip101.h"   // managed component espressif/ip101
@@ -195,6 +196,58 @@ static esp_err_t eth_start(void)
 #endif /* CONFIG_INFOGLOBE_ETHERNET */
 
 /* ------------------------------------------------------------------- Public */
+
+static char s_hostname[33] = CONFIG_LWIP_LOCAL_HOSTNAME;
+
+bool network_hostname_valid(const char *n)
+{
+    size_t len = n ? strlen(n) : 0;
+    if (len < 1 || len > 32 || n[0] == '-' || n[len - 1] == '-') return false;
+    for (size_t i = 0; i < len; i++) {
+        char c = n[i];
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) return false;
+    }
+    return true;
+}
+
+const char *network_hostname(void) { return s_hostname; }
+
+static void rename_netif(esp_netif_t *netif)
+{
+    if (!netif) return;
+    esp_netif_set_hostname(netif, s_hostname);
+    esp_netif_dhcp_status_t st;
+    if (esp_netif_dhcpc_get_status(netif, &st) == ESP_OK && st == ESP_NETIF_DHCP_STARTED) {
+        esp_netif_dhcpc_stop(netif);                 // ask again, with the new name: the lease (and address) stays the same
+        esp_netif_dhcpc_start(netif);
+    }
+}
+
+/* The router hears the new name a moment later, so the answer to the save
+ * that renamed the globe gets out before the address is asked for again. */
+static esp_timer_handle_t s_rename_timer;
+static void rename_now(void *arg)
+{
+#if CONFIG_INFOGLOBE_ETHERNET
+    rename_netif(s_eth_netif);
+#endif
+    rename_netif(s_wifi_netif);
+}
+
+void network_set_hostname(const char *name)
+{
+    const char *want = network_hostname_valid(name) ? name : CONFIG_LWIP_LOCAL_HOSTNAME;
+    if (!strcmp(want, s_hostname)) return;
+    strlcpy(s_hostname, want, sizeof(s_hostname));
+    ESP_LOGI(TAG, "Name on the network: %s", s_hostname);
+    if (!s_rename_timer) {
+        const esp_timer_create_args_t args = { .callback = rename_now, .name = "rename" };
+        esp_timer_create(&args, &s_rename_timer);
+    }
+    if (s_rename_timer) { esp_timer_stop(s_rename_timer); esp_timer_start_once(s_rename_timer, 1500 * 1000); }
+    else rename_now(NULL);
+    mdns_hostname_set(s_hostname);                   // fails harmlessly before mDNS has started; start_mdns() uses the name then
+}
 
 esp_err_t network_start(void)
 {

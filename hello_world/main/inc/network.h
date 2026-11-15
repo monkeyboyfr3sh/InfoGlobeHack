@@ -32,3 +32,15 @@ const char *network_get_ip_string(char *buf, size_t len);
  * true. Cheap enough to poll.
  */
 bool network_ip_changed(char *buf, size_t len, const char **iface);
+
+/**
+ * The globe's name on the network (settings "hostname"): given to the router
+ * with each address request, so routers that list devices by name reach it as
+ * "infoglobe" or "infoglobe.lan", and announced as "infoglobe.local" (mDNS).
+ * 1-32 of a-z 0-9 and '-', not starting or ending with '-'; anything else (or
+ * NULL) means the default, CONFIG_LWIP_LOCAL_HOSTNAME. A change asks for the
+ * address again so the router hears the new name. No-op when unchanged.
+ */
+void network_set_hostname(const char *name);
+const char *network_hostname(void);
+bool network_hostname_valid(const char *name);

@@ -149,6 +149,36 @@ function Display({ settings, save, display }) {
 
 /* ---------- where the globe is: weather, planes and sunrise all use it ---------- */
 
+/** The globe's name on the network. The router adds its own domain (.lan, .home), so only the name part is kept. */
+const HOST_RE = /^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/;
+function NetworkName({ settings, save }) {
+  const now = settings.hostname || 'infoglobe';
+  const [draft, setDraft] = useState(now);
+  const typed = draft.trim().toLowerCase();
+  const name = typed.split('.')[0], domain = typed.includes('.') ? typed.slice(name.length) : '';
+  const ok = HOST_RE.test(name);
+  const submit = (e) => {
+    e.preventDefault();
+    if (!ok || name === now) return;
+    save({ hostname: name }, `Renamed to ${name}. The globe asks the router for its address again, under the new name`).then((done) => { if (done) setDraft(name); });
+  };
+  return (
+    <Row label="Name on the network" hint="how computers and phones find it">
+      <form class="row" onSubmit={submit}>
+        <input type="text" class="host-name" value={draft} maxLength={40} spellcheck={false} autocomplete="off" aria-label="Name on the network"
+          onInput={(e) => setDraft(e.currentTarget.value)} />
+        <button class="btn small primary" type="submit" disabled={!ok || name === now}>Save</button>
+      </form>
+      <p class="muted small" style="margin:6px 0 0">
+        {!ok ? 'Letters, digits and dashes only, up to 32.'
+          : <>Open it as <a href={`http://${name}.local/designer`}>{name}.local</a>, or through your router as <b class="mono">{name}</b>
+            {domain ? <> or <b class="mono">{name}{domain}</b></> : ' (often with .lan or .home after it)'}.
+            {domain ? ` The ${domain} comes from your router, so the globe keeps just “${name}”.` : ''}</>}
+      </p>
+    </Row>
+  );
+}
+
 function Place({ settings, save, onSettings, toast }) {
   const units = settings.units === 'c' ? 'c' : 'f';
   return (
@@ -160,6 +190,7 @@ function Place({ settings, save, onSettings, toast }) {
       <Row label="Units">
         <Choice label="Units" value={units} options={[['f', '°F and mph'], ['c', '°C and km/h']]} onPick={(v) => save({ units: v }, v === 'f' ? 'Fahrenheit and mph' : 'Celsius and km/h')} />
       </Row>
+      <NetworkName settings={settings} save={save} />
     </section>
   );
 }
