@@ -6,8 +6,11 @@
  * within a few nautical miles: adsb.lol, or adsb.fi when adsb.lol fails. Both
  * answer in readsb's JSON format. The nearest flight's route comes from
  * adsbdb.com, once per callsign (cached), and is only shown when the aircraft
- * is plausibly flying it. When a new aircraft comes within the alert distance
- * while the playlist owns the display, the "plane" scene plays once.
+ * is plausibly flying it. When an aircraft is about to pass where it can be
+ * seen or heard from the globe's location (its track carried forward a
+ * minute or so: high enough in the sky, or simply close) while the playlist
+ * owns the display, the "plane" scene plays once for it. Every aircraft in
+ * range is judged, not only the nearest one.
  *
  * The parsing, maths and value making build on a PC as well (no ESP-IDF):
  * hello_world/host_test/feed_aircraft_test.c includes this file with
@@ -32,6 +35,7 @@
 #include "feeds.h"
 #include "http_fetch.h"
 #include "scene_engine.h"
+#include <time.h>
 #endif
 
 #ifndef M_PI
@@ -45,6 +49,8 @@
 #define STICKY_NM    0.5            // keep showing an aircraft unless another is this much closer
 #define OVERHEAD_NM  0.5
 #define NEAR_AP_NM   40             // "at" an airport: arriving or departing
+#define AHEAD_S      75             // the alert looks this far along an aircraft's track
+#define FT_PER_NM    6076.12
 
 /* ------------------------------------------------------------------ */
 /*  Maths and text                                                      */
@@ -127,7 +133,11 @@ typedef struct {
     int  count;             // airborne aircraft within the radius
     bool have;              // `near` is valid
     ac_t near;
+    bool have_alert;        // `alert` is valid: the nearest aircraft the caller's `want` said yes to
+    ac_t alert;
 } scan_t;
+
+typedef bool (*ac_want_t)(const ac_t *a, void *ctx);
 
 static const cJSON *item(const cJSON *o, const char *k) { return cJSON_GetObjectItemCaseSensitive(o, k); }
 
@@ -218,11 +228,12 @@ static const char *object_end(const char *p, const char *end)
  * nearest. Parses one aircraft at a time instead of the whole answer: a busy
  * sky is ~450 bytes per aircraft and a full cJSON tree is several times that.
  * `sticky` (hex of the aircraft shown now) stays the pick unless another one
- * is STICKY_NM closer, so two aircraft at similar distances don't make the
- * globe flip between them every poll. false = not an aircraft list (error
- * page, cut off). */
-static bool ac_scan(const char *body, size_t len, double hlat, double hlon, double radius_nm,
-                    const char *sticky, scan_t *out)
+ * is sticky_nm closer, so two aircraft at similar distances don't make the
+ * globe flip between them every poll. `want` (may be NULL) is asked about
+ * every aircraft in range; the nearest it says yes to comes back as
+ * out->alert. false = not an aircraft list (error page, cut off). */
+static bool ac_scan_for(const char *body, size_t len, double hlat, double hlon, double radius_nm,
+                        const char *sticky, double sticky_nm, ac_want_t want, void *ctx, scan_t *out)
 {
     memset(out, 0, sizeof(*out));
     const char *end = body + len, *p = find_array(body);
@@ -240,14 +251,70 @@ static bool ac_scan(const char *body, size_t len, double hlat, double hlon, doub
         if (o && ac_parse(o, hlat, hlon, &a) && a.dist_nm <= radius_nm) {
             if (!out->count++ || a.dist_nm < best.dist_nm) best = a;
             if (sticky && sticky[0] && !strcmp(a.hex, sticky)) { kept = a; have_kept = true; }
+            if (want && want(&a, ctx) && (!out->have_alert || a.dist_nm < out->alert.dist_nm)) { out->alert = a; out->have_alert = true; }
         }
         cJSON_Delete(o);
         p = q;
     }
-    if (have_kept && kept.dist_nm <= best.dist_nm + STICKY_NM) best = kept;
+    if (have_kept && kept.dist_nm <= best.dist_nm + sticky_nm) best = kept;
     out->have = out->count > 0;
     out->near = best;
     return true;
+}
+
+__attribute__((unused))                          // the host test's shorthand; the feed calls ac_scan_for
+static bool ac_scan(const char *body, size_t len, double hlat, double hlon, double radius_nm,
+                    const char *sticky, scan_t *out)
+{
+    return ac_scan_for(body, len, hlat, hlon, radius_nm, sticky, STICKY_NM, NULL, NULL, out);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Will it be seen or heard?                                           */
+/* ------------------------------------------------------------------ */
+
+/* How noticeable an aircraft has to be for the alert ("aircraftNotice" 1-3).
+ * Seen: at least elev_deg above the horizon and no further than slant_nm in
+ * a straight line (a jet at cruise is a speck beyond that). Heard: within
+ * near_nm in a straight line, however low. Level 0 = never. */
+typedef struct { double elev_deg, slant_nm, near_nm; } notice_t;
+static const notice_t NOTICE[4] = {
+    { 0, 0, 0 },
+    { 55, 7, 1.0 },         // 1: right overhead
+    { 35, 7, 2.0 },         // 2: I'll see or hear it (the default)
+    { 20, 10, 3.5 },        // 3: anything in my sky
+};
+
+/* The closest an aircraft comes over the ground (nm) in the next ahead_s
+ * seconds if it holds its track and speed, and in how many seconds (*in_s).
+ * Flat-earth arithmetic: fine over a few miles. Without a track or a speed
+ * it is taken to stay where it is. */
+static double closest_ahead(const ac_t *a, double ahead_s, double *in_s)
+{
+    *in_s = 0;
+    if (a->gs_kt <= 0 || a->track < 0) return a->dist_nm;
+    double e = a->dist_nm * sin(rad(a->brg)), n = a->dist_nm * cos(rad(a->brg));     // east and north of the globe
+    double v = a->gs_kt / 3600.0, ve = v * sin(rad(a->track)), vn = v * cos(rad(a->track));
+    double t = -(e * ve + n * vn) / (v * v);
+    if (t < 0) t = 0;                                   // already going away
+    if (t > ahead_s) t = ahead_s;
+    *in_s = t;
+    return hypot(e + ve * t, n + vn * t);
+}
+
+/* Will this aircraft be seen or heard within ahead_s seconds? Its altitude is
+ * taken as it is now, and as height above the ground: near sea level that is
+ * close enough. */
+static bool noticeable(const ac_t *a, int level, double ahead_s, double *in_s)
+{
+    double t = 0;
+    if (!in_s) in_s = &t;
+    *in_s = 0;
+    if (level < 1 || level > 3) return false;
+    const notice_t *k = &NOTICE[level];
+    double d = closest_ahead(a, ahead_s, in_s), h = (a->alt_ft > 0 ? a->alt_ft : 0) / FT_PER_NM, slant = hypot(d, h);
+    if (slant <= k->near_nm) return true;
+    return slant <= k->slant_nm && h >= d * tan(rad(k->elev_deg));
 }
 
 /* ------------------------------------------------------------------ */
@@ -420,7 +487,7 @@ typedef struct {
     bool   on, have_loc;
     double lat, lon;
     int    radius_nm;       // "aircraftRadius", 2-25, default 10
-    double alert_nm;        // "aircraftAlert", 0 = never, default 3
+    int    notice;          // "aircraftNotice": 0 never, 1 right overhead, 2 seen or heard (default), 3 anything in the sky
     int    alert_ft;        // "aircraftAlertFt": alert only below this altitude, 0 = any
     int    poll_s;          // "aircraftPoll", seconds, at least 10, default 15
 } cfg_t;
@@ -438,8 +505,10 @@ static int64_t s_first_until;           // ... until then, then adsb.lol again
 static int     s_radius;                // circle asked for: shrinks while answers are too big
 static char    s_shown[8];              // hex of the aircraft shown now
 static int64_t s_alert_busy_until;      // a plane alert may still be playing
+static char    s_hold[8];               // ... for this aircraft: it stays the one shown until then
+static double  s_closest = 1e9;         // closest any aircraft has come since the globe started
 static struct { char call[9]; bool ok; route_t r; int64_t until; } s_routes[ROUTE_SLOTS];
-static struct { char hex[8]; int64_t at; } s_alerted[ALERTED_SLOTS];
+static struct { char hex[8]; int64_t at; } s_alerted[ALERTED_SLOTS];     // at: last seen in the alert zone (0 = free)
 
 static double setting(const cJSON *s, const char *k, double def, double lo, double hi)
 {
@@ -462,7 +531,9 @@ static void read_cfg(cfg_t *c)
     c->have_loc = cJSON_IsNumber(lat) && cJSON_IsNumber(lon) && fabs(lat->valuedouble) <= 90 && fabs(lon->valuedouble) <= 180;
     if (c->have_loc) { c->lat = lat->valuedouble; c->lon = lon->valuedouble; }
     c->radius_nm = (int)setting(s, "aircraftRadius", 10, 2, 25);
-    c->alert_nm = setting(s, "aircraftAlert", 3, 0, c->radius_nm);
+    // before "aircraftNotice" there was a distance, "aircraftAlert" in nm, whose 0 meant never: that still holds
+    const cJSON *nt = cJSON_GetObjectItem(s, "aircraftNotice");
+    c->notice = cJSON_IsNumber(nt) ? (int)setting(s, "aircraftNotice", 2, 0, 3) : setting(s, "aircraftAlert", 5, 0, 25) > 0 ? 2 : 0;
     c->alert_ft = (int)setting(s, "aircraftAlertFt", 0, 0, 60000);
     c->poll_s = (int)setting(s, "aircraftPoll", POLL_DEFAULT_S, POLL_MIN_S, 300);
     cJSON_Delete(s);
@@ -471,7 +542,7 @@ static void read_cfg(cfg_t *c)
 static bool cfg_same(const cfg_t *a, const cfg_t *b)
 {
     return a->on == b->on && a->have_loc == b->have_loc && a->lat == b->lat && a->lon == b->lon &&
-           a->radius_nm == b->radius_nm && a->alert_nm == b->alert_nm && a->alert_ft == b->alert_ft && a->poll_s == b->poll_s;
+           a->radius_nm == b->radius_nm && a->notice == b->notice && a->alert_ft == b->alert_ft && a->poll_s == b->poll_s;
 }
 
 static void publish(const values_t *v, uint32_t ttl_s)
@@ -480,6 +551,26 @@ static void publish(const values_t *v, uint32_t ttl_s)
 }
 
 enum { POLL_OK, POLL_BIG, POLL_FAIL };
+
+typedef struct { const cfg_t *c; int64_t now; } zone_t;
+
+/* Is this aircraft about to be seen or heard, and due an alert? One whose
+ * alert has gone off stays quiet until it has been out of sight and earshot
+ * for 10 minutes: this also notes that it is still here, so a trainer flying
+ * circuits rings once, not on every lap. */
+static bool alert_wanted(const ac_t *a, void *ctx)
+{
+    const zone_t *z = ctx;
+    if (z->c->alert_ft > 0 && a->alt_ft > z->c->alert_ft) return false;
+    if (!noticeable(a, z->c->notice, AHEAD_S, NULL)) return false;
+    for (int i = 0; i < ALERTED_SLOTS; i++) {
+        if (!s_alerted[i].at || strcmp(s_alerted[i].hex, a->hex)) continue;
+        if (z->now - s_alerted[i].at >= MIN_US(10)) continue;
+        s_alerted[i].at = z->now;
+        return false;
+    }
+    return true;
+}
 
 /* Ask the providers in turn for the aircraft around the location. */
 static int fetch_list(const cfg_t *c, scan_t *out, size_t *got)
@@ -494,7 +585,11 @@ static int fetch_list(const cfg_t *c, scan_t *out, size_t *got)
         char *body = http_fetch(url, BODY_MAX, &len, &status);
         if (!body && status >= 200 && status < 300) return POLL_BIG;   // over BODY_MAX (or cut off)
         bool answered = body != NULL;
-        bool ok = answered && ac_scan(body, len, c->lat, c->lon, s_radius, s_shown, out);
+        // While an alert plays, the aircraft it is about stays the one shown; otherwise look for one due an alert.
+        bool holding = s_hold[0] && now < s_alert_busy_until;
+        zone_t z = { c, now };
+        bool ok = answered && ac_scan_for(body, len, c->lat, c->lon, s_radius, holding ? s_hold : s_shown,
+                                          holding ? 1e9 : STICKY_NM, holding ? NULL : alert_wanted, &z, out);
         free(body);
         if (ok) {
             if (i != s_first) {
@@ -557,30 +652,47 @@ static unsigned scene_seconds(const char *id)
     return (ms + 999) / 1000;
 }
 
-/* A new aircraft within the alert distance: play the "plane" scene once over
- * the playlist. Never over text someone put up, a chime or another "play now"
- * scene (it tries again next poll), never twice in 10 minutes for the same
- * aircraft, never while a plane alert may still be playing. */
-static void maybe_alert(const cfg_t *c, const ac_t *a)
+/* "UAL123 2.4" (who and how far) and when, for the Planes page: the last
+ * alert, and the closest approach, so its distance can be set with some idea
+ * of what flies past. Kept until the globe restarts. */
+static void note(const char *key, const char *key_at, const ac_t *a)
 {
-    if (c->alert_nm <= 0 || a->dist_nm > c->alert_nm) return;
-    if (c->alert_ft > 0 && a->alt_ft > c->alert_ft) return;
-    int64_t now = esp_timer_get_time();
-    if (now < s_alert_busy_until || !g_time_on) return;
-    int slot = 0;
-    for (int i = 0; i < ALERTED_SLOTS; i++) {
-        if (!strcmp(s_alerted[i].hex, a->hex) && now - s_alerted[i].at < MIN_US(10)) return;
-        if (s_alerted[i].at < s_alerted[slot].at) slot = i;
-    }
+    char text[VALUE_TEXT_MAX], at[16];
+    snprintf(text, sizeof(text), "%s %.1f", a->call[0] ? a->call : a->reg[0] ? a->reg : a->hex, a->dist_nm);
+    snprintf(at, sizeof(at), "%lld", (long long)time(NULL));
+    value_store_set(key, text, 0);
+    value_store_set(key_at, at, 0);
+}
+
+/* Can the "plane" scene cut in now? Never over text someone put up, a chime
+ * or another "play now" scene (the aircraft is tried again next poll), never
+ * while an earlier plane alert may still be playing. */
+static bool alert_possible(void)
+{
+    if (esp_timer_get_time() < s_alert_busy_until || !g_time_on) return false;
     cJSON *st = scene_engine_status();
     const cJSON *mode = cJSON_GetObjectItem(st, "mode");
     bool playlist = cJSON_IsString(mode) && !strcmp(mode->valuestring, "playlist");
     cJSON_Delete(st);
-    if (!playlist) return;
+    return playlist;
+}
+
+/* An aircraft is about to be seen or heard: play the "plane" scene once over
+ * the playlist, and keep showing this aircraft while it plays. */
+static void alert_fire(const ac_t *a)
+{
+    int64_t now = esp_timer_get_time();
+    int slot = 0;
+    for (int i = 0; i < ALERTED_SLOTS; i++) {
+        if (s_alerted[i].at && !strcmp(s_alerted[i].hex, a->hex)) { slot = i; break; }
+        if (s_alerted[i].at < s_alerted[slot].at) slot = i;
+    }
     snprintf(s_alerted[slot].hex, sizeof(s_alerted[slot].hex), "%s", a->hex);
     s_alerted[slot].at = now;
     if (scene_engine_play("plane", 0)) {
         s_alert_busy_until = now + ((int64_t)scene_seconds("plane") + 5) * 1000000;
+        snprintf(s_hold, sizeof(s_hold), "%s", a->hex);
+        note("plane_alert", "plane_alert_at", a);
         ESP_LOGI(TAG, "Overhead: %s at %.1f nm, playing the plane scene", a->call[0] ? a->call : a->hex, a->dist_nm);
     }
 }
@@ -627,9 +739,16 @@ static int poll_and_publish(const cfg_t *c, int *fails)
     }
     *fails = 0;
     if (got < BODY_MAX / 4 && s_radius < c->radius_nm) s_radius++;  // room again: widen step by step
+    if (s.have && s.near.dist_nm < s_closest) {                     // the closest anything has come so far
+        s_closest = s.near.dist_nm;
+        note("plane_closest", "plane_close_at", &s.near);
+    }
+    // One is about to be seen or heard: it is the one to show, the nearest or not, and its alert plays.
+    bool ring = s.have_alert && alert_possible();
+    if (ring) s.near = s.alert;
     const route_t *route = s.have ? route_for(&s.near) : NULL;
     publish_found(c, &s, route);
-    if (s.have) maybe_alert(c, &s.near);
+    if (ring) alert_fire(&s.near);
     return c->poll_s;
 }
 
@@ -646,7 +765,7 @@ static void aircraft_task(void *arg)
         if (!c.on) {
             for (int i = 0; i < V_N; i++) value_store_delete(KEYS[i]);
             value_store_delete("plane_status");
-            s_shown[0] = '\0';
+            s_shown[0] = s_hold[0] = '\0';
         } else if (!c.have_loc) {
             publish_none("NO LOCATION SET", "NO LOCATION", 0);
         } else {

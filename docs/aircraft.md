@@ -42,19 +42,38 @@ Saved in `/notes/settings.json` through `POST /api/v1/settings` (the card does t
 |---|---|---|---|
 | `aircraft` | `false` | | poll at all |
 | `aircraftRadius` | `10` | 2-25 nm | how far to look |
-| `aircraftAlert` | `3` | 0-radius nm | overhead alert distance; `0` = never interrupt |
+| `aircraftNotice` | `2` | 0-3 | the overhead alert: `0` never, `1` right overhead, `2` when it will be seen or heard, `3` anything in the sky |
 | `aircraftAlertFt` | `0` | 0-60000 ft | alert only for aircraft below this altitude; `0` = any height |
+| `aircraftAlert` | | 0-25 nm | the old alert distance; only its `0` (never) still counts, and only without `aircraftNotice` |
 | `aircraftPoll` | `15` | 10-300 s | seconds between polls (not in the card) |
 
 ## Overhead alert
 
-When the nearest aircraft is within `aircraftAlert` (and below `aircraftAlertFt`, if set), the globe plays the scene
-with id **`plane`** once (`scene_engine_play("plane", 0)`), then returns to the playlist. It does not fire:
+When an aircraft is about to be seen or heard from the globe's location (and is below `aircraftAlertFt`, if set), the
+globe plays the scene with id **`plane`** once (`scene_engine_play("plane", 0)`), then returns to the playlist.
+
+"About to be seen or heard": each aircraft's track and speed are carried forward 75 seconds, and the closest it comes
+in that time is judged by `aircraftNotice`:
+
+| `aircraftNotice` | Seen: at least this high in the sky, within this far in a straight line | Heard: within, however low |
+|---|---|---|
+| `1` right overhead | 55 degrees, 7 nm | 1 nm |
+| `2` seen or heard (default) | 35 degrees, 7 nm | 2 nm |
+| `3` anything in the sky | 20 degrees, 10 nm | 3.5 nm |
+
+So a jet at cruise heading over the house rings about a minute before it gets there, the same jet crossing 8 nm away
+does not, and neither does a plane sitting at an airfield down the road. Altitudes are taken as height above the
+ground, which is right near sea level and generous in the mountains.
+
+Every aircraft in range is judged, not only the nearest: one that lingers close by doesn't hide the next to arrive.
+While the alert plays the values describe the aircraft it is about. The Planes page shows the last alert (`plane_alert`, `plane_alert_at`) and
+the closest approach since the globe started (`plane_closest`, `plane_close_at`). It does not fire:
 
 - when no scene `plane` exists (the card creates a default one: the line flying in, the trip, where to look);
 - over text someone put up (the playlist doesn't own the display), a chime or another "play now" scene; it tries again
   on the next poll while the aircraft is still close;
-- for the same aircraft (ICAO address) again within 10 minutes;
+- for the same aircraft (ICAO address) again until it has been out of sight and earshot for 10 minutes (a trainer
+  flying circuits rings once, not on every lap);
 - while an earlier plane alert may still be playing (the scene's length plus 5 s).
 
 ## Data sources

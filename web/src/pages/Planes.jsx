@@ -10,7 +10,19 @@ import { Switch, Choice, Row, LocationPicker, hasLocation } from '../components/
 // nearest plane also takes a turn in the rotation. Every option saves as you pick it.
 
 const RANGES = [3, 5, 10, 15, 25];
-const ALERTS = [[0, 'Never'], [1, '1 nm'], [2, '2 nm'], [3, '3 nm'], [5, '5 nm']];
+// when a plane interrupts (feed_aircraft.c "aircraftNotice"): it looks about a minute along each plane's track
+const NOTICE = [[0, 'Never'], [1, 'Right overhead'], [2, 'I’ll see or hear it'], [3, 'Anything in my sky']];
+const NOTICE_HINT = ['', 'Only planes about to pass almost straight over the globe.',
+  'Planes about to pass high enough in your sky to spot, or close enough to hear. It goes off about a minute before they get there.',
+  'Also planes lower on the horizon or further off: more interruptions.'];
+// "UAL123 2.4" + a Unix time, as the globe notes its last alert and its closest approach
+const noted = (text, at) => {
+  const m = /^(.+) (\d+(?:\.\d+)?)$/.exec(text || ''), t = Number(at);
+  if (!m) return null;
+  const when = t > 1e9 ? new Date(t * 1000) : null;
+  const sameDay = when && when.toDateString() === new Date().toDateString();
+  return { who: m[1], nm: m[2], when: when ? `${sameDay ? '' : `${when.toLocaleDateString([], { weekday: 'short' })} `}${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '' };
+};
 const CEILINGS = [[0, 'Any height'], [20000, 'Below 20,000 ft'], [10000, 'Below 10,000 ft'], [5000, 'Below 5,000 ft']];
 const km = (nm) => Math.round(nm * 1.852);
 const num = (v, d) => (Number.isFinite(v) ? v : d);
@@ -30,7 +42,8 @@ export function Planes({ toast }) {
 
   const on = settings.aircraft === true;
   const radius = num(settings.aircraftRadius, 10);
-  const alert = Math.min(num(settings.aircraftAlert, 3), radius);
+  const notice = Number.isFinite(settings.aircraftNotice) ? settings.aircraftNotice : settings.aircraftAlert === 0 ? 0 : 2;
+  const lastAlert = noted(vals.plane_alert, vals.plane_alert_at), closest = noted(vals.plane_closest, vals.plane_close_at);
   const alertFt = num(settings.aircraftAlertFt, 0);
   const hasLoc = hasLocation(settings);
   const st = vals.plane_status;
@@ -78,12 +91,20 @@ export function Planes({ toast }) {
           <LocationPicker settings={settings} toast={toast} onSaved={(p) => setSettings((s) => ({ ...s, ...p }))} />
         </Row>
         <Row label="Look within" hint="nautical miles around the globe">
-          <Choice label="Look within" value={radius} options={RANGES.map((r) => [r, `${r} nm`])} onPick={(v) => save({ aircraftRadius: v, aircraftAlert: Math.min(alert, v) })} />
+          <Choice label="Look within" value={radius} options={RANGES.map((r) => [r, `${r} nm`])} onPick={(v) => save({ aircraftRadius: v })} />
         </Row>
-        <Row label="Interrupt when closer than" hint="plays the plane scene once, then goes back">
-          <Choice label="Interrupt when closer than" value={alert} options={ALERTS.filter(([v]) => v <= radius)} onPick={(v) => save({ aircraftAlert: v })} />
+        <Row label="Interrupt for" hint="plays the plane scene once, then goes back">
+          <Choice label="Interrupt for" value={notice} options={NOTICE} onPick={(v) => save({ aircraftNotice: v })} />
+          {notice > 0 && <p class="muted small" style="margin:8px 0 0">{NOTICE_HINT[notice]}{notice > 0 && radius < 10 ? ' “Look within” 10 nm or more gives it time to see fast jets coming.' : ''}</p>}
+          {on && notice > 0 && (
+            <p class="muted small" style="margin:8px 0 0">
+              {lastAlert ? <>Last interrupted {lastAlert.when ? `at ${lastAlert.when} ` : ''}for <b class="mono">{lastAlert.who}</b>, {lastAlert.nm} nm away. </>
+                : 'It hasn’t interrupted since the globe last started. '}
+              {closest && <>Closest any plane has come: <b class="mono">{closest.who}</b>, {closest.nm} nm{closest.when ? ` (${closest.when})` : ''}.</>}
+            </p>
+          )}
         </Row>
-        {alert > 0 && (
+        {notice > 0 && (
           <Row label="Only interrupt for planes">
             <Choice label="Only interrupt for planes" value={alertFt} options={CEILINGS} onPick={(v) => save({ aircraftAlertFt: v })} />
           </Row>

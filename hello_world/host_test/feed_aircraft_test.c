@@ -160,6 +160,45 @@ static void test_text(void)
     CHECK_STR(b, "MONT");
 }
 
+/* An aircraft `dist` nm away in direction `brg`, flying `track` at `gs` knots and `alt` feet. */
+static ac_t plane_at(double dist, double brg, int track, int gs, int alt)
+{
+    ac_t a = { .alt_ft = alt, .gs_kt = gs, .track = track, .dist_nm = dist, .brg = brg, .vrate = INT_MIN };
+    return a;
+}
+
+/* "Will I see or hear it soon": the track carried 75 s ahead, judged by height in the sky and straight-line distance. */
+static void test_notice(void)
+{
+    double in_s;
+    ac_t jet = plane_at(8, 0, 180, 480, 35000);                 // 8 nm north at cruise, coming straight at us
+    CHECK(fabs(closest_ahead(&jet, 75, &in_s)) < 0.01 && fabs(in_s - 60) < 0.5, "jet is overhead in 60 s, got %.2f nm in %.0f s", closest_ahead(&jet, 75, &in_s), in_s);
+    CHECK(noticeable(&jet, 2, 75, NULL) && noticeable(&jet, 1, 75, NULL), "a jet about to pass overhead is noticed");
+    ac_t far = plane_at(8, 0, 90, 480, 35000);                  // same jet, flying across: never closer than 8 nm
+    CHECK(fabs(closest_ahead(&far, 75, &in_s) - 8) < 0.01 && in_s == 0, "crossing jet is closest now");
+    CHECK(!noticeable(&far, 2, 75, NULL) && noticeable(&far, 3, 75, NULL), "8 nm off at cruise: a speck, only the widest setting counts it");
+    ac_t gone = plane_at(3, 0, 0, 480, 35000);                  // 3 nm north and flying away
+    CHECK(noticeable(&gone, 2, 75, NULL), "still high in the sky as it leaves");
+    ac_t gone2 = plane_at(6, 0, 0, 480, 35000);
+    CHECK(!noticeable(&gone2, 2, 75, NULL), "and gone at 6 nm");
+    ac_t late = plane_at(14, 0, 180, 480, 35000);               // heading over us, but 105 s out
+    CHECK(!noticeable(&late, 2, 75, NULL), "too far ahead to call it soon");
+    ac_t cessna = plane_at(3, 90, 270, 100, 1500);              // low and slow, 3 nm east, coming this way
+    CHECK(noticeable(&cessna, 2, 75, &in_s) && in_s > 70, "a low plane that will pass within earshot (in %.0f s)", in_s);
+    ac_t cessna_by = plane_at(3, 90, 0, 100, 1500);             // same, flying past
+    CHECK(!noticeable(&cessna_by, 2, 75, NULL) && noticeable(&cessna_by, 3, 75, NULL), "3 nm off and low: only the widest setting");
+    ac_t parked = plane_at(2.5, 45, -1, 0, 200);                // at the airfield down the road, still reporting a height
+    CHECK(!noticeable(&parked, 2, 75, NULL), "a plane sitting at an airfield 2.5 nm away is neither seen nor heard");
+    ac_t heli = plane_at(0.8, 200, -1, -1, 800);                // no track or speed known: where it is now
+    CHECK(noticeable(&heli, 2, 75, NULL) && noticeable(&heli, 1, 75, NULL), "close by, track unknown");
+    ac_t arrival = plane_at(2.3, 300, 30, 180, 10000);          // traffic at 10,000 ft flying past, never nearer than 2.3 nm
+    CHECK(noticeable(&arrival, 2, 75, NULL) && !noticeable(&arrival, 1, 75, NULL), "high enough in the sky to see, not overhead");
+    CHECK(!noticeable(&jet, 0, 75, NULL) && !noticeable(&jet, 9, 75, NULL), "never, and nonsense levels");
+}
+
+static bool want_not_nearest(const ac_t *a, void *ctx) { (void)ctx; return strcmp(a->hex, "ab819c") != 0; }
+static bool want_none(const ac_t *a, void *ctx) { (void)a; (void)ctx; return false; }
+
 static void test_scan(void)
 {
     scan_t s;
@@ -179,6 +218,11 @@ static void test_scan(void)
     // Sticky: UAL1970 at 2.25 nm stays shown against UAL1367 at 1.78; ASA1303 at 4.0 does not.
     CHECK(ac_scan(b, len, HLAT, HLON, 10, "a2b12d", &s) && !strcmp(s.near.hex, "a2b12d"), "sticky keeps a2b12d, got %s", s.near.hex);
     CHECK(ac_scan(b, len, HLAT, HLON, 10, "ab761c", &s) && !strcmp(s.near.hex, "ab819c"), "sticky lets go of ab761c, got %s", s.near.hex);
+    // The alert pick: the nearest aircraft the caller wants, which need not be the nearest of all.
+    CHECK(ac_scan_for(b, len, HLAT, HLON, 10, NULL, STICKY_NM, want_not_nearest, NULL, &s) && s.have_alert &&
+          !strcmp(s.near.hex, "ab819c") && !strcmp(s.alert.hex, "a2b12d"), "alert pick skips the nearest, got %s", s.alert.hex);
+    CHECK(ac_scan_for(b, len, HLAT, HLON, 10, NULL, STICKY_NM, want_none, NULL, &s) && !s.have_alert, "nothing wanted: no alert pick");
+    CHECK(ac_scan_for(b, len, HLAT, HLON, 10, "ab761c", 1e9, NULL, NULL, &s) && !strcmp(s.near.hex, "ab761c"), "held: ab761c stays shown at any distance, got %s", s.near.hex);
     // A cut-off answer is not a list.
     CHECK(!ac_scan(b, len / 2, HLAT, HLON, 10, NULL, &s), "half an answer is rejected");
     free(b);
@@ -420,6 +464,7 @@ int main(int argc, char **argv)
     test_maths();
     test_text();
     test_scan();
+    test_notice();
     test_routes();
     test_values();
     test_memory();
