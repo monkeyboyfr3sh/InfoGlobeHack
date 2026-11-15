@@ -131,8 +131,10 @@ void frame_maker_task(void *pvParameters)
                 // Only take over the globe from the clock, never from text
                 // someone put up through the web UI (time mode off).
                 if (g_time_on) {
-                    if (ip[0]) {
-                        single_string_rotate(display_queue, ip, strlen(ip), 1);
+                    if (ip[0]) {                    // "LAN 192.168.0.71", or "WIFI 192.168.0.70" when Wi-Fi stands in
+                        char shown[32];
+                        snprintf(shown, sizeof(shown), "%s %s", iface && !strcmp(iface, "Ethernet") ? "LAN" : "WIFI", ip);
+                        single_string_rotate(display_queue, shown, strlen(shown), 1);
                     } else {
                         const char *msg = "No network...";
                         send_string_w_bytes_to_queue(display_queue, msg, strlen(msg), 0x00, 0x00);

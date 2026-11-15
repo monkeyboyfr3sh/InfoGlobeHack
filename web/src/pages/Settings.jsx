@@ -179,8 +179,13 @@ function NetworkName({ settings, save }) {
   );
 }
 
+const LINK = { lan: 'By cable (Ethernet). Wi-Fi is off and only comes on if the cable stops working.',
+  wifi: 'On Wi-Fi: the cable isn’t working, so Wi-Fi is standing in. It switches back once the cable works again.' };
+
 function Place({ settings, save, onSettings, toast }) {
   const units = settings.units === 'c' ? 'c' : 'f';
+  const [link, setLink] = useState(null);
+  useEffect(() => { api.getVersion().then((v) => setLink(v.link || null), () => {}); }, []);
   return (
     <section class="card" id="place">
       <div class="card-head"><h2>Where the globe is</h2></div>
@@ -191,6 +196,11 @@ function Place({ settings, save, onSettings, toast }) {
         <Choice label="Units" value={units} options={[['f', '°F and mph'], ['c', '°C and km/h']]} onPick={(v) => save({ units: v }, v === 'f' ? 'Fahrenheit and mph' : 'Celsius and km/h')} />
       </Row>
       <NetworkName settings={settings} save={save} />
+      {LINK[link] && (
+        <Row label="Connected">
+          <span class={link === 'lan' ? '' : 'warn-text'}>{LINK[link]}</span>
+        </Row>
+      )}
     </section>
   );
 }

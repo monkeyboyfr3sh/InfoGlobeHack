@@ -3,6 +3,13 @@
 What changed in each version of the InfoGlobe, newest first. The globe's web app shows these under
 Settings, About. The version itself is in `VERSION`; see "Making a release" in `README.md`.
 
+## 0.9.5-beta (2026-11-15)
+
+- Ethernet first: Wi-Fi stays off while the cable works, stands in when it doesn't, and goes off again once
+  it is back.
+- The globe shows how it is connected when it starts ("LAN 192.168.0.71" or "WIFI 192.168.0.70") and at every
+  switch. Settings, Where the globe is says it too.
+
 ## 0.9.4-beta (2026-11-15)
 
 - The app is the globe's front page: **infoglobe.lan** (or its address) opens it directly. `/designer` still

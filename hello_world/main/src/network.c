@@ -16,7 +16,10 @@
 
 /*
  * Settings: menuconfig -> InfoGlobe Configuration -> Network.
- * Ethernet and Wi-Fi start side by side; neither blocks the other.
+ * Ethernet first: Wi-Fi is only a stand-in. It comes on when Ethernet has no
+ * address (none within ETH_FIRST_US of starting, or the link went down and
+ * stayed down ETH_GRACE_US) and goes off again once Ethernet has one. Without
+ * Ethernet (not built in, or no PHY) Wi-Fi simply runs.
  */
 
 static const char *TAG = "NETWORK";
@@ -24,6 +27,9 @@ static const char *TAG = "NETWORK";
 #define ETH_GOT_IP_BIT          BIT0
 #define WIFI_GOT_IP_BIT         BIT1
 #define WIFI_RETRY_DELAY_US     (5 * 1000 * 1000)
+#define ETH_FIRST_US            (20 * 1000 * 1000)   // at start: how long Ethernet gets before Wi-Fi stands in
+#define ETH_GRACE_US            (10 * 1000 * 1000)   // a dropped cable: how long before Wi-Fi stands in
+#define ETH_BACK_US             (2 * 1000 * 1000)    // Ethernet back: Wi-Fi goes off after this
 
 /* Higher route_prio wins the default route: prefer the cable when it's up.
  * (Wi-Fi STA default is 100.) */
@@ -32,9 +38,18 @@ static const char *TAG = "NETWORK";
 static EventGroupHandle_t s_net_events;
 static esp_netif_t *s_wifi_netif;
 static esp_timer_handle_t s_wifi_retry_timer;
+static esp_timer_handle_t s_failover_timer;     // decides, a moment after Ethernet changes, whether Wi-Fi should be on
+static volatile bool s_wifi_on;                 // Wi-Fi is wanted (started) right now
 #if CONFIG_INFOGLOBE_ETHERNET
 static esp_netif_t *s_eth_netif;
 #endif
+
+static void failover_in(uint64_t us)
+{
+    if (!s_failover_timer) return;
+    esp_timer_stop(s_failover_timer);
+    esp_timer_start_once(s_failover_timer, us);
+}
 
 /* ---------------------------------------------------------------- IP events */
 
@@ -45,11 +60,13 @@ static void on_ip_event(void *arg, esp_event_base_t base, int32_t id, void *data
         const ip_event_got_ip_t *e = data;
         ESP_LOGI(TAG, "Ethernet got IP " IPSTR, IP2STR(&e->ip_info.ip));
         xEventGroupSetBits(s_net_events, ETH_GOT_IP_BIT);
+        failover_in(ETH_BACK_US);                   // Wi-Fi can go off
         break;
     }
     case IP_EVENT_ETH_LOST_IP:
         ESP_LOGW(TAG, "Ethernet lost IP");
         xEventGroupClearBits(s_net_events, ETH_GOT_IP_BIT);
+        failover_in(ETH_GRACE_US);
         break;
     case IP_EVENT_STA_GOT_IP: {
         const ip_event_got_ip_t *e = data;
@@ -86,6 +103,7 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
     case WIFI_EVENT_STA_DISCONNECTED: {
         const wifi_event_sta_disconnected_t *d = data;
         xEventGroupClearBits(s_net_events, WIFI_GOT_IP_BIT);
+        if (!s_wifi_on) break;                      // switched off on purpose: Ethernet is back
         ESP_LOGW(TAG, "Wi-Fi disconnected (reason %d), retrying in %d s",
                  d->reason, WIFI_RETRY_DELAY_US / 1000000);
         /* Retry forever, but not in a tight loop. */
@@ -98,6 +116,30 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
     }
 }
 
+/* Wi-Fi on or off. Runs on the esp_timer task, never inside an event handler. */
+static void wifi_set(bool on)
+{
+    if (on == s_wifi_on) return;
+    s_wifi_on = on;
+    if (on) {
+        ESP_LOGW(TAG, "No Ethernet: Wi-Fi standing in");
+        esp_wifi_start();                           // STA_START connects
+    } else {
+        ESP_LOGI(TAG, "Ethernet is back: Wi-Fi off");
+        esp_timer_stop(s_wifi_retry_timer);
+        esp_wifi_disconnect();
+        esp_wifi_stop();
+        xEventGroupClearBits(s_net_events, WIFI_GOT_IP_BIT);
+    }
+}
+
+static void failover_cb(void *arg)
+{
+    bool eth = (xEventGroupGetBits(s_net_events) & ETH_GOT_IP_BIT) != 0;
+    wifi_set(!eth);
+}
+
+/* Set up Wi-Fi without starting it; wifi_set() turns it on and off. */
 static esp_err_t wifi_start(void)
 {
     s_wifi_netif = esp_netif_create_default_wifi_sta();
@@ -123,7 +165,9 @@ static esp_err_t wifi_start(void)
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg));
-    return esp_wifi_start();
+
+    const esp_timer_create_args_t fo_args = { .callback = failover_cb, .name = "failover" };
+    return esp_timer_create(&fo_args, &s_failover_timer);
 }
 
 /* ----------------------------------------------------------------- Ethernet */
@@ -140,6 +184,7 @@ static void on_eth_event(void *arg, esp_event_base_t base, int32_t id, void *dat
          * useless as soon as the cable is out, so stop preferring it now. */
         ESP_LOGW(TAG, "Ethernet link down");
         xEventGroupClearBits(s_net_events, ETH_GOT_IP_BIT);
+        failover_in(ETH_GRACE_US);
         break;
     default:
         break;
@@ -257,15 +302,27 @@ esp_err_t network_start(void)
     }
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event, NULL));
 
+    esp_err_t err = wifi_start();
+    if (err != ESP_OK) return err;
 #if CONFIG_INFOGLOBE_ETHERNET
     esp_err_t eth_err = eth_start();
     if (eth_err != ESP_OK) {
         ESP_LOGE(TAG, "Ethernet init failed (%s); continuing with Wi-Fi only",
                  esp_err_to_name(eth_err));
+        failover_in(1000);                          // Wi-Fi straight away
+    } else {
+        failover_in(ETH_FIRST_US);                  // give the cable a chance first
     }
+#else
+    failover_in(1000);
 #endif
+    return ESP_OK;
+}
 
-    return wifi_start();
+const char *network_link(void)
+{
+    EventBits_t bits = s_net_events ? xEventGroupGetBits(s_net_events) : 0;
+    return (bits & ETH_GOT_IP_BIT) ? "lan" : (bits & WIFI_GOT_IP_BIT) ? "wifi" : "none";
 }
 
 bool network_wait_for_ip(TickType_t timeout)

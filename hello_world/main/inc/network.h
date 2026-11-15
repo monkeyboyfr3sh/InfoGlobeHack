@@ -6,13 +6,17 @@
 #include "freertos/FreeRTOS.h"
 
 /**
- * Bring up Ethernet (if enabled in menuconfig) and Wi-Fi side by side.
+ * Bring up the network: Ethernet (if enabled in menuconfig), with Wi-Fi only
+ * standing in while Ethernet has no address (see network.c).
  *
- * Non-blocking: both interfaces start immediately and keep (re)connecting in
- * the background. Ethernet failing to initialise (e.g. no PHY) is logged and
- * Wi-Fi carries on alone. Requires esp_netif_init() and the default event loop.
+ * Non-blocking: interfaces keep (re)connecting in the background. Ethernet
+ * failing to initialise (e.g. no PHY) is logged and Wi-Fi carries on alone.
+ * Requires esp_netif_init() and the default event loop.
  */
 esp_err_t network_start(void);
+
+/** How the globe is on the network now: "lan", "wifi" (standing in for Ethernet) or "none". */
+const char *network_link(void);
 
 /** Wait until any interface has an IPv4 address. Returns true if one does. */
 bool network_wait_for_ip(TickType_t timeout);

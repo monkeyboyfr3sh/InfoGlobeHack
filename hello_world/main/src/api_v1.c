@@ -528,6 +528,7 @@ static esp_err_t version_get(httpd_req_t *req)
     bool known = run && esp_ota_get_state_partition(run, &st) == ESP_OK;
     if (run) cJSON_AddStringToObject(o, "slot", run->label);
     cJSON_AddStringToObject(o, "hostname", network_hostname());
+    cJSON_AddStringToObject(o, "link", network_link());
     cJSON_AddStringToObject(o, "state", !known || st == ESP_OTA_IMG_UNDEFINED ? "usb" : st == ESP_OTA_IMG_PENDING_VERIFY ? "probation" : "kept");
     return send_json(req, NULL, o);
 }

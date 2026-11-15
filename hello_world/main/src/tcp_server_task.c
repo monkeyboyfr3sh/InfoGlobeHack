@@ -65,15 +65,15 @@ void tcp_server_task(void *pvParameters)
     send_string_to_queue(display_queue, msg, bw + 5);
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    // Lookup our IP
+    // Lookup our IP, and show it with how the globe is connected: "LAN 192.168.0.71" or "WIFI 192.168.0.70"
     char ip_addr_string_buff[32] = {0};
     int ip_result = lookup_ip(ip_addr_string_buff);
     if(ip_result<=0){
         ESP_LOGW(TAG,"Failed to get IP!");
     }
-
-    // Show IP
-    single_string_rotate(display_queue, ip_addr_string_buff, strlen(ip_addr_string_buff),1);
+    char shown[40];
+    snprintf(shown, sizeof(shown), "%s %s", strcmp(network_link(), "lan") ? "WIFI" : "LAN", ip_addr_string_buff);
+    single_string_rotate(display_queue, shown, strlen(shown), 1);
 
     // Init sntp
     init_sntp();

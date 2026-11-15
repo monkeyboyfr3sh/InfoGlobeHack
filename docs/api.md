@@ -158,7 +158,11 @@ curl -X POST $GLOBE/api/v1/settings -d '{"lat":41.88,"lon":-87.63}'
 **Name on the network:** the setting `hostname` (`"infoglobe"` by default; a-z, 0-9 and `-`, up to 32). The globe
 gives it to the router with each address request (routers that name devices then reach it as `infoglobe` or
 `infoglobe.lan`) and announces `<name>.local`. A change asks the router for the address again. `GET /api/v1/version`
-includes the current `hostname`.
+includes the current `hostname`, and `link`: `lan`, or `wifi` while Wi-Fi stands in for a cable that isn't working.
+
+**Ethernet first:** Wi-Fi stays off while Ethernet has an address. It comes on when Ethernet has none (none within
+20 s of starting, or the link has been down 10 s) and goes off again 2 s after Ethernet has one. The globe shows how it
+is connected when it starts (`LAN 192.168.0.71` or `WIFI 192.168.0.70`) and again at every switch.
 
 **Web app over the network:** `POST /api/v1/webapp` with the built `hello_world/main/data/designer.html.gz` as the body
 replaces the web app at `/` and `/designer` (it lives on the `spiffs` partition, which `POST /ota` doesn't touch). `tools/deploy.mjs`
