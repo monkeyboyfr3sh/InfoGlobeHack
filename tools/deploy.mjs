@@ -132,6 +132,6 @@ if (doFirmware) {
 
 if (doWeb) {
   if (!(await upload('/api/v1/webapp', files.web, 'Web app'))) fail('This globe\'s firmware can\'t take the web app over the network yet: run without --web-only to update the firmware first.');
-  const page = await (await fetch(`${globe}/designer`)).text().catch(() => '');
-  say(`✓ Web app in place${page ? '' : ' (couldn\'t read it back)'}. Open ${globe}/designer`);
+  const page = await (await fetch(`${globe}/`)).text().catch(() => '');
+  say(`✓ Web app in place${page ? '' : ' (couldn\'t read it back)'}. Open ${globe}/`);
 }

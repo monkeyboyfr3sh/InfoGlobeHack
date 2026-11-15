@@ -23,7 +23,7 @@ changes something must carry it; reading stays open.
 | Needs the token (when one is set) | Open |
 |---|---|
 | every `POST` and `DELETE` under `/api/v1/` (frame, clear, scenes, playlist, play, resume, next, settings, values, auth) | every `GET` under `/api/v1/` |
-| `POST /text` `/raw` `/button` `/mode` `/ir` `/notes` | `GET /` `/designer` `/mode` `/ir` `/notes` |
+| `POST /text` `/raw` `/button` `/mode` `/ir` `/notes` | `GET /` `/designer` `/classic` `/mode` `/ir` `/notes` |
 | `POST /ota` (firmware upload; checked before anything is erased) | `GET /api/v1/ws` (WebSocket, read-only) |
 
 Send it in one of these (the first one present is the one checked):
@@ -161,7 +161,7 @@ gives it to the router with each address request (routers that name devices then
 includes the current `hostname`.
 
 **Web app over the network:** `POST /api/v1/webapp` with the built `hello_world/main/data/designer.html.gz` as the body
-replaces the page at `/designer` (it lives on the `spiffs` partition, which `POST /ota` doesn't touch). `tools/deploy.mjs`
+replaces the web app at `/` and `/designer` (it lives on the `spiffs` partition, which `POST /ota` doesn't touch). `tools/deploy.mjs`
 sends both.
 
 **Version:** `GET /api/v1/version` answers `{"version":"0.9.0-beta","built":"Nov 15 2026 10:40:00","idf":"v6.1","slot":"ota_1","state":"kept"}`.
@@ -239,8 +239,8 @@ Read-only, no token needed. Text frames, JSON:
 
 | Route | What |
 |---|---|
-| `GET /` | The classic Control & Explorer page (`hello_world/main/data/index.html`) |
-| `GET /designer` | The web app (`web/`, built into `designer.html.gz`) |
+| `GET /`, `GET /designer` | The web app (`web/`, built into `designer.html.gz`) |
+| `GET /classic` | The classic page: protocol lab, raw commands, plain firmware upload |
 
 ## Older routes (used by the classic page)
 

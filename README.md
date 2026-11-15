@@ -98,8 +98,8 @@ Settings, About. Making a release:
 
 When the globe joins the network it scrolls its IP address across the display. Then open:
 
-- `http://<ip>/designer`: the web app.
-- `http://<ip>/`: the classic Control & Explorer page (quick text, IR link stats and gap tuning, the protocol
+- `http://<ip>/` (or `http://infoglobe.local/`): the web app. `/designer` still works; the classic page is at `/classic`.
+- `http://<ip>/classic`: the classic Control & Explorer page (quick text, IR link stats and gap tuning, the protocol
   explorer with its notes, firmware upload).
 
 A tour of the web app:

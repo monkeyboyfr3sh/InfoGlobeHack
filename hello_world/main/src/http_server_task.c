@@ -74,7 +74,9 @@ static cJSON *recv_json(httpd_req_t *req)
 /*  Handlers                                                            */
 /* ------------------------------------------------------------------ */
 
-static esp_err_t root_get_handler(httpd_req_t *req)
+/* The classic page (protocol lab, raw commands, plain firmware upload) at
+ * /classic; "/" is the web app (api_v1.c designer_get). */
+static esp_err_t classic_get_handler(httpd_req_t *req)
 {
     FILE *f = fopen("/spiffs/index.html", "r");
     if (!f) {
@@ -630,7 +632,7 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     }
 
     static const httpd_uri_t routes[] = {
-        { .uri = "/",       .method = HTTP_GET,  .handler = root_get_handler   },
+        { .uri = "/classic", .method = HTTP_GET, .handler = classic_get_handler },
         { .uri = "/text",   .method = HTTP_POST, .handler = text_post_handler  },
         { .uri = "/raw",    .method = HTTP_POST, .handler = raw_post_handler   },
         { .uri = "/button", .method = HTTP_POST, .handler = button_post_handler},

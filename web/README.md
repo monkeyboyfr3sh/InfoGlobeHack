@@ -1,6 +1,6 @@
 # InfoGlobe web designer
 
-Preact + Vite app served by the globe at `/designer` (the classic page at `/` stays as the Control/Explorer UI).
+Preact + Vite app served by the globe at `/` (and `/designer`); the classic Control/Explorer page is at `/classic`.
 Three pages: `#/home` (now showing, timer, quick message, and the list of what the globe shows), `#/clock` (clock
 studio) and `#/settings` (display and night schedule, location, weather, planes; animation pace, scripts, firmware and
 the access token folded under "More"). `#/settings/<card>` opens on a card; `#/scenes/<id>` is one scene's full editor,

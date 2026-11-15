@@ -8,7 +8,7 @@
  *   GET  /api/v1/effects the effect table (id, name, group, durationMs, sameAs)
  *   GET  /api/v1/auth    {"required":bool,"valid":bool,...}; POST {"token":".."} sets it ("" removes)
  *   GET  /api/v1/ws      WebSocket live mirror (live.c)
- *   GET  /designer       the Vite-built designer (designer.html.gz on SPIFFS)
+ *   GET  /  (/designer)  the web app (designer.html.gz on SPIFFS); the classic page is at /classic
  * Full list: docs/api.md. When an access token is set (auth.c), every POST and
  * DELETE here needs it; GETs stay open.
  *
@@ -672,7 +672,8 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/clear",   .method = HTTP_POST,    .handler = clear_post   },
         { .uri = "/api/v1/effects", .method = HTTP_GET,     .handler = effects_get  },
         { .uri = "/api/v1/*",       .method = HTTP_OPTIONS, .handler = options_any  },
-        { .uri = "/designer",       .method = HTTP_GET,     .handler = designer_get },
+        { .uri = "/",               .method = HTTP_GET,     .handler = designer_get },     // the web app is the globe's front page
+        { .uri = "/designer",       .method = HTTP_GET,     .handler = designer_get },     // and where it used to be
         { .uri = "/api/v1/scenes",   .method = HTTP_GET,    .handler = scenes_get    },
         { .uri = "/api/v1/scenes/*", .method = HTTP_GET,    .handler = scene_get     },
         { .uri = "/api/v1/scenes/*", .method = HTTP_POST,   .handler = scene_post    },

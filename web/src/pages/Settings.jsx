@@ -171,7 +171,7 @@ function NetworkName({ settings, save }) {
       </form>
       <p class="muted small" style="margin:6px 0 0">
         {!ok ? 'Letters, digits and dashes only, up to 32.'
-          : <>Open it as <a href={`http://${name}.local/designer`}>{name}.local</a>, or through your router as <b class="mono">{name}</b>
+          : <>Open it as <a href={`http://${name}.local/`}>{name}.local</a>, or through your router as <b class="mono">{name}</b>
             {domain ? <> or <b class="mono">{name}{domain}</b></> : ' (often with .lan or .home after it)'}.
             {domain ? ` The ${domain} comes from your router, so the globe keeps just “${name}”.` : ''}</>}
       </p>
@@ -449,8 +449,8 @@ curl -X POST ${host}/api/v1/values -d '{"cpu":42}'`}</pre>
         <p class="muted small" style="margin:6px 0 0">
           From the project on your computer, after <code>idf.py build</code>: it sends the new firmware and this page,
           waits for the globe to restart and checks the version. A firmware that can’t get back on the network is
-          undone by the globe itself. The globe is also at <a href="http://infoglobe.local/designer">infoglobe.local</a>.
-          {' '}<a href={`${api.GLOBE}/`}>The classic page</a> has the protocol lab and a plain firmware upload.
+          undone by the globe itself. The globe is also at <a href="http://infoglobe.local/">infoglobe.local</a>.
+          {' '}<a href={`${api.GLOBE}/classic`}>The classic page</a> has the protocol lab and a plain firmware upload.
         </p>
       </Row>
       <AccessToken toast={toast} />

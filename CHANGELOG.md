@@ -3,6 +3,11 @@
 What changed in each version of the InfoGlobe, newest first. The globe's web app shows these under
 Settings, About. The version itself is in `VERSION`; see "Making a release" in `README.md`.
 
+## 0.9.4-beta (2026-11-15)
+
+- The app is the globe's front page: **infoglobe.lan** (or its address) opens it directly. `/designer` still
+  works; the classic page (protocol lab, plain firmware upload) moved to `/classic`.
+
 ## 0.9.3-beta (2026-11-15)
 
 - The globe's name on the network is a setting (Settings, Where the globe is). Routers that name devices reach it by
