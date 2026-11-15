@@ -20,16 +20,17 @@ A frame gets an optional `"anim"` object. Everything else in the frame keeps its
 {"text": "HELLO WORLD", "anim": {"type": "decode"}, "after": "hold", "seconds": 6}
 ```
 
-- **Finite** animations (`decode`, `typewriter`, `count`, `sequence` with `"loop": false`) are the frame's entrance:
+- **Finite** animations (`decode`, `typewriter`, `count`, `flap`, `sequence` with `"loop": false`) are the frame's entrance:
   they end on the full text, then the frame settles into its `after` style (spin, hold, flash, instant) as if it had
   just appeared. The frame's `entrance` transition is ignored.
-- **Looping** animations (`bounce`, `scanner`, `sprites`, `automaton`, `sequence`) run for as long as the frame is
+- **Looping** animations (`bounce`, `scanner`, `sprites`, `automaton`, `sparkle`, `wave`, `sequence`) run for as long as the frame is
   shown. The text never spins; `after: "hold"` keeps its blinking characters, `"flash"` blinks every step, `"spin"`
   and `"instant"` don't apply. `motion` and `onChange` don't apply either.
 - **Live values** keep working: the text is filled in again for every step, so a decode that runs across a minute
   ends on the new minute, and `{clock}`'s colon still blinks (at step granularity).
 - **`onChange`** can name a finite animation, played from the old text into the new one when a live value changes:
-  `"onChange": "decode"` (flip-clock style, but decoding), `"onChange": "count"` (numbers roll from the old value), or
+  `"onChange": "decode"` (flip-clock style, but decoding), `"onChange": "flap"` (each character flips on from the old
+  one, a departure board), `"onChange": "count"` (numbers roll from the old value), or
   an object such as `"onChange": {"type": "count", "mode": "digits"}`. A name takes the frame's own `anim` options
   when the types match. Numbers and `"random"` still mean globe transitions.
 - Frames without `anim` (and without an animation `onChange`) behave exactly as before.
@@ -130,6 +131,39 @@ step, drawn with `live` and `dead`. 35 cells nearly close the band, so it wraps 
 `start`: `single` (one live cell in the middle) or `random`. Every `gens` generations it starts again, and whenever it
 dies out or fills completely it restarts from noise. Good rules: 30 (chaos), 90 (Sierpinski triangles), 110
 (gliders, best with `random`), 150, 184 (traffic). A 35-character frame takes 330 ms to send, hence the 400 ms step.
+
+### flap (finite)
+
+```json
+{"type": "flap", "ms": 70, "steps": 12, "order": "lr"}
+```
+
+A departure board: every letter, small letter and digit flips forward through its own alphabet (`A`-`Z`, `a`-`z`,
+`0`-`9`), one flip per step, and stops on the text; other characters just appear. As an entrance the cells start one
+after another (`order`: `lr`, `rl` or `random`, as in decode), each from blank, a few to `steps` flips short of its
+letter (seeded from the text, so the same every time). As `onChange` every cell starts at once from what it showed:
+`9:59` to `10:00` turns the `5` through `6 7 8 9 0` while the others land in one flip. The Clock page's
+"Departure board" style is `{time} {ampm}` with `"onChange": "flap"`.
+
+### sparkle (loops)
+
+```json
+{"type": "sparkle", "ms": 150, "density": 3}
+```
+
+The text holds still while `*` stars flash over it here and there, a new scatter every step: each cell has a
+`density` in 40 chance (1-20) of being a star. The scatter is seeded without the text, so a ticking clock keeps
+sparkling evenly. With no text, a field of `width` cells of stars: a little night sky.
+
+### wave (loops)
+
+```json
+{"type": "wave", "ms": 110, "crest": 2, "lead": 4, "order": "lr"}
+```
+
+A ripple `crest` letters wide (1-8) runs along the text, swapping capitals and small letters under it
+(`Hello World`, `hEllo World`, `HeLlo World`, ...), then `lead` steps of calm before the next. Other characters are
+left alone, so the text never moves. `order`: `lr` or `rl`. Reads best on mixed-case text.
 
 ### sequence (loops, or finite)
 

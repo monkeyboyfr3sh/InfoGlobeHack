@@ -64,6 +64,17 @@ const CASES = [
   { anim: { type: 'sequence', texts: ['é'.repeat(40), 'x'.repeat(70), 7, 'ok'] }, inputs: [''] },
   { anim: { type: 'sequence', texts: [] }, inputs: ['ONLY'] },
   { anim: { type: 'sequence', loop: false }, inputs: ['NO TEXTS'] },
+  { anim: { type: 'flap' }, inputs: ['HELLO WORLD', 'Gate 12 B', '', 'é ok 9', 'X'.repeat(40), input('07:05 PM', { from: '07:04 PM' }),
+    input('10:00', { from: '9:59' }), input('NEW', { from: 'OLDER TEXT' }), input('abc', { from: 'ABC' }), input('SAME', { from: 'SAME' })] },
+  { anim: { type: 'flap', order: 'random', steps: 26, seed: 3, ms: 40 }, inputs: ['DEPARTURES 14:35'] },
+  { anim: { type: 'flap', order: 'rl', steps: 1 }, inputs: ['AB', 'Z9z'] },
+  { anim: { type: 'flap', steps: 99, order: 'sideways' }, inputs: ['CLAMPED 60'] },
+  { anim: { type: 'sparkle' }, inputs: ['HAPPY NEW YEAR', '', 'é ✉', 'X'.repeat(40)] },
+  { anim: { type: 'sparkle', density: 20, width: 12, seed: 9 }, inputs: ['', 'STARS'] },
+  { anim: { type: 'sparkle', density: 0, ms: 20 }, inputs: ['CLAMPED'] },
+  { anim: { type: 'wave' }, inputs: ['hello world', 'MiXeD 42 é', '', 'A', 'X'.repeat(40)] },
+  { anim: { type: 'wave', crest: 5, lead: 0, order: 'rl' }, inputs: ['Right To Left'] },
+  { anim: { type: 'wave', crest: 99, lead: 30, order: 'random' }, inputs: ['clamp'] },
   { anim: { type: 'nonsense' }, inputs: ['UNKNOWN TYPE'] },
 ];
 

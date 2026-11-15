@@ -34,6 +34,9 @@ typedef enum {
     GA_SPRITES,         // loops: little cartoons
     GA_AUTOMATON,       // loops: 1-D cellular automaton
     GA_SEQUENCE,        // your own texts, looping or once
+    GA_FLAP,            // finite: every letter flips through its alphabet to the text (departure board)
+    GA_SPARKLE,         // loops: stars flash over the text here and there
+    GA_WAVE,            // loops: a ripple of swapped capitals runs along the text
     GA_TYPES
 } ga_type_t;
 
@@ -48,10 +51,12 @@ enum { GA_START_SINGLE = 0, GA_START_RANDOM };
 typedef struct {
     uint8_t     type;       // ga_type_t
     uint16_t    ms;         // time per step; the engine never goes below the frame's airtime
-    uint8_t     lead;       // decode: steps of pure noise before the first letter locks
-    uint8_t     order;      // decode: GA_ORDER_*
+    uint8_t     lead;       // decode: steps of pure noise before the first letter locks; wave: calm steps between ripples
+    uint8_t     order;      // decode, flap: GA_ORDER_*; wave: lr or rl
     uint8_t     noise;      // decode: GA_NOISE_*
-    uint8_t     steps;      // count: steps to reach the value
+    uint8_t     steps;      // count: steps to reach the value; flap: most flips a letter makes
+    uint8_t     density;    // sparkle: how many stars, 1-20 (of 40 chances per cell and step)
+    uint8_t     crest;      // wave: letters under the ripple
     uint8_t     mode;       // count: GA_COUNT_*
     uint16_t    period;     // bounce: ms there and back
     uint16_t    pause;      // bounce: ms resting at each end
@@ -73,7 +78,7 @@ typedef struct {
 
 typedef struct {
     const char *target;     // the frame's text, live values filled in
-    const char *from;       // count: the text before a change; NULL or "" counts from zero
+    const char *from;       // count, flap: the text before a change; NULL or "" = from nothing
     int         shift;      // the frame's own position, -1 = centred (shift = length)
     uint16_t    gap_ms;     // IR idle gap after every frame
     uint16_t    min_ms;     // extra floor for every step, 0 = airtime only

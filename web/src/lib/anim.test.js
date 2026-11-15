@@ -19,6 +19,9 @@ const VARIANTS = {
   sprites: [{ sprite: 'pacman' }, { sprite: 'chase' }, { sprite: 'pulse' }, { sprite: 'fish', width: 35 }],
   automaton: [{}, { rule: 110, start: 'random', width: 12 }, { rule: 0 }],
   sequence: [{ texts: ['A', 'BB', '( o o )'] }, { texts: ['ONE', 'TWO'], loop: false }],
+  flap: [{}, { order: 'random', steps: 26 }, { order: 'rl', steps: 1 }],
+  sparkle: [{}, { density: 12, width: 20 }],
+  wave: [{}, { crest: 4, lead: 0, order: 'rl' }],
 };
 const LOOP_KS = [...Array(60).keys(), 1000, 123457];
 const steps = (anim, input) => {
@@ -72,11 +75,40 @@ describe('custom animations', () => {
   }
 
   it('finite animations change something on the way', () => {
-    for (const type of ['decode', 'typewriter', 'count']) {
+    for (const type of ['decode', 'typewriter', 'count', 'flap']) {
       const all = steps({ type }, { target: 'ROOM 42' });
       expect(all.length, type).toBeGreaterThan(3);
       expect(all.some((s) => s.text !== 'ROOM 42'), type).toBe(true);
     }
+  });
+
+  it('flap flips forward to each letter: from blank as an entrance, from the old text on a change', () => {
+    const all = steps({ type: 'flap' }, { target: 'GATE 7' });
+    expect(all[0].text).toMatch(/^[A-Z ]/);                     // the first cell is already turning, the rest still blank
+    expect(all[0].text.trim().length).toBeLessThan(6);
+    for (let i = 1; i < all.length; i++) {                      // a turning letter is always the one after the last
+      [...all[i].text].forEach((ch, c) => {
+        const was = all[i - 1].text[c];
+        if (was !== ' ' && was !== ch) expect((ch.charCodeAt(0) - was.charCodeAt(0) + 26) % 26 === 1 || (ch.charCodeAt(0) - was.charCodeAt(0) + 10) % 10 === 1, `${was}->${ch}`).toBe(true);
+      });
+    }
+    const flip = steps({ type: 'flap' }, { target: '10:00', from: '09:59' });
+    expect(flip.map((s) => s.text)).toEqual(['09:59', '10:60', '10:70', '10:80', '10:90', '10:00']);   // the 5 has furthest to turn
+    expect(steps({ type: 'flap' }, { target: 'SAME', from: 'SAME' }).map((s) => s.text)).toEqual(['SAME']);
+  });
+
+  it('sparkle and wave leave the text in place and only touch a few cells', () => {
+    const sp = steps({ type: 'sparkle' }, { target: 'HAPPY NEW YEAR' });
+    expect(sp.every((s) => s.text.length === 14)).toBe(true);
+    expect(sp.some((s) => s.text.includes('*'))).toBe(true);
+    expect(sp.every((s) => [...s.text].every((ch, i) => ch === '*' || ch === 'HAPPY NEW YEAR'[i]))).toBe(true);
+    expect(steps({ type: 'sparkle' }, { target: '' }).every((s) => /^[ *]{10}$/.test(s.text))).toBe(true);
+    const wv = steps({ type: 'wave' }, { target: 'Hello World' });
+    expect(wv.every((s) => s.text.toLowerCase() === 'hello world')).toBe(true);
+    expect(wv[0].text).toBe('hello World');
+    expect(wv[3].text).toBe('HeLLo World');
+    expect(wv.filter((s) => s.text === 'Hello World').length).toBeGreaterThan(3);        // the calm between ripples
+    expect(animStep({ type: 'wave', order: 'rl' }, { target: 'Hello World' }, 0).text).toBe('Hello WorlD');
   });
 
   it('count rolls between the old and the new value, and keeps the length', () => {

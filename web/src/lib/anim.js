@@ -13,14 +13,15 @@ export const SEQ_TEXT_MAX = 63;      // bytes of UTF-8, before live values
 const FRAME_EXTRA = 5;               // bytes of a 05 frame besides its text
 const MS_MIN = 20, MS_MAX = 60000;
 
-const TYPES = ['none', 'decode', 'typewriter', 'count', 'bounce', 'scanner', 'sprites', 'automaton', 'sequence'];
-const DEFAULT_MS = { decode: 110, typewriter: 140, count: 70, bounce: 100, scanner: 110, sprites: 150, automaton: 400, sequence: 400 };
+const TYPES = ['none', 'decode', 'typewriter', 'count', 'bounce', 'scanner', 'sprites', 'automaton', 'sequence', 'flap', 'sparkle', 'wave'];
+const DEFAULT_MS = { decode: 110, typewriter: 140, count: 70, bounce: 100, scanner: 110, sprites: 150, automaton: 400, sequence: 400,
+  flap: 70, sparkle: 150, wave: 110 };
 const CHOICES = {
   order: ['lr', 'rl', 'random'], noise: ['match', 'symbols', 'mixed'], mode: ['number', 'digits'],
   sprite: ['pacman', 'chase', 'pulse', 'fish'], start: ['single', 'random'],
 };
 const NUMS = {   // [min, max] like ga_set_num()
-  ms: [MS_MIN, MS_MAX], lead: [0, 30], steps: [1, 60], period: [400, 20000], pause: [0, 5000], amp: [0, 60],
+  ms: [MS_MIN, MS_MAX], lead: [0, 30], steps: [1, 60], density: [1, 20], crest: [1, 8], period: [400, 20000], pause: [0, 5000], amp: [0, 60],
   width: [3, CELLS_MAX], rule: [0, 255], gens: [2, 250], seed: [0, 4294967295],
 };
 export const ANIM_KEYS = [...Object.keys(NUMS), ...Object.keys(CHOICES), 'loop', 'cursor', 'bg', 'live', 'dead', 'trail', 'texts'];
@@ -46,7 +47,7 @@ function clipText(s) {
 function init(type) {
   if (typeof type !== 'string' || TYPES.indexOf(type) <= 0) return null;
   return {
-    type, ms: DEFAULT_MS[type], lead: 4, order: 'lr', noise: 'match', steps: 12, mode: 'number',
+    type, ms: DEFAULT_MS[type], lead: 4, order: 'lr', noise: 'match', steps: 12, density: 3, crest: 2, mode: 'number',
     period: 3000, pause: 100, amp: 0, width: type === 'automaton' ? 35 : 10, sprite: 'pacman',
     rule: 30, gens: 120, start: 'single', loop: true, cursor: '#', bg: ' ', live: '#', dead: ' ', trail: '',
     seed: 0, texts: [],
@@ -108,7 +109,7 @@ const norm = (a) => (NORMALIZED.has(a) ? a : normalizeAnim(a));
 export function isFiniteAnim(anim) {
   const a = norm(anim);
   if (!a) return true;
-  if (['decode', 'typewriter', 'count'].includes(a.type)) return true;
+  if (['decode', 'typewriter', 'count', 'flap'].includes(a.type)) return true;
   return a.type === 'sequence' && (!a.loop || !a.texts.length);
 }
 
@@ -159,12 +160,12 @@ const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', LOWER = 'abcdefghijklmnopqrstuvwxyz'
 const SYMBOL = '#$*<>=?/', MIXED = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$*<>=?';
 const isDigit = (cp) => cp >= 48 && cp <= 57;
 
-function decode(a, t, k) {
-  const n = t.n, span = Math.min(n, 16);
-  const rank = t.c.map((_, i) => (a.order === 'rl' ? n - 1 - i : i));
+/** The turn each of n cells takes (0 = first): left to right, right to left, or shuffled. */
+function orderRanks(a, n) {
+  const rank = Array.from({ length: n }, (_, i) => (a.order === 'rl' ? n - 1 - i : i));
   if (a.order === 'random') {
     // seeded without the text, so the order holds still while a colon blinks
-    const pos = t.c.map((_, i) => i);
+    const pos = rank.map((_, i) => i);
     const s = mix(a.seed ^ Math.imul(n, 0x85ebca6b));
     for (let j = n - 1; j > 0; j--) {
       const r = rnd(s, 0x5eed, j) % (j + 1);
@@ -172,6 +173,12 @@ function decode(a, t, k) {
     }
     pos.forEach((p, r) => { rank[p] = r; });
   }
+  return rank;
+}
+
+function decode(a, t, k) {
+  const n = t.n, span = Math.min(n, 16);
+  const rank = orderRanks(a, n);
   const seed = textSeed(a, t);
   let text = '';
   t.c.forEach((ch, i) => {
@@ -336,6 +343,58 @@ function automaton(a, t, k) {
   return { text: s.map((v) => (v ? a.live : a.dead)).join('') };
 }
 
+const wheelOf = (cp) => (cp >= 65 && cp <= 90 ? UPPER : cp >= 97 && cp <= 122 ? LOWER : isDigit(cp) ? DIGIT : null);
+
+// A departure board: every letter flips forward through its alphabet and stops
+// on the text. As an entrance the cells start one after another from blank;
+// when a live value changed (`from`), each flips on from what it showed.
+function flap(a, input, t, k) {
+  const n = t.n, span = Math.min(n, 16);
+  const rank = orderRanks(a, n);
+  const f = cellsOf(input.from || '');
+  const change = f.n > 0;
+  const seed = textSeed(a, t), least = Math.min(a.steps, 3);
+  let last = 0, text = '';
+  t.c.forEach((ch, i) => {
+    const set = wheelOf(t.cp[i]);
+    const delay = change ? 0 : Math.floor((rank[i] * span) / n);
+    let flips = 0, len = 1, p = 0;
+    if (set) {
+      len = set.length;
+      p = t.cp[i] - set.charCodeAt(0);
+      if (change && i < f.n && wheelOf(f.cp[i]) === set) flips = (p + len - (f.cp[i] - set.charCodeAt(0))) % len;
+      else flips = least + (rnd(seed, 0xf1a9, i) % (a.steps - least + 1));
+    }
+    last = Math.max(last, delay + flips);
+    if (k >= delay + flips) text += ch;
+    else if (k < delay) text += ' ';
+    else text += set[(p + len - ((delay + flips - k) % len)) % len];
+  });
+  return { text, done: k >= last };
+}
+
+// The text holds still while stars flash over it here and there; with no text, a field of them.
+function sparkle(a, t, k) {
+  const W = t.n ? t.n : a.width;
+  const seed = mix(a.seed ^ 0x5ba7c1e5);                // not the text: a ticking clock keeps its sky
+  let text = '';
+  for (let i = 0; i < W; i++) text += rnd(seed, k, i) % 40 < a.density ? '*' : t.n ? t.c[i] : ' ';
+  return { text };
+}
+
+// A ripple `crest` letters wide runs along the text, swapping capitals and small letters under it.
+function wave(a, t, k) {
+  const n = t.n, c = a.crest;
+  const head = k % (n + c + a.lead);
+  let text = '';
+  t.c.forEach((ch, i) => {
+    const j = a.order === 'rl' ? n - 1 - i : i, cp = t.cp[i];
+    const under = j <= head && j > head - c;
+    text += under && ((cp >= 65 && cp <= 90) || (cp >= 97 && cp <= 122)) ? String.fromCharCode(cp ^ 0x20) : ch;
+  });
+  return { text };
+}
+
 /**
  * What to show at step k (0 = first). anim: an "anim" object (raw or normalized).
  * input: {target, from, shift = -1, gapMs = 10, minMs = 0}.
@@ -354,6 +413,9 @@ export function animStep(anim, input, k) {
     case 'scanner': r = scanner(a, t, k); break;
     case 'sprites': r = sprites(a, t, k); break;
     case 'automaton': r = automaton(a, t, k); break;
+    case 'flap': r = flap(a, inp, t, k); break;
+    case 'sparkle': r = sparkle(a, t, k); break;
+    case 'wave': r = wave(a, t, k); break;
     case 'sequence':
       if (a.texts.length && (a.loop || k < a.texts.length)) r = { text: a.texts[k % a.texts.length], tmpl: true };
       else r = { text: t.c.join(''), done: true };
@@ -426,6 +488,18 @@ export const ANIMS = [
     desc: 'Numbers roll to their value instead of jumping. Best when a live value changes.',
     options: [MS(40, 300), { key: 'steps', label: 'Steps to get there', kind: 'range', min: 3, max: 40, unit: 'steps' },
       { key: 'mode', label: 'Numbers', kind: 'choice', choices: [['number', 'Count up or down'], ['digits', 'Roll each digit (odometer)']] }] },
+  { type: 'flap', name: 'Split-flap', finite: true, sample: 'DEPARTURES',
+    desc: 'Every letter flips through the alphabet and lands on yours, like an airport departure board.',
+    options: [{ ...MS(40, 300), label: 'Time per flip' }, { key: 'steps', label: 'Most flips per letter', kind: 'range', min: 3, max: 26, unit: 'flips' },
+      { key: 'order', label: 'Letters start', kind: 'choice', choices: [['lr', 'Left to right'], ['rl', 'Right to left'], ['random', 'In any order']] }] },
+  { type: 'sparkle', name: 'Sparkle', finite: false, sample: 'HAPPY NEW YEAR',
+    desc: 'Stars flash over your text here and there for as long as it shows. With no text, a little night sky.',
+    options: [{ ...MS(60, 600), label: 'A new scatter every' }, { key: 'density', label: 'How many stars', kind: 'range', min: 1, max: 12, unit: '' }] },
+  { type: 'wave', name: 'Wave', finite: false, sample: 'hello world',
+    desc: 'A ripple runs along the text, swapping capitals and small letters as it passes.',
+    options: [MS(60, 400), { key: 'crest', label: 'Width of the ripple', kind: 'range', min: 1, max: 6, unit: 'letters' },
+      { key: 'lead', label: 'Calm between ripples', kind: 'range', min: 0, max: 30, unit: 'steps' },
+      { key: 'order', label: 'It runs', kind: 'choice', choices: [['lr', 'Left to right'], ['rl', 'Right to left']] }] },
   { type: 'bounce', name: 'Bounce', finite: false, sample: 'HELLO',
     desc: 'Still text glides side to side and slows at each end.',
     options: [{ key: 'period', label: 'There and back in', kind: 'range', min: 1000, max: 12000, step: 250, unit: 'ms' },

@@ -10,8 +10,9 @@
 
 static const char *const k_types[GA_TYPES] = {
     "none", "decode", "typewriter", "count", "bounce", "scanner", "sprites", "automaton", "sequence",
+    "flap", "sparkle", "wave",
 };
-static const uint16_t k_ms[GA_TYPES] = { 0, 110, 140, 70, 100, 110, 150, 400, 400 };
+static const uint16_t k_ms[GA_TYPES] = { 0, 110, 140, 70, 100, 110, 150, 400, 400, 70, 150, 110 };
 
 const char *ga_type_name(int type) { return type > 0 && type < GA_TYPES ? k_types[type] : "none"; }
 
@@ -36,6 +37,8 @@ bool ga_init(ga_anim_t *a, const char *type)
     a->ms = k_ms[t];
     a->lead = 4;
     a->steps = 12;
+    a->density = 3;
+    a->crest = 2;
     a->period = 3000;
     a->pause = 100;
     a->width = t == GA_AUTOMATON ? 35 : 10;
@@ -57,6 +60,8 @@ void ga_set_num(ga_anim_t *a, const char *key, double v)
     if      (!strcmp(key, "ms"))     a->ms = (uint16_t)clampd(v, GA_MS_MIN, GA_MS_MAX);
     else if (!strcmp(key, "lead"))   a->lead = (uint8_t)clampd(v, 0, 30);
     else if (!strcmp(key, "steps"))  a->steps = (uint8_t)clampd(v, 1, 60);
+    else if (!strcmp(key, "density")) a->density = (uint8_t)clampd(v, 1, 20);
+    else if (!strcmp(key, "crest"))  a->crest = (uint8_t)clampd(v, 1, 8);
     else if (!strcmp(key, "period")) a->period = (uint16_t)clampd(v, 400, 20000);
     else if (!strcmp(key, "pause"))  a->pause = (uint16_t)clampd(v, 0, 5000);
     else if (!strcmp(key, "amp"))    a->amp = (uint8_t)clampd(v, 0, 60);
@@ -113,7 +118,7 @@ size_t ga_add_text(ga_anim_t *a, char *pool, size_t room, const char *text)
 bool ga_finite(const ga_anim_t *a)
 {
     switch (a->type) {
-    case GA_DECODE: case GA_TYPEWRITER: case GA_COUNT: return true;
+    case GA_DECODE: case GA_TYPEWRITER: case GA_COUNT: case GA_FLAP: return true;
     case GA_SEQUENCE: return !a->loop || !a->ntexts;
     default: return false;
     }
@@ -202,11 +207,9 @@ static const char DIGIT[] = "0123456789";
 static const char SYMBOL[] = "#$*<>=?/";
 static const char MIXED[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$*<>=?";
 
-/* Noise that locks into the text, a character (or a few, for long text) per step. */
-static bool decode(const ga_anim_t *a, const cells_t *t, uint32_t k, out_t *o)
+/* The turn each of n cells takes (0 = first): left to right, right to left, or shuffled. */
+static void order_ranks(const ga_anim_t *a, int n, uint8_t *rank)
 {
-    int n = t->n, span = n < 16 ? n : 16;
-    uint8_t rank[GA_CELLS_MAX];
     for (int i = 0; i < n; i++) rank[i] = (uint8_t)(a->order == GA_ORDER_RL ? n - 1 - i : i);
     if (a->order == GA_ORDER_RANDOM) {
         // seeded without the text, so the order holds still while a colon blinks
@@ -219,6 +222,14 @@ static bool decode(const ga_anim_t *a, const cells_t *t, uint32_t k, out_t *o)
         }
         for (int r = 0; r < n; r++) rank[pos[r]] = (uint8_t)r;
     }
+}
+
+/* Noise that locks into the text, a character (or a few, for long text) per step. */
+static bool decode(const ga_anim_t *a, const cells_t *t, uint32_t k, out_t *o)
+{
+    int n = t->n, span = n < 16 ? n : 16;
+    uint8_t rank[GA_CELLS_MAX];
+    order_ranks(a, n, rank);
     uint32_t seed = text_seed(a, t);
     for (int i = 0; i < n; i++) {
         uint32_t cp = t->cp[i];
@@ -457,6 +468,74 @@ static void automaton(const ga_anim_t *a, const cells_t *t, uint32_t k, out_t *o
     for (int i = 0; i < W; i++) put_ch(o, s[i] ? a->live : a->dead);
 }
 
+/* The wheel a character sits on: capitals, small letters or digits; NULL = it doesn't flip. */
+static const char *wheel_of(uint32_t cp)
+{
+    if (cp >= 'A' && cp <= 'Z') return UPPER;
+    if (cp >= 'a' && cp <= 'z') return LOWER;
+    if (cp >= '0' && cp <= '9') return DIGIT;
+    return NULL;
+}
+
+/* A departure board: every letter flips forward through its alphabet, a step
+ * at a time, and stops on the text. As an entrance the cells start one after
+ * another from blank, each from a letter a few flips short of its own. When a
+ * live value changed (`from`), each cell flips on from what it showed, all at
+ * once: 9:59 turns to 10:00 like a flip clock. */
+static bool flap(const ga_anim_t *a, const ga_input_t *in, const cells_t *t, uint32_t k, out_t *o)
+{
+    int n = t->n, span = n < 16 ? n : 16;
+    uint8_t rank[GA_CELLS_MAX];
+    order_ranks(a, n, rank);
+    cells_t f;
+    split(in->from, &f);
+    bool change = f.n > 0;
+    uint32_t seed = text_seed(a, t), least = a->steps < 3 ? a->steps : 3, last = 0;
+    for (int i = 0; i < n; i++) {
+        const char *set = wheel_of(t->cp[i]);
+        uint32_t delay = change ? 0 : (uint32_t)rank[i] * (uint32_t)span / (uint32_t)n, flips = 0, len = 1, p = 0;
+        if (set) {
+            len = (uint32_t)strlen(set);
+            p = t->cp[i] - (uint32_t)set[0];
+            if (change && i < f.n && wheel_of(f.cp[i]) == set) flips = (p + len - (f.cp[i] - (uint32_t)set[0])) % len;
+            else flips = least + rnd(seed, 0xf1a9, (uint32_t)i) % ((uint32_t)a->steps - least + 1);
+        }
+        if (delay + flips > last) last = delay + flips;
+        if (k >= delay + flips) put_cell(o, t, i);
+        else if (k < delay) put_ch(o, ' ');
+        else put_ch(o, set[(p + len - (delay + flips - k) % len) % len]);
+    }
+    return k >= last;
+}
+
+/* The text holds still while stars flash over it here and there, a new
+ * scatter every step; with no text, a field of `width` cells of them. */
+static void sparkle(const ga_anim_t *a, const cells_t *t, uint32_t k, out_t *o)
+{
+    int W = t->n ? t->n : a->width;
+    uint32_t seed = mix(a->seed ^ 0x5ba7c1e5u);          // not the text: a ticking clock keeps its sky
+    for (int i = 0; i < W; i++) {
+        if (rnd(seed, k, (uint32_t)i) % 40 < a->density) put_ch(o, '*');
+        else if (t->n) put_cell(o, t, i);
+        else put_ch(o, ' ');
+    }
+}
+
+/* A ripple `crest` letters wide runs along the text, swapping capitals and
+ * small letters under it (HELLO -> HEllO), then `lead` steps of calm. */
+static void wave(const ga_anim_t *a, const cells_t *t, uint32_t k, out_t *o)
+{
+    int n = t->n, c = a->crest;
+    int head = (int)(k % (uint32_t)(n + c + a->lead));
+    for (int i = 0; i < n; i++) {
+        int j = a->order == GA_ORDER_RL ? n - 1 - i : i;
+        uint32_t cp = t->cp[i];
+        bool under = j <= head && j > head - c;
+        if (under && ((cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z'))) put_ch(o, (char)(cp ^ 0x20));
+        else put_cell(o, t, i);
+    }
+}
+
 void ga_step(const ga_anim_t *a, const ga_input_t *in, uint32_t k, ga_step_t *out)
 {
     out->text[0] = '\0';
@@ -475,6 +554,9 @@ void ga_step(const ga_anim_t *a, const ga_input_t *in, uint32_t k, ga_step_t *ou
     case GA_SCANNER:    scanner(a, &t, k, &o); break;
     case GA_SPRITES:    sprites(a, &t, k, &o); break;
     case GA_AUTOMATON:  automaton(a, &t, k, &o); break;
+    case GA_FLAP:       out->done = flap(a, in, &t, k, &o); break;
+    case GA_SPARKLE:    sparkle(a, &t, k, &o); break;
+    case GA_WAVE:       wave(a, &t, k, &o); break;
     case GA_SEQUENCE:
         if (a->ntexts && a->texts && (a->loop || k < a->ntexts)) {
             const char *p = a->texts;
