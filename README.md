@@ -63,6 +63,16 @@ npm run dev                # then open http://localhost:5173/?globe=http://<glob
 
 The built bundle is committed, so the firmware builds without Node.
 
+## Versions and release notes
+
+The version is in `VERSION` (for example `0.9.0-beta`); the firmware build and the web app both read it, and the globe
+reports it at `GET /api/v1/version`. What changed in each version is in `CHANGELOG.md`, which the web app shows under
+Settings, About. Making a release:
+
+1. Put the new version at the top of `CHANGELOG.md` (`## 0.10.0-beta (2026-12-01)`) with what changed, in plain words.
+2. Write the same version in `VERSION` (`npm test` in `web/` checks they agree).
+3. Build and flash, commit, then tag it: `git tag -a v0.10.0-beta -m "0.10.0-beta"` and `git push origin v0.10.0-beta`.
+
 ## Using it
 
 When the globe joins the network it scrolls its IP address across the display. Then open:

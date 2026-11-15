@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { GLOBE, subscribeNow, onTokenNeeded, setDisplay } from './lib/api.js';
 import { Switch } from './components/Common.jsx';
+import { VERSION } from './lib/releases.js';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Clock } from './pages/Clock.jsx';
@@ -177,6 +178,7 @@ export function App() {
           </svg>
           <span>InfoGlobe</span>
         </a>
+        <a class="version" href="#/settings/about" title="Version and release notes">v{VERSION}</a>
         <nav class="tabs">
           {PAGES.map(([p, label]) => <a key={p} href={`#/${p}`} aria-current={route.page === p ? 'page' : undefined}>{label}</a>)}
         </nav>

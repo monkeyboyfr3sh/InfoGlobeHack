@@ -34,6 +34,7 @@
 #include "feeds.h"
 #include "auth.h"
 #include "live.h"
+#include "esp_app_desc.h"
 
 static const char *TAG = "API_V1";
 
@@ -454,6 +455,19 @@ static esp_err_t timer_post(httpd_req_t *req)
     return ok ? ok_json(req) : send_error(req, "500 Internal Server Error", "Could not start the timer");
 }
 
+/* GET /api/v1/version  {"version":"0.9.0-beta","built":"Nov 15 2026 10:40:00","idf":"v6.1"} */
+static esp_err_t version_get(httpd_req_t *req)
+{
+    const esp_app_desc_t *d = esp_app_get_description();
+    char built[40];
+    snprintf(built, sizeof(built), "%s %s", d->date, d->time);
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "version", d->version);
+    cJSON_AddStringToObject(o, "built", built);
+    cJSON_AddStringToObject(o, "idf", d->idf_ver);
+    return send_json(req, NULL, o);
+}
+
 static esp_err_t resume_post(httpd_req_t *req)
 {
     if (!auth_check(req)) return ESP_OK;
@@ -606,6 +620,7 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/now",      .method = HTTP_GET,    .handler = now_get       },
         { .uri = "/api/v1/next",     .method = HTTP_POST,   .handler = next_post     },
         { .uri = "/api/v1/timer",    .method = HTTP_GET,    .handler = timer_get     },
+        { .uri = "/api/v1/version",  .method = HTTP_GET,    .handler = version_get   },
         { .uri = "/api/v1/timer",    .method = HTTP_POST,   .handler = timer_post    },
         { .uri = "/api/v1/settings", .method = HTTP_GET,    .handler = settings_get  },
         { .uri = "/api/v1/settings", .method = HTTP_POST,   .handler = settings_post },

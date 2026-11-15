@@ -155,6 +155,8 @@ WebSocket below.
 curl -X POST $GLOBE/api/v1/settings -d '{"lat":41.88,"lon":-87.63}'
 ```
 
+**Version:** `GET /api/v1/version` answers `{"version":"0.9.0-beta","built":"Nov 15 2026 10:40:00","idf":"v6.1"}`.
+
 **The kitchen timer:** `POST /api/v1/timer {"seconds":300,"label":"TEA"}` counts down on the globe (`TEA 4:59`,
 over the rotation), then flashes `TIME'S UP` for 15 seconds and goes back by itself. `{"seconds":0}` cancels a running timer or
 dismisses the time's up; `GET /api/v1/timer` answers `{"remaining":287}`, and `now` carries `"timer": 287` while one

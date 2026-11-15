@@ -50,6 +50,8 @@ export const savePlaylist = async (items) => {
 };
 export const savePlaylistRaw = (body) => call('POST', '/api/v1/playlist', body);
 export const getSettings = () => call('GET', '/api/v1/settings');
+// {version, built, idf}: the firmware on the globe. Firmware from before versions: throws (404).
+export const getVersion = () => call('GET', '/api/v1/version');
 export const saveSettings = (s) => call('POST', '/api/v1/settings', s);
 // The display switch: off blanks the globe and holds everything until it is on again.
 export const setDisplay = (on) => saveSettings({ display: !!on });

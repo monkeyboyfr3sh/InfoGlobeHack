@@ -27,7 +27,6 @@ export const EXTRAS = [
   { key: 'sun', name: 'Sunrise and sunset', desc: 'needs your location', frame: { text: 'RISE {sunrise} SET {sunset}', entrance: 17, after: 'spin' } },
   { key: 'weather', name: 'Weather', desc: '61 CLOUDY, set up on the Weather page', frame: { text: '{var:weather}', entrance: 16, after: 'hold' } },
   { key: 'world', name: 'World clock', desc: 'other cities', frame: null },
-  { key: 'countdown', name: 'Countdown', desc: 'days or time until…', frame: null },
 ];
 
 export const CHIMES = [
@@ -42,7 +41,7 @@ export const DEFAULT_CLOCK = {
   style: 'classic', h24: false, seconds: false, ampm: true, colon: { period: 1000, look: 'hide' },
   change: undefined, motion: undefined, motionMs: undefined,
   extras: [], clockSeconds: 20, extraSeconds: 6,
-  world: ['nyc', 'lon', 'tyo'], countdown: { label: 'XMAS', target: '12-25' },
+  world: ['nyc', 'lon', 'tyo'],
   chime: { every: 0, look: 'words' },
 };
 
@@ -71,6 +70,9 @@ export function upgradeClock(c) {
   if (out.style === 'drift') { out.style = 'pendulum'; out.motion = undefined; }
   if (out.motion === 'drift') out.motion = undefined;
   delete out.blink;
+  // countdowns are rows of their own on Home now, not part of the clock
+  if (Array.isArray(out.extras)) out.extras = out.extras.filter((k) => k !== 'countdown');
+  delete out.countdown;
   return out;
 }
 
@@ -94,11 +96,6 @@ export function compileClock(c) {
       const parts = (c.world || []).slice(0, 3).map((k) => `${k.toUpperCase()} {tz:${k}}`);
       if (!parts.length) continue;
       f = { text: parts.join('  '), entrance: 0, after: 'spin' };
-    }
-    if (key === 'countdown') {
-      const { label, target } = c.countdown || {};
-      if (!target) continue;
-      f = { text: `${label || ''} {countdown:${target}}`.trim(), entrance: 26, after: 'spin' };     // "BDAY IN 11 DAYS", "BDAY TODAY"
     }
     extras.push(blankFrame({ ...f, seconds: c.extraSeconds || 6 }));
   }

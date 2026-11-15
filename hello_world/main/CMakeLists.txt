@@ -56,6 +56,7 @@ if(NPM_EXE AND EXISTS ${WEB_DIR}/node_modules)
         WORKING_DIRECTORY ${WEB_DIR}
         DEPENDS ${WEB_SOURCES} ${WEB_DIR}/index.html ${WEB_DIR}/vite.config.js
                 ${CMAKE_CURRENT_LIST_DIR}/../../docs/effects.json
+                ${CMAKE_CURRENT_LIST_DIR}/../../VERSION ${CMAKE_CURRENT_LIST_DIR}/../../CHANGELOG.md
         COMMENT "Building the web designer (npm run build)"
         VERBATIM)
     add_custom_target(web_designer DEPENDS ${DESIGNER_GZ})

@@ -7,6 +7,7 @@ import { cleanTime, showTime, ensureScene } from '../lib/rotation.js';
 import { fillValues, setVars, setLocation } from '../lib/values.js';
 import { VALUES as WX_VALUES, STATUS as WX_STATUS, weatherScene, ago } from '../lib/feeds/weather.js';
 import { VALUES as AC_VALUES, PLANE_SCENE } from '../lib/feeds/aircraft.js';
+import { RELEASES, VERSION, inline } from '../lib/releases.js';
 
 // Settings: everything about the globe that isn't what it shows. The display and its
 // night schedule, where it is, the weather and plane feeds, and, folded away, the
@@ -304,6 +305,54 @@ function PlanesCard({ settings, values, save, toast }) {
   );
 }
 
+/* ---------- the version, and what changed in each one ---------- */
+
+const Inline = ({ text }) => inline(text).map((p, i) => (p.b ? <b key={i}>{p.text}</b> : p.code ? <code key={i}>{p.text}</code> : p.text));
+
+function Notes({ blocks }) {
+  const out = [];
+  let list = null;
+  blocks.forEach((b, i) => {
+    if (b.kind === 'li') { if (!list) { list = []; out.push(<ul key={i}>{list}</ul>); } list.push(<li key={i}><Inline text={b.text} /></li>); return; }
+    list = null;
+    out.push(b.kind === 'h' ? <h4 key={i}>{b.text}</h4> : <p key={i}><Inline text={b.text} /></p>);
+  });
+  return <div class="notes">{out}</div>;
+}
+
+function About() {
+  const [fw, setFw] = useState(null);                 // {version, built}; false = older firmware without a version
+  useEffect(() => { api.getVersion().then(setFw, () => setFw(false)); }, []);
+  const [latest, ...older] = RELEASES;
+  return (
+    <section class="card" id="about">
+      <div class="card-head"><h2>About</h2><span class="pill scene">v{VERSION}</span></div>
+      <p class="muted small" style="margin:0 0 4px">
+        This page is version <b>{VERSION}</b>.{' '}
+        {fw ? (fw.version === VERSION ? `The globe’s firmware is the same version, built ${fw.built}.` : `The globe’s firmware is ${fw.version}: flash the globe to bring them in line.`)
+          : fw === false ? 'The globe’s firmware is from before versions were numbered.' : ''}
+      </p>
+      {latest && (
+        <div class="release">
+          <h3>What’s new in {latest.version}{latest.date ? <span class="muted small"> · {latest.date}</span> : null}</h3>
+          <Notes blocks={latest.blocks} />
+        </div>
+      )}
+      {older.length > 0 && (
+        <details class="sub releases">
+          <summary>Earlier versions</summary>
+          {older.map((r) => (
+            <div class="release" key={r.version}>
+              <h3>{r.version}{r.date ? <span class="muted small"> · {r.date}</span> : null}</h3>
+              <Notes blocks={r.blocks} />
+            </div>
+          ))}
+        </details>
+      )}
+    </section>
+  );
+}
+
 /* ---------- rarely needed: folded away ---------- */
 
 const PACES = [[0, 'Fastest'], [150, 'Normal'], [300, 'Slow'], [600, 'Very slow']];
@@ -358,6 +407,7 @@ export function Settings({ toast, display, section }) {
       <WeatherCard settings={settings} values={values} toast={toast} />
       <PlanesCard settings={settings} values={values} save={save} toast={toast} />
       <More settings={settings} save={save} toast={toast} />
+      <About />
     </div>
   );
 }

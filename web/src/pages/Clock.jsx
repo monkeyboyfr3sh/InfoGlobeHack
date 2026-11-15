@@ -144,7 +144,7 @@ export function Clock({ toast }) {
             ))}
             {compiled.chimeFrames && <li><span class="muted">Chime every {c.chime.every} min:</span> <span class="mono">{compiled.chimeFrames.map((f) => f.text).join(' → ')}</span></li>}
           </ol>
-          {tooWide && <div class="problem">One of the frames is longer than 35 characters; trim the countdown label or cities.</div>}
+          {tooWide && <div class="problem">One of the frames is longer than 35 characters; pick fewer cities.</div>}
           <div class="card-foot">
             <button class="btn" onClick={tryIt}>Try for a minute</button>
             <span style="flex:1" />
@@ -243,13 +243,6 @@ export function Clock({ toast }) {
                     onClick={() => set({ world: c.world.includes(k) ? c.world.filter((x) => x !== k) : [...c.world, k].slice(-3) })}>{k.toUpperCase()}</button>
                 ))}
               </div>
-            </div>
-          )}
-          {c.extras.includes('countdown') && (
-            <div class="sub row">
-              <label class="row">Label <input type="text" style="width:110px" maxLength={12} value={c.countdown.label} onInput={(e) => set({ countdown: { ...c.countdown, label: e.currentTarget.value.toUpperCase() } })} /></label>
-              <label class="row">Until <input type="text" style="width:90px" placeholder="12-25 or 17:00" value={c.countdown.target} onInput={(e) => set({ countdown: { ...c.countdown, target: e.currentTarget.value.trim() } })} /></label>
-              <span class="muted small">month-day for days, or hh:mm for a time today</span>
             </div>
           )}
           {c.extras.includes('sun') && (

@@ -35,7 +35,7 @@ describe('clock values match the globe', () => {
 describe('clock studio', () => {
   it('every style compiles to text that fits', () => {
     for (const s of STYLES) {
-      const { frames } = compileClock({ ...DEFAULT_CLOCK, style: s.key, extras: ['date', 'world', 'countdown'] });
+      const { frames } = compileClock({ ...DEFAULT_CLOCK, style: s.key, extras: ['date', 'world'] });
       for (const f of frames) expect(fillValues(f.text, d).length, `${s.key}: ${f.text}`).toBeLessThanOrEqual(35);
     }
   });

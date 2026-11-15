@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
@@ -5,6 +6,8 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 // Every build carries a stamp (index.html <meta name="build">, import.meta.env.VITE_BUILD):
 // a page left open asks the globe for its copy now and then and reloads when that one is newer.
 process.env.VITE_BUILD = String(Date.now());
+// The version, from VERSION at the top of the repository (the firmware reads the same file).
+process.env.VITE_VERSION = readFileSync(new URL('../VERSION', import.meta.url), 'utf8').trim();
 
 // One self-contained HTML file: the ESP32 serves it gzipped as /designer.
 export default defineConfig({
