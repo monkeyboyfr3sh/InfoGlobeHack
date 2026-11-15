@@ -77,6 +77,7 @@ const TEMPLATES = [
   '{bar:min}{pct:min}|{bar:hour}{pct:hour}|{bar:day}{pct:day}|{bar:week}{pct:week}|{bar:month}{pct:month}|{bar:year}{pct:year}|{bar}{pct}',
   '{moon}|{moonpct}|{sunrise}|{sunset}',
   '{until:12-25}|{until:01-01}|{until:2-29}|{until:7-4}|{until:17:00}|{until:0:00}|{until:9:30}',
+  '{countdown:12-25}|{countdown:01-01}|{countdown:2-29}|{countdown:7-4}|{countdown:17:00}|{countdown:0:00}|{countdown:9:30}|{countdown}|{countdown:soon}',
   '{var:cpu}|{cpu}|{bar:cpu}|{pct:cpu}|{bar:print:250}|{pct:print:250}|{var:nope}|{nope}|{bar:nope}|{pct:nope}',
   Object.keys(CITIES).map((k) => `{tz:${k}}`).join('|'),
 ];

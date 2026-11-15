@@ -37,6 +37,9 @@
 
 static const char *TAG = "API_V1";
 
+/* Showing something while the display is switched off (settings "display": false). */
+#define DISPLAY_OFF_MSG "The display is switched off. Switch it on first."
+
 static QueueHandle_t s_queue;
 
 /* The follow-up frame (entrance, then hold/flash) waits here until the
@@ -204,6 +207,7 @@ static esp_err_t frame_post(httpd_req_t *req)
     if (cJSON_IsString(text)) snprintf(text_copy, sizeof(text_copy), "%s", text->valuestring);
     cJSON_Delete(root);
     if (err) return send_error(req, "400 Bad Request", err);
+    if (g_display_off) return send_error(req, "409 Conflict", DISPLAY_OFF_MSG);
 
     if (!keep_clock) {
         g_time_on = false;     // otherwise the playlist overwrites the design within a second
@@ -399,6 +403,7 @@ static esp_err_t play_post(httpd_req_t *req)
     if (!auth_check(req)) return ESP_OK;
     cJSON *b = recv_body_max(req, 16 * 1024);
     if (!b) return send_error(req, "400 Bad Request", "Body must be JSON");
+    if (g_display_off) { cJSON_Delete(b); return send_error(req, "409 Conflict", DISPLAY_OFF_MSG); }
     cJSON *sc = cJSON_GetObjectItem(b, "scene");
     cJSON *se = cJSON_GetObjectItem(b, "seconds");
     unsigned seconds = cJSON_IsNumber(se) && se->valuedouble > 0 ? (unsigned)se->valuedouble : 0;
@@ -423,6 +428,30 @@ static esp_err_t play_post(httpd_req_t *req)
     if (!scene_engine_play(id, seconds)) return send_error(req, "404 Not Found", "No such scene");
     g_time_on = true;
     return ok_json(req);
+}
+
+/* The kitchen timer.
+ *   POST /api/v1/timer  {"seconds":300,"label":"TEA"}   start (replaces a running one); {"seconds":0} cancels or dismisses
+ *   GET  /api/v1/timer  {"remaining":287} */
+static esp_err_t timer_get(httpd_req_t *req)
+{
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddNumberToObject(o, "remaining", scene_engine_timer_left());
+    return send_json(req, NULL, o);
+}
+
+static esp_err_t timer_post(httpd_req_t *req)
+{
+    if (!auth_check(req)) return ESP_OK;
+    cJSON *b = recv_body(req);
+    cJSON *se = b ? cJSON_GetObjectItem(b, "seconds") : NULL, *lb = b ? cJSON_GetObjectItem(b, "label") : NULL;
+    if (!cJSON_IsNumber(se) || se->valuedouble < 0) { cJSON_Delete(b); return send_error(req, "400 Bad Request", "Need {\"seconds\":300} (0 cancels), optionally \"label\""); }
+    unsigned seconds = (unsigned)(se->valuedouble > 86399 ? 86399 : se->valuedouble);
+    if (seconds && g_display_off) { cJSON_Delete(b); return send_error(req, "409 Conflict", DISPLAY_OFF_MSG); }
+    bool ok = scene_engine_timer(seconds, cJSON_IsString(lb) ? lb->valuestring : "");
+    cJSON_Delete(b);
+    if (ok && seconds) g_time_on = true;
+    return ok ? ok_json(req) : send_error(req, "500 Internal Server Error", "Could not start the timer");
 }
 
 static esp_err_t resume_post(httpd_req_t *req)
@@ -576,6 +605,8 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/resume",   .method = HTTP_POST,   .handler = resume_post   },
         { .uri = "/api/v1/now",      .method = HTTP_GET,    .handler = now_get       },
         { .uri = "/api/v1/next",     .method = HTTP_POST,   .handler = next_post     },
+        { .uri = "/api/v1/timer",    .method = HTTP_GET,    .handler = timer_get     },
+        { .uri = "/api/v1/timer",    .method = HTTP_POST,   .handler = timer_post    },
         { .uri = "/api/v1/settings", .method = HTTP_GET,    .handler = settings_get  },
         { .uri = "/api/v1/settings", .method = HTTP_POST,   .handler = settings_post },
         { .uri = "/api/v1/values",   .method = HTTP_GET,    .handler = values_get    },

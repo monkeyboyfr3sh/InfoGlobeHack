@@ -11,3 +11,6 @@ python/.venv*
 # Camera footage for the protocol explorer (large; keep out of git)
 captures/*
 !captures/README.md
+
+# Device flash dumps and notes snapshots (large / personal; keep out of git)
+backups/

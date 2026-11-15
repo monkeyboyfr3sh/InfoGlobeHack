@@ -140,8 +140,8 @@ curl -X POST $GLOBE/api/v1/resume
  "item":1,"itemRemaining":12,"itemSeconds":30}
 ```
 
-`mode` is `playlist`, `scene` (play-now) or `manual` (text sent from the designer or classic page; then only
-`text`). `item`, `itemRemaining`, `itemSeconds` only with a multi-item playlist. The same object is pushed over the
+`mode` is `playlist`, `scene` (play-now), `manual` (text sent from the designer or classic page; then only
+`text`) or `off` (the display is switched off, see Settings; then nothing else). `item`, `itemRemaining`, `itemSeconds` only with a multi-item playlist. The same object is pushed over the
 WebSocket below.
 
 ## Settings
@@ -154,6 +154,32 @@ WebSocket below.
 ```sh
 curl -X POST $GLOBE/api/v1/settings -d '{"lat":41.88,"lon":-87.63}'
 ```
+
+**The kitchen timer:** `POST /api/v1/timer {"seconds":300,"label":"TEA"}` counts down on the globe (`TEA 4:59`,
+over the rotation), then flashes `TIME'S UP` for 15 seconds and goes back by itself. `{"seconds":0}` cancels a running timer or
+dismisses the time's up; `GET /api/v1/timer` answers `{"remaining":287}`, and `now` carries `"timer": 287` while one
+runs. The time left is also in the pushed values `timer` (`4:59`) and `timerline` (`TEA 4:59`), for scenes of your
+own; save a scene with the id `timer` or `timer-done` to replace what the timer shows.
+
+```sh
+curl -X POST $GLOBE/api/v1/timer -d '{"seconds":600,"label":"PIZZA"}'
+```
+
+**The night schedule** is the pair `displayOffAt` and `displayOnAt` (`"23:00"`, `"07:00"`; empty or missing = none):
+the globe switches `display` off and on itself at those times. Switched by hand in between, it stays that way until
+the next of the two times.
+
+**The display switch** is the setting `display`. `false` blanks the globe and holds everything (the rotation, set
+times, chimes, plane alerts) until it is `true` again; it survives a restart, and the globe's button switches it
+back on. While it is off, `POST /api/v1/frame` and `/api/v1/play` answer `409`.
+
+```sh
+curl -X POST $GLOBE/api/v1/settings -d '{"display":false}'    # dark
+curl -X POST $GLOBE/api/v1/settings -d '{"display":true}'     # back to the rotation
+```
+
+Saving a scene restarts what is on the globe only when that scene is the one showing; any other scene is read
+again when its turn comes.
 
 Settings are readable by anyone on the network and travel with exports: don't put secrets in them.
 

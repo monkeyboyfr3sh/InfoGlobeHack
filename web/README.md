@@ -15,8 +15,9 @@ Pages: `#/dashboard` (now showing, playlist, quick message, scenes), `#/clock` (
 | Path | What |
 |---|---|
 | `src/app.jsx` | Shell: tabs, hash routing, theme, notifications, the access-token prompt |
-| `src/pages/Dashboard.jsx` | Now showing (live from `live.js`), playlist editor, quick message, scene list |
-| `src/pages/Designer.jsx` | Scene editor: library, templates, frame timeline, frame editor, save/export/import |
+| `src/pages/Dashboard.jsx` | Home: now showing (live from `live.js`), quick message, and the one list of what the globe shows, where messages are added, edited, reordered and deleted in place |
+| `src/pages/Designer.jsx` | My scenes: the list and templates, and the full editor (every option of a message, save/export/import, when it shows) |
+| `src/components/MessageRows.jsx` | A scene's messages, one block each (words, seconds, entrance, what it does, order); used by Home and the editor |
 | `src/pages/Clock.jsx` | Clock studio: styles, colon blink, extras and chimes, compiled into scenes (`clockstyles.js`) |
 | `src/pages/Data.jsx` | Pushed values on the globe, plus the feeds' cards (`components/WeatherCard.jsx`, `AircraftCard.jsx`) |
 | `src/pages/Settings.jsx` | The globe's access token: set, change, remove, generate |

@@ -27,6 +27,7 @@ Implemented once in C for the globe (`hello_world/main/src/live_values.c` for th
 | `{sunrise}` `{sunset}` | `6:42` | needs the location (`POST /api/v1/settings {"lat":..,"lon":..}`); `--:--` without one, and in polar day or night |
 | `{tz:nyc}` | `11:39` | nyc chi den la hnl lon par ber ath dxb del sgp hkg tyo syd akl utc |
 | `{until:12-25}` / `{until:17:00}` | `53` / `1:23` | days to a date (`M-D` or `MM-DD`), or time to a time of day (`H:MM` or `HH:MM`) |
+| `{countdown:12-25}` / `{countdown:17:00}` | `IN 41 DAYS` / `IN 1:23` | the same, in words: `TOMORROW` and `TODAY` for a date, `NOW` for a time. Put a label in front: `XMAS {countdown:12-25}` |
 | `{ip}` | `192.168.0.71` | |
 
 Days, hours and bars follow the local wall clock: on the day the clocks go forward, `{until:03:00}` at 1:30 says `1:30`

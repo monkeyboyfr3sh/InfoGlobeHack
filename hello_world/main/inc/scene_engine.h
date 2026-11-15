@@ -32,6 +32,12 @@ void scene_subst(const char *tmpl, char *out, size_t cap, bool *live);
  * its frames), then return to the playlist. Returns false if it doesn't exist. */
 bool scene_engine_play(const char *id, unsigned seconds);
 
+/* The kitchen timer: count down `seconds` on the globe (with `label` in front,
+ * may be NULL), then flash TIME'S UP for 15 seconds. 0 cancels a running one, or
+ * dismisses the time's up. The seconds left are in the status as "timer". */
+bool     scene_engine_timer(unsigned seconds, const char *label);
+unsigned scene_engine_timer_left(void);
+
 /* Skip to the next playlist item (ends a "play now" scene). */
 void scene_engine_next(void);
 
@@ -41,7 +47,8 @@ void scene_engine_resume(void);
 /* Something outside the engine put this text up (Designer, classic page). */
 void scene_engine_note_manual(const char *text);
 
-/* {"mode":"playlist|scene|manual","scene":..,"name":..,"frame":n,"text":..} */
+/* {"mode":"playlist|scene|manual|off","scene":..,"name":..,"frame":n,"text":..,"timer":seconds left}
+ * "off": the display is switched off (settings "display": false). */
 cJSON *scene_engine_status(void);
 
 /* ---- storage (scene_store) ---- */
@@ -52,7 +59,8 @@ bool   scene_delete(const char *id);
 cJSON *scene_list(void);                           // [{id,name,frames}]
 cJSON *playlist_load(void);                        // never NULL
 bool   playlist_save(const cJSON *playlist);
-void   scene_engine_reload(void);                  // a scene changed: re-read and start again at next tick
+void   scene_engine_reload(void);                  // re-read everything and start again at next tick
 void   scene_engine_refresh(void);                 // playlist or settings changed: re-read, keep playing if the current scene is still listed
-cJSON *settings_load(void);                        // {"lat":..,"lon":..}
+cJSON *settings_load(void);                        // {"lat":..,"lon":..,"display":true,"displayOffAt":"23:00","displayOnAt":"07:00"}
 bool   settings_save(const cJSON *patch);          // merge and apply
+void   settings_boot(void);                        // apply the saved settings once the notes partition is readable

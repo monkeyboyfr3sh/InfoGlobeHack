@@ -51,8 +51,13 @@ export const savePlaylist = async (items) => {
 export const savePlaylistRaw = (body) => call('POST', '/api/v1/playlist', body);
 export const getSettings = () => call('GET', '/api/v1/settings');
 export const saveSettings = (s) => call('POST', '/api/v1/settings', s);
+// The display switch: off blanks the globe and holds everything until it is on again.
+export const setDisplay = (on) => saveSettings({ display: !!on });
 export const playScene = (scene, seconds = 0) => call('POST', '/api/v1/play', { scene, seconds });
 export const playFrames = (frames, seconds = 0) => call('POST', '/api/v1/play', { frames, seconds });
+// The kitchen timer: counts down on the globe, then flashes TIME'S UP. 0 seconds cancels, or dismisses the time's up.
+export const startTimer = (seconds, label = '') => call('POST', '/api/v1/timer', { seconds, label });
+export const stopTimer = () => call('POST', '/api/v1/timer', { seconds: 0 });
 // Pushed values: {cpu: 42, build: 'PASS', old: null}; ttl = seconds until they expire (0 = never)
 export const getValues = () => call('GET', '/api/v1/values');
 export const setValues = (values, ttl = 0) => call('POST', `/api/v1/values${ttl ? `?ttl=${ttl}` : ''}`, values);

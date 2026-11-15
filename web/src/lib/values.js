@@ -56,8 +56,10 @@ export const VALUES = [
   { group: 'World', name: 'tz:nyc', label: 'New York time' },
   { group: 'World', name: 'tz:lon', label: 'London time' },
   { group: 'World', name: 'tz:tyo', label: 'Tokyo time' },
-  { group: 'Countdown', name: 'until:12-25', label: 'Days until 25 Dec' },
-  { group: 'Countdown', name: 'until:17:00', label: 'Time until 17:00' },
+  { group: 'Countdown', name: 'countdown:12-25', label: 'Countdown to a day (IN 41 DAYS, TOMORROW, TODAY)' },
+  { group: 'Countdown', name: 'countdown:17:00', label: 'Countdown to a time of day (IN 2:15, NOW)' },
+  { group: 'Countdown', name: 'until:12-25', label: 'Days until a day, just the number (41)' },
+  { group: 'Countdown', name: 'until:17:00', label: 'Time until a time of day, just the number (2:15)' },
   { group: 'Other', name: 'ip', label: "Globe's IP address" },
   // inserted as {var:temp}: that form shows "--" while a feed has nothing, a bare {temp} stays as typed
   ...[...weather.VALUES, ...aircraft.VALUES].map((v) => ({ ...v, name: `var:${v.name}` })),
@@ -174,6 +176,14 @@ function until(arg, d) {
   return null;
 }
 
+// {until:} with its words, so a label in front reads right on every day: "XMAS IN 41 DAYS", "XMAS TOMORROW", "XMAS TODAY".
+function countdown(arg, d) {
+  const n = until(arg, d);
+  if (n === null) return null;
+  if (n.includes(':')) return n === '0:00' ? 'NOW' : `IN ${n}`;
+  return n === '0' ? 'TODAY' : n === '1' ? 'TOMORROW' : `IN ${n} DAYS`;
+}
+
 // Colon blink: period = full on+off cycle in ms; off half swaps ':' for ' ' or '.'.
 // Under 200 ms (or 0) it is steady, as the engine reads "blinkColon".
 function colonBlink(s, d, period, look) {
@@ -246,6 +256,7 @@ function value(name, arg, d, ip, steady, colon) {
     case 'sunset': return hm12(sunEvent(d, false));
     case 'tz': return arg ? cityTime(arg, d) : null;
     case 'until': return arg ? until(arg, d) : null;
+    case 'countdown': return arg ? countdown(arg, d) : null;
     default: return arg ? null : pushed(name);   // {cpu}: a pushed value by its bare name
   }
 }

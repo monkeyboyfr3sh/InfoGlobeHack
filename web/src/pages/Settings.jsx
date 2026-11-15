@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import * as api from '../lib/api.js';
 import { TOKEN_RE, TOKEN_RULES, generateToken } from '../lib/request.js';
-import { Choice, Row, LocationPicker } from '../components/Common.jsx';
+import { Choice, Row, LocationPicker, Switch } from '../components/Common.jsx';
+import { cleanTime, showTime } from '../lib/rotation.js';
 
 // Settings: the globe's access token for now; other settings can join as cards.
 
@@ -133,9 +134,59 @@ function Globe({ toast }) {
   );
 }
 
-export function Settings({ toast }) {
+/** The display switch, and the hours it switches itself off for (settings "displayOffAt" / "displayOnAt"). */
+function Display({ toast, display }) {
+  const [settings, setSettings] = useState(null);
+  const [typed, setTyped] = useState({});            // the boxes, while they aren't what the globe has
+  useEffect(() => { api.getSettings().then(setSettings, () => setSettings({})); }, []);
+  const offAt = settings && cleanTime(settings.displayOffAt), onAt = settings && cleanTime(settings.displayOnAt);
+  const scheduled = !!offAt && !!onAt;
+  const shown = { off: typed.off || offAt || '23:00', on: typed.on || onAt || '07:00' };
+  const nightNow = (t) => {
+    const m = (x) => +x.slice(0, 2) * 60 + +x.slice(3), d = new Date(), n = d.getHours() * 60 + d.getMinutes();
+    return m(t.off) < m(t.on) ? n >= m(t.off) && n < m(t.on) : n >= m(t.off) || n < m(t.on);
+  };
+  const save = async (patch, msg) => {
+    try { await api.saveSettings(patch); setSettings((s) => ({ ...s, ...patch })); toast(true, msg); return true; }
+    catch (e) { toast(false, `Could not save: ${e.message}`); return false; }
+  };
+  const put = (t) => save({ displayOffAt: t.off, displayOnAt: t.on },
+    `Off at ${showTime(t.off)}, back on at ${showTime(t.on)}${nightNow(t) ? '. It is inside those hours now, so the display is going dark' : ''}`);
+  const toggle = (next) => (next ? put(shown) : save({ displayOffAt: '', displayOnAt: '' }, 'Night schedule off'));
+  const setTime = (which) => (e) => {
+    const v = cleanTime(e.currentTarget.value);
+    if (!v) return;
+    const t = { ...shown, [which]: v };
+    setTyped(t);
+    if (scheduled && t.off !== t.on) put(t);
+  };
+  return (
+    <section class="card">
+      <div class="card-head"><h2>Display</h2><span class={`pill ${display.on ? 'playlist' : 'off'}`}>{display.on ? 'On' : 'Off'}</span></div>
+      <Row label="Display" hint="off blanks the globe; everything is kept">
+        <label class="feature-switch"><Switch on={display.on} onChange={(on) => display.set(on).catch(() => false)} label="Display on" />
+          <span class="muted">{display.on ? 'On' : 'Off: the globe is dark until you switch it on'}</span></label>
+      </Row>
+      <Row label="Night schedule" hint="it switches itself off and back on">
+        <div class="row">
+          <Switch on={scheduled} onChange={toggle} label="Night schedule" disabled={!settings} />
+          <span>Off from</span>
+          <input type="time" value={shown.off} onInput={setTime('off')} aria-label="Switch off at" />
+          <span>until</span>
+          <input type="time" value={shown.on} onInput={setTime('on')} aria-label="Switch back on at" />
+        </div>
+        <p class="muted small" style="margin:8px 0 0">
+          {scheduled ? `On: dark from ${showTime(offAt)} to ${showTime(onAt)}, every day. ` : ''}Switch the display by hand in between and that holds until the next of the two times. The globe’s button also switches it back on.
+        </p>
+      </Row>
+    </section>
+  );
+}
+
+export function Settings({ toast, display }) {
   return (
     <div class="page">
+      <Display toast={toast} display={display} />
       <Globe toast={toast} />
       <AccessToken toast={toast} />
     </div>

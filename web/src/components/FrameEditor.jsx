@@ -35,7 +35,7 @@ const ANIM_BY = Object.fromEntries(ANIMS.map((a) => [a.type, a]));
 /** Display name of a frame's custom animation, or null. */
 export const animName = (anim) => (anim && ANIM_BY[anim.type] ? ANIM_BY[anim.type].name : null);
 // what a freshly picked type starts with (beyond its defaults)
-const STARTERS = { sequence: { texts: ['( o o )', '( o o )', '( o o )', '( - - )'], ms: 300 } };
+export const STARTERS = { sequence: { texts: ['( o o )', '( o o )', '( o o )', '( - - )'], ms: 300 } };
 
 function AnimOption({ o, value, raw, onChange }) {
   if (o.kind === 'range') {

@@ -6,7 +6,9 @@
 
 static const char * TAG = "MSG_TYPE";
 
-void push_buffer_to_queue(QueueHandle_t buffer_queue, uint8_t *data, size_t size)
+volatile bool g_display_off = false;
+
+static void push_raw(QueueHandle_t buffer_queue, uint8_t *data, size_t size)
 {
     msg_buffer_t msg_buffer_t;
     msg_buffer_t.size = size;
@@ -19,6 +21,23 @@ void push_buffer_to_queue(QueueHandle_t buffer_queue, uint8_t *data, size_t size
         ESP_LOGW(TAG, "IR link stalled; dropping %u-byte frame", (unsigned)size);
         free(data);
     }
+}
+
+void push_buffer_to_queue(QueueHandle_t buffer_queue, uint8_t *data, size_t size)
+{
+    if (g_display_off) {            // switched off: nothing reaches the globe
+        free(data);
+        return;
+    }
+    push_raw(buffer_queue, data, size);
+}
+
+void push_blank_to_queue(QueueHandle_t buffer_queue)
+{
+    uint8_t *b = malloc(1);
+    if (!b) return;
+    b[0] = 0x04;                    // GLOBE_CMD_CLEAR
+    push_raw(buffer_queue, b, 1);
 }
 
 BaseType_t pop_buffer_from_queue(QueueHandle_t buffer_queue, msg_buffer_t *received_buffer_struct)

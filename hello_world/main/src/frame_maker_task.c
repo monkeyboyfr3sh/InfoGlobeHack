@@ -82,7 +82,15 @@ void frame_maker_task(void *pvParameters)
 
         // Detect falling edge (physical button still works)
         curr_io_level = gpio_get_level(CONFIG_INFOGLOBE_BUTTON_GPIO);
-        if( (curr_io_level==0) && (prev_io_level==true) ){
+        if( (curr_io_level==0) && (prev_io_level==true) && g_display_off ){
+            // The display was switched off from the web app: the button switches it back on.
+            press_tick = xTaskGetTickCount();
+            token_reset_armed = true;
+            cJSON *on = cJSON_CreateObject();
+            cJSON_AddBoolToObject(on, "display", true);
+            settings_save(on);
+            cJSON_Delete(on);
+        } else if( (curr_io_level==0) && (prev_io_level==true) ){
             g_time_on = !g_time_on;
             press_tick = xTaskGetTickCount();
             token_reset_armed = true;

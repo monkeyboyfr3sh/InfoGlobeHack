@@ -4,9 +4,30 @@
 // scene made in the Clock studio keeps its settings in "clock".
 
 import { cleanAnim } from './anim.js';
+import { encodeText, TEXT_MAX } from './protocol.js';
+import { makeSequence, textWidth, WINDOW } from './sim.js';
+import { fillValues, worstCase } from './values.js';
 
 export const newFrame = (over = {}) => ({ text: 'HELLO', entrance: 2, after: 'spin', blink: 0, shift: -1, seconds: 6, ...over });
 const animFrame = (text, anim, over = {}) => newFrame({ text, entrance: null, after: 'hold', anim, ...over });
+
+/** A new message from nothing but its text: short text rises into the front
+ *  window and holds; longer text slides in and circles the globe so all of it can be read. */
+export function messageFrame(text) {
+  const codes = encodeText(worstCase(text)).codes.slice(0, TEXT_MAX);     // as wide as its live values can make it
+  return textWidth(codes) <= WINDOW
+    ? newFrame({ text, entrance: 16, after: 'hold', seconds: 6 })
+    : newFrame({ text, entrance: 0, after: 'spin', seconds: Math.max(10, Math.round(codes.length / 2) + 6) });
+}
+
+// ---- for the previews: a message as the simulator wants it ----
+export const toCodes = (text) => encodeText(fillValues(text)).codes.slice(0, TEXT_MAX);
+export const styleOf = (f) => ({ entrance: f.entrance ?? -1, after: f.after, blink: f.blink, shift: f.shift });
+/** What makeScene needs for a message, its custom animation included (pass anim = null to leave it out). */
+export const simFrame = (f, anim = f.anim) => ({ codes: toCodes(f.text), style: styleOf(f),
+  ...(anim ? { anim, text: fillValues(f.text), fill: (s) => fillValues(s) } : {}) });
+/** A whole scene, start to finish, for <Screen>. */
+export const sceneSim = (frames, effects) => makeSequence(frames.map((f) => ({ ...simFrame(f), ms: (f.seconds || 6) * 1000 })), effects);
 
 export const TEMPLATES = [
   { key: 'blank', name: 'Blank scene', frames: [newFrame()] },

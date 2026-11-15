@@ -19,6 +19,11 @@ typedef struct {
     uint8_t *buffer;
 } msg_buffer_t;
 
+/* The display switch (settings "display": false). While it is off every frame
+ * is dropped here, whoever sends it; only the blanking frame gets through. */
+extern volatile bool g_display_off;
+void push_blank_to_queue(QueueHandle_t buffer_queue);
+
 BaseType_t pop_buffer_from_queue(QueueHandle_t buffer_queue, msg_buffer_t *received_buffer_struct);
 void push_buffer_to_queue(QueueHandle_t buffer_queue, uint8_t *data, size_t size);
 void send_string_to_queue(QueueHandle_t buffer_queue, const char *str_msg, size_t str_len);

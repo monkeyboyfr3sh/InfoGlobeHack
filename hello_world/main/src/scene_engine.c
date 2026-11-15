@@ -24,6 +24,7 @@
 #include "globe_anim.h"
 #include "ir_led_task.h"
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
 
 static const char *TAG = "SCENES";
 
@@ -86,6 +87,15 @@ void scene_subst(const char *tmpl, char *out, size_t cap, bool *live) { subst(tm
 static const char *BUILTIN_CLOCK =
     "{\"id\":\"clock\",\"name\":\"Clock\",\"builtin\":true,\"frames\":[{\"text\":\"{clock}\","
     "\"entrance\":null,\"after\":\"hold\",\"blink\":0,\"shift\":-1,\"seconds\":0}]}";
+/* The kitchen timer: what shows while it runs, and when it has run out. A
+ * saved scene with the same id ("timer", "timer-done") replaces either. */
+static const char *BUILTIN_TIMER =
+    "{\"id\":\"timer\",\"name\":\"Timer\",\"builtin\":true,\"frames\":[{\"text\":\"{var:timerline}\","
+    "\"entrance\":16,\"after\":\"hold\",\"blink\":0,\"shift\":-1,\"seconds\":0}]}";
+static const char *BUILTIN_TIMER_DONE =
+    "{\"id\":\"timer-done\",\"name\":\"Time's up\",\"builtin\":true,\"frames\":["
+    "{\"text\":\"TIME'S UP\",\"entrance\":37,\"after\":\"flash\",\"blink\":0,\"shift\":-1,\"seconds\":4},"
+    "{\"text\":\"{var:timerdone}\",\"entrance\":16,\"after\":\"flash\",\"blink\":0,\"shift\":-1,\"seconds\":4}]}";
 
 bool scene_id_valid(const char *id)
 {
@@ -150,8 +160,12 @@ cJSON *scene_load(const char *id)
     scene_path(id, path, sizeof(path));
     cJSON *j = read_json(path, 16 * 1024);
     if (!j && !strcmp(id, "clock")) j = cJSON_Parse(BUILTIN_CLOCK);
+    if (!j && !strcmp(id, "timer")) j = cJSON_Parse(BUILTIN_TIMER);
+    if (!j && !strcmp(id, "timer-done")) j = cJSON_Parse(BUILTIN_TIMER_DONE);
     return j;
 }
+
+static void scene_changed(const char *id);
 
 bool scene_save(const char *id, const cJSON *scene)
 {
@@ -159,7 +173,7 @@ bool scene_save(const char *id, const cJSON *scene)
     char path[64];
     scene_path(id, path, sizeof(path));
     bool ok = write_json(path, scene);
-    if (ok) scene_engine_reload();
+    if (ok) scene_changed(id);
     return ok;
 }
 
@@ -222,10 +236,78 @@ cJSON *settings_load(void)
     return j;
 }
 
+/* The display switch, settings "display": false. Off blanks the globe (twice:
+ * the IR link has no acknowledgement, and a frame already on its way may land
+ * after the first) and holds the rotation, set times, chimes and plane alerts
+ * until it is switched on again; message_type.c drops every other frame. */
+static volatile uint8_t s_blank_sends;
+static TickType_t       s_blank_at;
+
+static void display_apply(bool on)
+{
+    if (on == !g_display_off) return;
+    if (on) s_blank_sends = 0;
+    else { s_blank_at = xTaskGetTickCount(); s_blank_sends = 2; }
+    g_display_off = !on;
+    ESP_LOGI(TAG, "Display switched %s", on ? "on" : "off");
+}
+
+/* The night schedule, settings "displayOffAt" and "displayOnAt" ("23:00",
+ * "07:00"; both, or none): the display switches itself off and on at those
+ * times, by setting "display" just as the switch does. A change by hand in
+ * between holds until the next of the two times. Starting up inside the off
+ * hours it goes dark; starting up outside them the switch stays as it was left. */
+static int    s_off_at = -1, s_on_at = -1;      // minutes of the day, -1 = none
+static int8_t s_in_night = -1;                  // inside the off hours when last looked, -1 = not looked yet
+
+static int minute_of(const cJSON *v)
+{
+    int h, m;
+    if (!cJSON_IsString(v) || sscanf(v->valuestring, "%d:%d", &h, &m) != 2 || h < 0 || h > 23 || m < 0 || m > 59) return -1;
+    return h * 60 + m;
+}
+
 static void settings_apply(const cJSON *s)
 {
     cJSON *lat = cJSON_GetObjectItem(s, "lat"), *lon = cJSON_GetObjectItem(s, "lon");
     if (cJSON_IsNumber(lat) && cJSON_IsNumber(lon)) clock_values_set_location(lat->valuedouble, lon->valuedouble);
+    display_apply(!cJSON_IsFalse(cJSON_GetObjectItem(s, "display")));
+    int off = minute_of(cJSON_GetObjectItem(s, "displayOffAt")), on = minute_of(cJSON_GetObjectItem(s, "displayOnAt"));
+    if (off < 0 || on < 0 || off == on) off = on = -1;
+    if (off != s_off_at || on != s_on_at) {         // new hours: look afresh, so setting them at night takes effect at once
+        s_off_at = off;
+        s_on_at = on;
+        s_in_night = -1;
+    }
+}
+
+/* Once a second from the display loop: has one of the two times come? */
+static void night_schedule(void)
+{
+    if (s_off_at < 0) return;
+    time_t now = time(NULL);
+    struct tm lt;
+    localtime_r(&now, &lt);
+    if (lt.tm_year < 120) return;                   // the clock isn't set yet
+    int m = lt.tm_hour * 60 + lt.tm_min;
+    bool night = s_off_at < s_on_at ? (m >= s_off_at && m < s_on_at) : (m >= s_off_at || m < s_on_at);
+    if (s_in_night == (int8_t)night) return;
+    bool first = s_in_night < 0;
+    s_in_night = (int8_t)night;
+    if (first && !night) return;
+    if (night == g_display_off) return;             // already as the schedule wants it
+    cJSON *p = cJSON_CreateObject();
+    cJSON_AddBoolToObject(p, "display", !night);
+    settings_save(p);
+    cJSON_Delete(p);
+    ESP_LOGI(TAG, "Night schedule: display %s", night ? "off" : "on");
+}
+
+void settings_boot(void)
+{
+    cJSON *s = settings_load();
+    settings_apply(s);
+    cJSON_Delete(s);
 }
 
 bool settings_save(const cJSON *patch)
@@ -320,9 +402,23 @@ static volatile bool     s_cancel_override = false;
 static eng_item_t        s_items[PLAYLIST_MAX];
 static int               s_nitems;
 static eng_scene_t      *s_scene;          // current scene (heap; large)
+static char              s_showing[SCENE_ID_MAX];   // its id, under s_lock (for scene_changed)
 static char              s_chime_scene[SCENE_ID_MAX];
 static int               s_chime_every;    // minutes (60, 30, 15), 0 = off
 static int               s_chime_last = -1;
+
+/* Timers: playlist.json "timers": [{"scene":"morning","at":"07:00","days":"all|weekdays|weekends","seconds":60}]
+ * play a scene over the rotation at a time of day (seconds 0 = one pass). */
+#define TIMERS_MAX 12
+typedef struct {
+    char     scene[SCENE_ID_MAX];
+    uint16_t minute;                // of the day
+    uint8_t  days;                  // bit 0 = Sunday ... bit 6 = Saturday
+    uint16_t seconds;
+    int      last;                  // day-and-minute it last fired, so it plays once
+} eng_timer_t;
+static eng_timer_t       s_timers[TIMERS_MAX], s_timers_new[TIMERS_MAX];
+static int               s_ntimers;
 
 static struct {
     bool       was_active;
@@ -363,6 +459,19 @@ static StaticSemaphore_t s_lock_buf;
 __attribute__((constructor)) static void engine_lock_init(void) { s_lock = xSemaphoreCreateMutexStatic(&s_lock_buf); }
 static void lock(void)   { xSemaphoreTake(s_lock, portMAX_DELAY); }
 static void unlock(void) { xSemaphoreGive(s_lock); }
+
+/* A scene was saved. Start again only when it is the one on the globe (or the
+ * one the playlist is on, should it have been missing): every scene is read
+ * from its file when its turn starts, so editing one that isn't showing must
+ * not restart the one that is. */
+static void scene_changed(const char *id)
+{
+    lock();
+    bool hit = !strcmp(s_showing, id) || (E.override && !strcmp(E.ov_scene, id)) ||
+               (E.item < s_nitems && !strcmp(s_items[E.item].scene, id));
+    unlock();
+    if (hit) scene_engine_reload();
+}
 
 /* "anim": {"type":"decode", ...} -> *a (options validated by globe_anim). Sequence
  * texts go into the scene's pool; once it is full the rest are dropped.
@@ -466,6 +575,9 @@ static bool load_scene(const char *id)
         parse_frame(f, &s_scene->frames[s_scene->n++], s_scene);
     }
     cJSON_Delete(j);
+    lock();
+    snprintf(s_showing, sizeof(s_showing), "%s", id);
+    unlock();
     return true;
 }
 
@@ -490,6 +602,28 @@ static void load_playlist(void)
         snprintf(s_chime_scene, sizeof(s_chime_scene), "%s", cs->valuestring);
         s_chime_every = (int)ce->valuedouble;
     }
+    int nt = 0;
+    cJSON *tm;
+    cJSON_ArrayForEach(tm, cJSON_GetObjectItem(p, "timers")) {
+        if (nt >= TIMERS_MAX) break;
+        cJSON *sc = cJSON_GetObjectItem(tm, "scene"), *at = cJSON_GetObjectItem(tm, "at");
+        cJSON *dy = cJSON_GetObjectItem(tm, "days"), *se = cJSON_GetObjectItem(tm, "seconds");
+        int hh, mm;
+        if (!cJSON_IsString(sc) || !scene_id_valid(sc->valuestring) || !cJSON_IsString(at)) continue;
+        if (sscanf(at->valuestring, "%d:%d", &hh, &mm) != 2 || hh < 0 || hh > 23 || mm < 0 || mm > 59) continue;
+        eng_timer_t t = { .minute = (uint16_t)(hh * 60 + mm), .days = 0x7F, .last = -1 };
+        snprintf(t.scene, sizeof(t.scene), "%s", sc->valuestring);
+        if (cJSON_IsString(dy) && !strcmp(dy->valuestring, "weekdays")) t.days = 0x3E;       // Mon-Fri
+        else if (cJSON_IsString(dy) && !strcmp(dy->valuestring, "weekends")) t.days = 0x41;  // Sat, Sun
+        t.seconds = cJSON_IsNumber(se) && se->valuedouble > 0 ? (uint16_t)(se->valuedouble > 3600 ? 3600 : se->valuedouble) : 0;
+        // keep "already played this minute" across a re-read, or saving at 07:00 would play it twice
+        for (int i = 0; i < s_ntimers; i++) {
+            if (s_timers[i].minute == t.minute && !strcmp(s_timers[i].scene, t.scene)) t.last = s_timers[i].last;
+        }
+        s_timers_new[nt++] = t;
+    }
+    memcpy(s_timers, s_timers_new, sizeof(s_timers));
+    s_ntimers = nt;
     cJSON_Delete(p);
     cJSON *st = settings_load();
     settings_apply(st);
@@ -729,8 +863,87 @@ static void pending_second(QueueHandle_t q)
     if (globe_frame_compile(enc, len, &st, f1, &n1, f2, &n2)) send_bytes(q, f1, n1);
 }
 
+/* ---- Kitchen timer ----
+ * A countdown that takes the display: the scene "timer" shows {var:timerline}
+ * ("TEA 4:59", re-sent every second like a clock with seconds), then
+ * "timer-done" flashes TIME'S UP for 15 seconds, then the rotation comes back by itself.
+ * The time left is published as pushed values, so any scene can show it:
+ * {var:timer} "4:59", {var:timerline} with the label in front. */
+#define TIMER_DONE_S 15           // then it dismisses itself
+extern volatile bool g_time_on;
+
+static volatile int64_t s_timer_end;            // esp_timer time it runs out, 0 = none running
+static char             s_timer_label[20];
+static uint32_t         s_timer_shown;          // seconds left when last published
+
+static void timer_publish(uint32_t left)
+{
+    char t[24], line[VALUE_TEXT_MAX];             // "23:59:59" at most; room for what the compiler can't rule out
+    if (left >= 3600) snprintf(t, sizeof(t), "%u:%02u:%02u", (unsigned)(left / 3600), (unsigned)(left / 60 % 60), (unsigned)(left % 60));
+    else snprintf(t, sizeof(t), "%u:%02u", (unsigned)(left / 60), (unsigned)(left % 60));
+    snprintf(line, sizeof(line), "%s%s%s", s_timer_label, s_timer_label[0] ? " " : "", t);
+    value_store_set("timer", t, 0);
+    value_store_set("timerline", line, 0);
+    s_timer_shown = left;
+}
+
+unsigned scene_engine_timer_left(void)
+{
+    int64_t end = s_timer_end, left = end ? end - esp_timer_get_time() : 0;
+    return left > 0 ? (unsigned)((left + 999999) / 1000000) : 0;
+}
+
+bool scene_engine_timer(unsigned seconds, const char *label)
+{
+    if (!seconds) {                             // cancel, or dismiss "time's up"
+        s_timer_end = 0;
+        value_store_delete("timer");
+        value_store_delete("timerline");
+        value_store_delete("timerdone");
+        lock();
+        bool showing = E.override && (!strcmp(E.ov_scene, "timer") || !strcmp(E.ov_scene, "timer-done"));
+        unlock();
+        if (showing) scene_engine_resume();
+        return true;
+    }
+    if (seconds > 86399) seconds = 86399;
+    copy_text(s_timer_label, sizeof(s_timer_label), label ? label : "");
+    value_store_set("timerdone", s_timer_label[0] ? s_timer_label : "TIME'S UP", 0);
+    s_timer_end = esp_timer_get_time() + (int64_t)seconds * 1000000;
+    timer_publish(seconds);
+    return scene_engine_play("timer", seconds + 3);     // a little over: "timer-done" takes it from there
+}
+
+static void timer_tick(void)
+{
+    if (!s_timer_end) return;
+    uint32_t left = scene_engine_timer_left();
+    if (left) {
+        if (left != s_timer_shown) timer_publish(left);
+        return;
+    }
+    s_timer_end = 0;
+    timer_publish(0);
+    g_time_on = true;                           // time's up takes the display from whatever had it
+    scene_engine_play("timer-done", TIMER_DONE_S);
+}
+
 void scene_engine_tick(QueueHandle_t q, bool active)
 {
+    static TickType_t s_second;                 // the once-a-second jobs: the night schedule and the timer
+    if (xTaskGetTickCount() - s_second >= pdMS_TO_TICKS(250)) {
+        s_second = xTaskGetTickCount();
+        night_schedule();
+        timer_tick();
+    }
+    if (g_display_off) {
+        if (s_blank_sends && (int32_t)(xTaskGetTickCount() - s_blank_at) >= 0) {
+            push_blank_to_queue(q);
+            s_blank_sends--;
+            s_blank_at = xTaskGetTickCount() + pdMS_TO_TICKS(1500);
+        }
+        active = false;             // switched back on, the rotation starts afresh
+    }
     if (!active) {
         E.was_active = false;
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -799,6 +1012,20 @@ void scene_engine_tick(QueueHandle_t q, bool active)
         }
     }
 
+    // Timers: a scene set to play at this time of day.
+    if (s_ntimers && !E.override) {
+        time_t tnow = time(NULL);
+        struct tm lt;
+        localtime_r(&tnow, &lt);
+        int minute = lt.tm_hour * 60 + lt.tm_min, key = lt.tm_yday * 1440 + minute;
+        for (int i = 0; i < s_ntimers && lt.tm_year > 120; i++) {
+            eng_timer_t *t = &s_timers[i];
+            if (t->minute != minute || !(t->days & (1 << lt.tm_wday)) || t->last == key) continue;
+            t->last = key;
+            if (scene_engine_play(t->scene, t->seconds)) return;
+        }
+    }
+
     // Override finished -> back to the playlist where it was.
     if (E.override) {
         uint32_t total = 0;
@@ -806,6 +1033,11 @@ void scene_engine_tick(QueueHandle_t q, bool active)
         uint32_t limit = E.ov_seconds ? E.ov_seconds * 1000 : total;
         if (now - E.ov_t0 >= pdMS_TO_TICKS(limit)) {
             E.override = false;
+            unsigned left = scene_engine_timer_left();
+            if (left > 1 && strcmp(E.ov_scene, "timer")) {      // something cut in on a running timer: back to it
+                scene_engine_play("timer", left + 3);
+                return;
+            }
             start_item(q);
             return;
         }
@@ -890,9 +1122,13 @@ cJSON *scene_engine_status(void)
     extern volatile bool g_time_on;
     cJSON *o = cJSON_CreateObject();
     lock();
-    bool running = g_time_on;
-    cJSON_AddStringToObject(o, "mode", !running ? "manual" : E.override ? "scene" : "playlist");
-    if (running && s_scene) {
+    bool running = g_time_on, off = g_display_off;
+    cJSON_AddStringToObject(o, "mode", off ? "off" : !running ? "manual" : E.override ? "scene" : "playlist");
+    unsigned timer = scene_engine_timer_left();
+    if (timer) cJSON_AddNumberToObject(o, "timer", timer);
+    if (off) {
+        // nothing is showing
+    } else if (running && s_scene) {
         cJSON_AddStringToObject(o, "scene", s_scene->id);
         cJSON_AddStringToObject(o, "name", s_scene->name);
         cJSON_AddNumberToObject(o, "frame", E.frame);

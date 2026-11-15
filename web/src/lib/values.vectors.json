@@ -184,6 +184,21 @@
       ]
     },
     {
+      "name": "countdowns in words ({countdown:}): the day itself and the day before read right",
+      "vectors": [
+        { "local": "2026-11-14 09:00:00.000", "t": "XMAS {countdown:12-25}", "expect": "XMAS IN 41 DAYS" },
+        { "local": "2026-12-23 23:59:59.000", "t": "XMAS {countdown:12-25}", "expect": "XMAS IN 2 DAYS" },
+        { "local": "2026-12-24 00:00:00.000", "t": "XMAS {countdown:12-25}", "expect": "XMAS TOMORROW" },
+        { "local": "2026-12-25 00:00:00.000", "t": "XMAS {countdown:12-25}", "expect": "XMAS TODAY" },
+        { "local": "2026-12-25 23:59:59.000", "t": "XMAS {countdown:12-25}", "expect": "XMAS TODAY" },
+        { "local": "2026-12-26 00:00:00.000", "t": "XMAS {countdown:12-25}", "expect": "XMAS IN 364 DAYS" },
+        { "local": "2026-01-15 14:45:00.000", "t": "HOME {countdown:17:00}", "expect": "HOME IN 2:15" },
+        { "local": "2026-01-15 17:00:30.000", "t": "HOME {countdown:17:00}", "expect": "HOME NOW" },
+        { "local": "2026-01-15 17:01:00.000", "t": "HOME {countdown:17:00}", "expect": "HOME IN 23:59" },
+        { "local": "2026-11-02 22:38:00.000", "t": "{countdown}|{countdown:soon}|{countdown:12-25x}", "expect": "{countdown}|{countdown:soon}|{countdown:12-25x}", "note": "not a date or a time: stays as typed" }
+      ]
+    },
+    {
       "name": "internet time, decimal time and Unix time",
       "vectors": [
         { "at": "2026-01-15T23:00:00.000Z", "t": "{beat}|{unix}", "expect": "000|1768518000", "note": "midnight in Biel (UTC+1)" },

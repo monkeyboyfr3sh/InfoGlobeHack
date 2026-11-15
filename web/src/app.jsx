@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { GLOBE, subscribeNow, onTokenNeeded } from './lib/api.js';
+import { GLOBE, subscribeNow, onTokenNeeded, setDisplay } from './lib/api.js';
+import { Switch } from './components/Common.jsx';
 import { Designer } from './pages/Designer.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { Clock } from './pages/Clock.jsx';
@@ -39,6 +40,38 @@ function parseHash() {
   return { page: PAGES.some(([p]) => p === page) || page === 'advanced' ? page : 'home', id: id || null };
 }
 
+// After the globe is updated, a page that was already open is an old copy that
+// doesn't know the new features. When the live link comes back (the globe
+// restarted) or the tab is looked at again, ask the globe for the page and
+// reload if it carries a newer build stamp. Mid-typing, offer instead of reloading.
+const BUILD = import.meta.env.VITE_BUILD || '';
+function useFreshPage(link) {
+  const [newer, setNewer] = useState(false);
+  const state = useRef({ busy: false, last: Date.now() });
+  const check = async () => {
+    const s = state.current;
+    if (!BUILD || GLOBE || s.busy || document.hidden || Date.now() - s.last < 15000) return;
+    s.busy = true; s.last = Date.now();
+    try {
+      const html = await (await fetch(location.pathname, { cache: 'no-store' })).text();
+      const m = /<meta name="build" content="(\d+)"/.exec(html);
+      if (!m || m[1] === BUILD) return;
+      let tried = '';
+      try { tried = sessionStorage.getItem('reloaded-for') || ''; sessionStorage.setItem('reloaded-for', m[1]); } catch { /* private mode */ }
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+      if (typing || tried === m[1]) setNewer(true); else location.reload();
+    } catch { /* the globe is restarting: the next change of the link asks again */ } finally { s.busy = false; }
+  };
+  useEffect(() => { check(); }, [link.online, link.via]);
+  useEffect(() => {
+    const on = () => check();
+    document.addEventListener('visibilitychange', on);
+    addEventListener('focus', on);
+    return () => { document.removeEventListener('visibilitychange', on); removeEventListener('focus', on); };
+  }, []);
+  return newer;
+}
+
 // What the globe is doing, for the whole app: pushed over a WebSocket when
 // the globe allows one, polled otherwise (lib/live.js).
 function useNow() {
@@ -48,14 +81,35 @@ function useNow() {
   return { now, online: link.online, via: link.via };
 }
 
-const MODE = { playlist: 'Rotation', scene: 'Playing once', manual: 'Manual' };
+const MODE = { playlist: 'Rotation', scene: 'Playing once', manual: 'Manual', off: 'Display off' };
+
+// The display switch, for the whole app. The globe says where it stands in
+// "now" (mode "off"); a change shows at once and is held until the globe agrees.
+function useDisplay(now, say) {
+  const [want, setWant] = useState(null);
+  const real = !now || now.mode !== 'off';
+  useEffect(() => {
+    if (want === null) return undefined;
+    if (now && real === want) { setWant(null); return undefined; }
+    const t = setTimeout(() => setWant(null), 5000);
+    return () => clearTimeout(t);
+  }, [now, want]);
+  const set = async (on) => {
+    setWant(on);
+    try {
+      await setDisplay(on);
+      say(true, on ? 'Display on' : 'Display off. The globe stays dark until you switch it back on');
+    } catch (e) { setWant(null); say(false, e.message); throw e; }
+  };
+  return { on: want !== null ? want : real, set };
+}
 
 function StatusChip({ now, online, via }) {
   if (!online) return <span class="status bad" title="The globe isn't answering"><span class="dot" />Offline</span>;
   if (!now) return <span class="status"><span class="dot" />Connecting…</span>;
   const what = now.mode === 'manual' ? (now.text ? `“${now.text}”` : 'manual text') : now.name || now.scene;
   const how = via === 'ws' ? 'Connected to the globe (live)' : 'Connected to the globe (checking every 1.5 s)';
-  return <span class="status ok" title={how}><span class="dot" />{MODE[now.mode] || now.mode}{what ? <> · <b>{what}</b></> : null}</span>;
+  return <span class={`status${now.mode === 'off' ? '' : ' ok'}`} title={now.mode === 'off' ? 'The display is switched off' : how}><span class="dot" />{MODE[now.mode] || now.mode}{what ? <> · <b>{what}</b></> : null}</span>;
 }
 
 // Asked for by lib/api.js when a change gets a 401; resolves with the token or null.
@@ -94,6 +148,9 @@ export function App() {
   const [toast, setToast] = useState(null);
   const [asking, setAsking] = useState(null);       // {reason, resolve} while the token dialog is open
   const { now, online, via } = useNow();
+  const say = (ok, msg) => setToast({ ok, msg, at: Date.now() });
+  const display = useDisplay(now, say);
+  const newer = useFreshPage({ online, via });
   useEffect(() => onTokenNeeded((reason) => new Promise((resolve) => setAsking({ reason, resolve }))), []);
   useEffect(() => {
     const on = () => setRoute(parseHash());
@@ -105,7 +162,6 @@ export function App() {
     const t = setTimeout(() => setToast(null), toast.ok ? 3500 : 8000);
     return () => clearTimeout(t);
   }, [toast]);
-  const say = (ok, msg) => setToast({ ok, msg, at: Date.now() });
 
   return (
     <div class="app">
@@ -124,6 +180,10 @@ export function App() {
         </nav>
         <div class="head-right">
           {GLOBE && <span class="muted small">{GLOBE}</span>}
+          <label class="power" title="Switch the globe's display off (dark) or on. Everything is kept while it is off. Settings has a night schedule.">
+            <span>Display</span>
+            <Switch on={display.on} onChange={(on) => display.set(on).catch(() => false)} label="Display on" disabled={!now || !online} />
+          </label>
           <StatusChip now={now} online={online} via={via} />
           <a class="btn icon" href="#/advanced" aria-current={route.page === 'advanced' ? 'page' : undefined} aria-label="Advanced" title="Advanced">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4h6M12 4h2M2 8h2M8 8h6M2 12h7M13 12h1" /><circle cx="10" cy="4" r="1.8" /><circle cx="6" cy="8" r="1.8" /><circle cx="11" cy="12" r="1.8" /></svg>
@@ -136,10 +196,11 @@ export function App() {
         : route.page === 'clock' ? <Clock toast={say} />
         : route.page === 'weather' ? <Weather toast={say} />
         : route.page === 'planes' ? <Planes toast={say} />
-        : route.page === 'settings' ? <Settings toast={say} />
+        : route.page === 'settings' ? <Settings toast={say} display={display} />
         : route.page === 'advanced' ? <Advanced toast={say} />
-        : <Dashboard toast={say} now={now} online={online} />}
+        : <Dashboard toast={say} now={now} online={online} display={display} />}
       </main>
+      {newer && <div class="snack update" role="status">The globe has a newer version of this page. <button class="btn small primary" onClick={() => location.reload()}>Reload</button></div>}
       {toast && <div class={`snack ${toast.ok ? 'ok' : 'bad'}`} role="status" onClick={() => setToast(null)}>{toast.msg}</div>}
       {asking && <TokenDialog reason={asking.reason} onDone={(t) => { asking.resolve(t); setAsking(null); }} />}
     </div>

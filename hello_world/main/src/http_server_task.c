@@ -569,6 +569,7 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     memset(s_button_cmds, 0, sizeof(s_button_cmds));
     init_spiffs();
     init_notes_fs();
+    settings_boot();             // the display switch: a globe that was switched off stays dark after a restart
     scene_engine_reload();       // the display loop may have started before the scenes were readable: load them now
     auth_init();                 // NVS is up (tcp_server_task) before we get here
 

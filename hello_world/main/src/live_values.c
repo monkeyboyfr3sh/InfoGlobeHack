@@ -90,8 +90,8 @@ bool live_value(const char *name, const char *arg, const live_env_t *env, char *
     if (pushed_value(name, arg, env, out, cap)) return true;   // before clock_value: {bar:cpu} is a pushed bar, {bar:day} a clock one
     if (clock_value(name, arg, env->now, out, cap)) return true;
     // {cpu}: any pushed value by its bare name, except built-ins that only
-    // work with an argument ({tz}, {until}, {var} stay as typed, as in the preview)
-    if (arg || !strcmp(name, "var") || !strcmp(name, "tz") || !strcmp(name, "until")) return false;
+    // work with an argument ({tz}, {until}, {countdown}, {var} stay as typed, as in the preview)
+    if (arg || !strcmp(name, "var") || !strcmp(name, "tz") || !strcmp(name, "until") || !strcmp(name, "countdown")) return false;
     return env->get && env->get(name, out, cap);
 }
 

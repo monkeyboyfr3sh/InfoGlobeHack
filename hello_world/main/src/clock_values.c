@@ -1,5 +1,5 @@
 /* Time-based live values for scene text: {clock}, {date}, {fuzzy}, {roman},
- * {moon}, {sunset}, {tz:tyo}, {until:12-25}, {bar:day} ... (docs/live-values.md).
+ * {moon}, {sunset}, {tz:tyo}, {until:12-25}, {countdown:12-25}, {bar:day} ... (docs/live-values.md).
  *
  * Pure C (see clock_values.h): everything is computed from the instant and
  * the local UTC offset handed in, with our own calendar arithmetic instead of
@@ -328,6 +328,21 @@ static bool until_value(const char *arg, const struct tm *t, char *out, size_t c
     return false;
 }
 
+/* {countdown:MM-DD} -> "IN 41 DAYS", "TOMORROW", "TODAY"; {countdown:HH:MM} -> "IN 2:15", "NOW".
+ * {until:} with its words, so "XMAS {countdown:12-25}" reads right on every day, the day itself included. */
+static bool countdown_value(const char *arg, const struct tm *t, char *out, size_t cap)
+{
+    char n[16];
+    if (!until_value(arg, t, n, sizeof(n))) return false;
+    if (strchr(n, ':')) {
+        if (!strcmp(n, "0:00")) snprintf(out, cap, "NOW");
+        else snprintf(out, cap, "IN %s", n);
+    } else if (!strcmp(n, "0")) snprintf(out, cap, "TODAY");
+    else if (!strcmp(n, "1")) snprintf(out, cap, "TOMORROW");
+    else snprintf(out, cap, "IN %s DAYS", n);
+    return true;
+}
+
 /* ---- the values ---- */
 
 bool clock_value(const char *name, const char *arg, const clock_now_t *c, char *out, size_t cap)
@@ -427,5 +442,6 @@ bool clock_value(const char *name, const char *arg, const clock_now_t *c, char *
     if (!strcmp(name, "sunset"))  { hm12(sun_event(c, false), out, cap); return true; }
     if (!strcmp(name, "tz") && arg) return city_time(arg, c->utc, out, cap);
     if (!strcmp(name, "until") && arg) return until_value(arg, t, out, cap);
+    if (!strcmp(name, "countdown") && arg) return countdown_value(arg, t, out, cap);
     return false;
 }
