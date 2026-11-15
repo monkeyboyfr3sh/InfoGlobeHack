@@ -20,6 +20,8 @@
 #include "api_v1.h"
 #include "auth.h"
 #include "scene_engine.h"
+#include "network.h"
+#include "mdns.h"
 
 static const char *TAG = "HTTP_SERVER";
 
@@ -563,6 +565,40 @@ static esp_err_t notes_handler(httpd_req_t *req)
 
 /* ------------------------------------------------------------------ */
 
+/* infoglobe.local, and an "_http._tcp" service so it shows up in network browsers. */
+static void start_mdns(void)
+{
+    esp_err_t err = mdns_init();
+    if (err != ESP_OK) { ESP_LOGW(TAG, "mDNS: %s", esp_err_to_name(err)); return; }
+    mdns_hostname_set("infoglobe");
+    mdns_instance_name_set("InfoGlobe");
+    mdns_service_add("InfoGlobe", "_http", "_tcp", 80, NULL, 0);
+    ESP_LOGI(TAG, "mDNS: http://infoglobe.local");
+}
+
+/* A firmware that arrived over the network runs on probation (the bootloader's
+ * rollback): it is kept once it has an address and has been up a little while.
+ * If it crashes before that, the bootloader goes back to the one before; if it
+ * never gets on the network, it goes back by itself. Firmware flashed over USB
+ * isn't on probation. */
+static void firmware_probation_task(void *arg)
+{
+    esp_ota_img_states_t st;
+    const esp_partition_t *run = esp_ota_get_running_partition();
+    if (esp_ota_get_state_partition(run, &st) == ESP_OK && st == ESP_OTA_IMG_PENDING_VERIFY) {
+        ESP_LOGW(TAG, "New firmware on probation: kept once it is on the network");
+        if (network_wait_for_ip(pdMS_TO_TICKS(180000))) {
+            vTaskDelay(pdMS_TO_TICKS(30000));
+            esp_ota_mark_app_valid_cancel_rollback();
+            ESP_LOGI(TAG, "New firmware kept");
+        } else {
+            ESP_LOGE(TAG, "New firmware never got on the network: going back to the one before");
+            esp_ota_mark_app_invalid_rollback_and_reboot();
+        }
+    }
+    vTaskDelete(NULL);
+}
+
 httpd_handle_t start_http_server(QueueHandle_t display_queue)
 {
     s_display_queue = display_queue;
@@ -612,6 +648,8 @@ httpd_handle_t start_http_server(QueueHandle_t display_queue)
     }
 
     api_v1_register(server, display_queue);
+    start_mdns();
+    xTaskCreate(firmware_probation_task, "fw_probation", 3072, NULL, 3, NULL);
 
     ESP_LOGI(TAG, "HTTP server started on port %d", config.server_port);
     return server;

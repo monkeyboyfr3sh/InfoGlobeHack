@@ -35,6 +35,7 @@
 #include "auth.h"
 #include "live.h"
 #include "esp_app_desc.h"
+#include "esp_ota_ops.h"
 
 static const char *TAG = "API_V1";
 
@@ -455,7 +456,63 @@ static esp_err_t timer_post(httpd_req_t *req)
     return ok ? ok_json(req) : send_error(req, "500 Internal Server Error", "Could not start the timer");
 }
 
-/* GET /api/v1/version  {"version":"0.9.0-beta","built":"Nov 15 2026 10:40:00","idf":"v6.1"} */
+/* POST /api/v1/webapp  body: the built web app (hello_world/main/data/designer.html.gz).
+ * Replaces the page at /designer without USB: it lives on the "spiffs" partition,
+ * which a firmware update (POST /ota) doesn't touch. Written to a new file
+ * first, so a cut-off upload leaves the old page in place. */
+#define WEBAPP_PATH "/spiffs/designer.html.gz"
+#define WEBAPP_NEW  "/spiffs/designer.new"
+#define WEBAPP_MAX  (400 * 1024)
+
+static void drain(httpd_req_t *req, int left)
+{
+    char junk[256];
+    while (left > 0) {
+        int r = httpd_req_recv(req, junk, left < (int)sizeof(junk) ? left : (int)sizeof(junk));
+        if (r <= 0) break;
+        left -= r;
+    }
+}
+
+static esp_err_t webapp_post(httpd_req_t *req)
+{
+    if (!auth_check(req)) { drain(req, req->content_len); return ESP_OK; }
+    if (req->content_len < 1024 || req->content_len > WEBAPP_MAX) {
+        drain(req, req->content_len);
+        return send_error(req, "400 Bad Request", "Send the built designer.html.gz (1 KB to 400 KB)");
+    }
+    char *buf = malloc(4096);
+    FILE *f = buf ? fopen(WEBAPP_NEW, "w") : NULL;
+    if (!f) { free(buf); drain(req, req->content_len); return send_error(req, "500 Internal Server Error", "Could not open the web app file"); }
+    const char *err = NULL;
+    size_t got = 0;
+    while (got < req->content_len && !err) {
+        int r = httpd_req_recv(req, buf, req->content_len - got < 4096 ? req->content_len - got : 4096);
+        if (r == HTTPD_SOCK_ERR_TIMEOUT) continue;
+        if (r <= 0) { err = "The upload was cut off"; break; }
+        if (got == 0 && (r < 2 || (uint8_t)buf[0] != 0x1f || (uint8_t)buf[1] != 0x8b)) err = "That isn't a gzip file (send designer.html.gz)";
+        else if (fwrite(buf, 1, r, f) != (size_t)r) err = "The globe ran out of room for the web app";
+        got += r;
+    }
+    bool closed = fclose(f) == 0;
+    free(buf);
+    if (!err && !closed) err = "Could not write the web app file";
+    if (err) {
+        remove(WEBAPP_NEW);
+        drain(req, req->content_len - got);
+        return send_error(req, "400 Bad Request", err);
+    }
+    remove(WEBAPP_PATH);
+    if (rename(WEBAPP_NEW, WEBAPP_PATH) != 0) return send_error(req, "500 Internal Server Error", "Could not put the new web app in place");
+    ESP_LOGI(TAG, "Web app replaced over the network (%u bytes)", (unsigned)got);
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddBoolToObject(o, "ok", true);
+    cJSON_AddNumberToObject(o, "bytes", (double)got);
+    return send_json(req, NULL, o);
+}
+
+/* GET /api/v1/version  {"version":"0.9.0-beta","built":"Nov 15 2026 10:40:00","idf":"v6.1","slot":"ota_1","state":"kept"}
+ * state: "probation" (arrived over the network, not yet kept), "kept", or "usb" (flashed over USB). */
 static esp_err_t version_get(httpd_req_t *req)
 {
     const esp_app_desc_t *d = esp_app_get_description();
@@ -465,6 +522,11 @@ static esp_err_t version_get(httpd_req_t *req)
     cJSON_AddStringToObject(o, "version", d->version);
     cJSON_AddStringToObject(o, "built", built);
     cJSON_AddStringToObject(o, "idf", d->idf_ver);
+    const esp_partition_t *run = esp_ota_get_running_partition();
+    esp_ota_img_states_t st;
+    bool known = run && esp_ota_get_state_partition(run, &st) == ESP_OK;
+    if (run) cJSON_AddStringToObject(o, "slot", run->label);
+    cJSON_AddStringToObject(o, "state", !known || st == ESP_OTA_IMG_UNDEFINED ? "usb" : st == ESP_OTA_IMG_PENDING_VERIFY ? "probation" : "kept");
     return send_json(req, NULL, o);
 }
 
@@ -621,6 +683,7 @@ void api_v1_register(httpd_handle_t server, QueueHandle_t display_queue)
         { .uri = "/api/v1/next",     .method = HTTP_POST,   .handler = next_post     },
         { .uri = "/api/v1/timer",    .method = HTTP_GET,    .handler = timer_get     },
         { .uri = "/api/v1/version",  .method = HTTP_GET,    .handler = version_get   },
+        { .uri = "/api/v1/webapp",   .method = HTTP_POST,   .handler = webapp_post   },
         { .uri = "/api/v1/timer",    .method = HTTP_POST,   .handler = timer_post    },
         { .uri = "/api/v1/settings", .method = HTTP_GET,    .handler = settings_get  },
         { .uri = "/api/v1/settings", .method = HTTP_POST,   .handler = settings_post },

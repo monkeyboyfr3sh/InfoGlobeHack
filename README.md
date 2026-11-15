@@ -43,7 +43,7 @@ Firmware ([ESP-IDF](https://docs.espressif.com/projects/esp-idf/) **6.1**, folde
 cd hello_world
 idf.py menuconfig          # InfoGlobe Configuration -> Network: Wi-Fi SSID and password; also time zone, pins
 idf.py build
-idf.py -p COM5 flash monitor
+idf.py -p COM9 flash monitor   # the board's second USB serial port; the first is JTAG
 ```
 
 `sdkconfig` is committed with the owner's settings (including a Wi-Fi network): set your own in menuconfig before
@@ -62,6 +62,27 @@ npm run dev                # then open http://localhost:5173/?globe=http://<glob
 ```
 
 The built bundle is committed, so the firmware builds without Node.
+
+## Updating over the network
+
+The globe doesn't need to be plugged into a computer once it has been flashed over USB once. From the project:
+
+```sh
+cd hello_world && idf.py build      # also rebuilds the web app when web/src changed
+node ../tools/deploy.mjs            # or: cd web && npm run deploy
+```
+
+It finds the globe at `infoglobe.local` (or `--globe 192.168.0.71`), sends the firmware (`POST /ota`), waits for the
+restart, then sends the web app (`POST /api/v1/webapp`) and checks the version. With an access token set, pass
+`--token` or set `INFOGLOBE_TOKEN`. `--web-only` and `--firmware-only` send one of the two.
+
+A firmware that arrives over the network is on probation (the bootloader's app rollback): it is kept once it has been
+on the network for 30 seconds. If it crashes before then, or doesn't get an address within 3 minutes, the globe goes
+back to the firmware before by itself. `GET /api/v1/version` shows `"state": "probation"` or `"kept"`.
+
+The globe answers to `infoglobe.local` (mDNS) and gives its DHCP hostname as `infoglobe`. If a computer can't open
+`infoglobe.local` (Windows with a VPN adapter can ask on the wrong network), use the address; the deploy script does
+its own lookup on every adapter. A DHCP reservation on the router keeps the address the same.
 
 ## Versions and release notes
 

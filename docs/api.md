@@ -155,7 +155,13 @@ WebSocket below.
 curl -X POST $GLOBE/api/v1/settings -d '{"lat":41.88,"lon":-87.63}'
 ```
 
-**Version:** `GET /api/v1/version` answers `{"version":"0.9.0-beta","built":"Nov 15 2026 10:40:00","idf":"v6.1"}`.
+**Web app over the network:** `POST /api/v1/webapp` with the built `hello_world/main/data/designer.html.gz` as the body
+replaces the page at `/designer` (it lives on the `spiffs` partition, which `POST /ota` doesn't touch). `tools/deploy.mjs`
+sends both.
+
+**Version:** `GET /api/v1/version` answers `{"version":"0.9.0-beta","built":"Nov 15 2026 10:40:00","idf":"v6.1","slot":"ota_1","state":"kept"}`.
+`state` is `probation` for a firmware that arrived over the network and isn't kept yet (it is once it has been on the
+network for 30 s; one that crashes or can't get on the network is replaced by the one before), `kept`, or `usb`.
 
 **The kitchen timer:** `POST /api/v1/timer {"seconds":300,"label":"TEA"}` counts down on the globe (`TEA 4:59`,
 over the rotation), then flashes `TIME'S UP` for 15 seconds and goes back by itself. `{"seconds":0}` cancels a running timer or

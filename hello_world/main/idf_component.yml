@@ -5,3 +5,5 @@ dependencies:
   espressif/cjson: "^1.7.19"
   # Ethernet PHY drivers moved out of ESP-IDF in v6.0 (ESP32-Ethernet-Kit uses an IP101).
   espressif/ip101: "^1.1.0"
+  # infoglobe.local: find the globe by name instead of its address
+  espressif/mdns: "^1.8.0"

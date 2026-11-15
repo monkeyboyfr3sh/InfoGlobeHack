@@ -3,6 +3,15 @@
 What changed in each version of the InfoGlobe, newest first. The globe's web app shows these under
 Settings, About. The version itself is in `VERSION`; see "Making a release" in `README.md`.
 
+## 0.9.2-beta (2026-11-15)
+
+### Ready to live somewhere else
+- Updates over the network, nothing plugged in: `node tools/deploy.mjs` sends the firmware and the web app, waits
+  for the globe to restart and checks it. The web app can now be replaced over the network too.
+- A new firmware is on probation until it is back on the network. One that crashes, or can't get on the network,
+  is replaced by the one before, by the globe itself.
+- The globe answers to **infoglobe.local**, and shows up as "infoglobe" on your router.
+
 ## 0.9.1-beta (2026-11-15)
 
 ### The clock is just the clock
